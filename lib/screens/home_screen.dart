@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:path_provider/path_provider.dart';
 import 'signup_page.dart';
 import 'dashboard.dart';
+import 'friends_groups_page.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -467,7 +468,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _navigateToDashboard() {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => const Dashboard()));
+    ).push(MaterialPageRoute(builder: (context) => const FriendsGroupsPage()));
   }
 
   // Create a document in Firestore
