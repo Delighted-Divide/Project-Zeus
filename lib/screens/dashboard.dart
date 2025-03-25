@@ -28,10 +28,10 @@ class _DashboardState extends State<Dashboard> {
   @override
   void initState() {
     super.initState();
-    // Calculate dates for the week (assuming Thursday is selected)
-    final thursday = _now.subtract(Duration(days: _now.weekday - 4));
+    // Calculate dates for the week (starting from Monday)
+    final monday = _now.subtract(Duration(days: _now.weekday - 1));
     _datesOfWeek = List.generate(7, (index) {
-      final date = thursday.subtract(Duration(days: 3 - index));
+      final date = monday.add(Duration(days: index));
       return date.day;
     });
   }
@@ -39,7 +39,9 @@ class _DashboardState extends State<Dashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFC857), // Yellow background
+      backgroundColor: const Color(
+        0xFFFFC857,
+      ), // Exact yellow background from image
       body: SafeArea(
         child: Column(
           children: [
@@ -51,8 +53,30 @@ class _DashboardState extends State<Dashboard> {
                   children: [
                     _buildLiveStatusCard(),
                     _buildStatsGrid(),
+                    const SizedBox(
+                      height: 20,
+                    ), // Add extra space after stat cards
                     _buildActivityTags(),
-                    _buildInsights(),
+                    const SizedBox(
+                      height: 25,
+                    ), // Add extra space before insights
+                    // Insights section in white container with rounded corners
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16.0),
+                      padding: const EdgeInsets.all(16.0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: _buildInsights(),
+                    ),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -82,13 +106,12 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // Day selector with circular selection
+  // Day selector with oval outline and black circle covering only the date
   Widget _buildDaySelector() {
-    return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: List.generate(7, (index) {
           final isSelected = index == _selectedDayIndex;
           return GestureDetector(
@@ -99,40 +122,56 @@ class _DashboardState extends State<Dashboard> {
             },
             child: Container(
               width: 40,
-              height: 70,
+              height: 65,
+              // Add oval outline for selected day (positioned higher up)
               decoration:
                   isSelected
                       ? BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.black, width: 2),
+                        border: Border.all(color: Colors.black, width: 1),
+                        borderRadius: BorderRadius.circular(20),
                       )
                       : null,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Day label (outside the circle)
                   Text(
                     _daysOfWeek[index],
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color:
-                          isSelected
-                              ? Colors.black
-                              : Colors.black.withOpacity(0.5),
+                      color: Colors.black.withOpacity(0.7),
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '${_datesOfWeek[index]}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color:
-                          isSelected
-                              ? Colors.black
-                              : Colors.black.withOpacity(0.7),
-                    ),
-                  ),
+                  // Date with black circle background
+                  isSelected
+                      ? Container(
+                        width: 32,
+                        height: 32,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${_datesOfWeek[index]}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      )
+                      : Text(
+                        '${_datesOfWeek[index]}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black.withOpacity(0.7),
+                        ),
+                      ),
                 ],
               ),
             ),
@@ -149,7 +188,7 @@ class _DashboardState extends State<Dashboard> {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
@@ -167,13 +206,13 @@ class _DashboardState extends State<Dashboard> {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   color: const Color(
                     0xFF80AB82,
                   ), // Green tint for the image background
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   child: Image.asset(
                     'assets/images/cat.png', // Replace with your actual image path
                     fit: BoxFit.cover,
@@ -242,14 +281,14 @@ class _DashboardState extends State<Dashboard> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             color: Colors.black,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
                             Icons.access_time,
@@ -270,7 +309,7 @@ class _DashboardState extends State<Dashboard> {
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             color: Colors.black,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
                             Icons.location_on,
@@ -310,7 +349,7 @@ class _DashboardState extends State<Dashboard> {
                 child: _buildStatCard(
                   'Needs Satisfaction',
                   38,
-                  const Color(0xFFFFA07A), // Light salmon
+                  const Color(0xFFF4A9A8), // Light salmon from image
                 ),
               ),
               const SizedBox(width: 16),
@@ -318,7 +357,7 @@ class _DashboardState extends State<Dashboard> {
                 child: _buildStatCard(
                   'Activity Goal',
                   62,
-                  const Color(0xFF98D8C8), // Light teal
+                  const Color(0xFF98D8C8), // Light teal from image
                 ),
               ),
             ],
@@ -330,7 +369,7 @@ class _DashboardState extends State<Dashboard> {
                 child: _buildStatCard(
                   'Sleep Quality',
                   87,
-                  const Color(0xFFD8BFD8), // Thistle (light purple)
+                  const Color(0xFFD8BFD8), // Light purple from image
                 ),
               ),
               const SizedBox(width: 16),
@@ -338,7 +377,7 @@ class _DashboardState extends State<Dashboard> {
                 child: _buildStatCard(
                   'Wellness Index',
                   76,
-                  const Color(0xFFF4A9A8), // Light coral
+                  const Color(0xFFF4A9A8), // Light coral from image
                 ),
               ),
             ],
@@ -420,7 +459,7 @@ class _DashboardState extends State<Dashboard> {
   // Activity tags row
   Widget _buildActivityTags() {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
@@ -473,40 +512,43 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // Insights section
+  // Insights section - inside a white container
   Widget _buildInsights() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // INSIGHTS header row with notification count
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10.0),
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 'INSIGHTS',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black.withOpacity(0.8),
+                  color: Colors.black,
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
-                  vertical: 4,
+                  vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.3),
+                  color: const Color(0xFFFFC857).withOpacity(
+                    0.3,
+                  ), // Same as background color but transparent
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
-                    Text(
+                    const Text(
                       '2',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.black.withOpacity(0.7),
+                        color: Colors.black,
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -514,7 +556,7 @@ class _DashboardState extends State<Dashboard> {
                       'New Notifications',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.black.withOpacity(0.7),
+                        color: Colors.black.withOpacity(0.8),
                       ),
                     ),
                   ],
@@ -522,68 +564,68 @@ class _DashboardState extends State<Dashboard> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
+        ),
+
+        // Notification card with rounded corners
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Date label with rounded pink background
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 3,
+                    horizontal: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4A9A8), // Light coral
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    '31 Jan',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Notification text
+                const Expanded(
+                  child: Text(
+                    'It seems that Mau presents anxious behaviors when you leave her alone.',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
                 ),
               ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 2,
-                      horizontal: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF4A9A8), // Light coral
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      '31 Jan',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'It seems that Mau presents anxious behaviors when you leave her alone.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  // Bottom navigation bar
+  // Bottom navigation bar - same color as the background
   Widget _buildBottomNavBar() {
     return Container(
       height: 70,
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFD687), // Lighter yellow
+        color: const Color(0xFFFFC857), // Same as the background color
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(

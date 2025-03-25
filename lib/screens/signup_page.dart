@@ -1,8 +1,14 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'login_page.dart';
+import 'profile_setup_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as path;
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -26,8 +32,12 @@ class _SignupPageState extends State<SignupPage>
   bool _isSigningIn = false;
   bool _isSigningUp = false;
 
+  // Track whether signup was with email (to determine where to navigate)
+  bool _isEmailSignup = false;
+
   // Firebase Auth instance
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Google Sign In instance
   final GoogleSignIn _googleSignIn = GoogleSignIn();
@@ -49,23 +59,43 @@ class _SignupPageState extends State<SignupPage>
         Future.delayed(const Duration(milliseconds: 100), () {
           if (mounted) {
             if (_isSigningUp && _errorMessage.isEmpty) {
-              // Create a page route with a transition
-              Navigator.of(context).pushReplacement(
-                PageRouteBuilder(
-                  pageBuilder:
-                      (context, animation, secondaryAnimation) =>
-                          const HomeScreen(),
-                  transitionsBuilder: (
-                    context,
-                    animation,
-                    secondaryAnimation,
-                    child,
-                  ) {
-                    return FadeTransition(opacity: animation, child: child);
-                  },
-                  transitionDuration: const Duration(milliseconds: 300),
-                ),
-              );
+              if (_isEmailSignup) {
+                // Redirect to profile setup page for email sign-ups only
+                Navigator.of(context).pushReplacement(
+                  PageRouteBuilder(
+                    pageBuilder:
+                        (context, animation, secondaryAnimation) =>
+                            const ProfileSetupPage(),
+                    transitionsBuilder: (
+                      context,
+                      animation,
+                      secondaryAnimation,
+                      child,
+                    ) {
+                      return FadeTransition(opacity: animation, child: child);
+                    },
+                    transitionDuration: const Duration(milliseconds: 300),
+                  ),
+                );
+              } else {
+                // Social sign-ups go straight to home screen
+                Navigator.of(context).pushReplacement(
+                  PageRouteBuilder(
+                    pageBuilder:
+                        (context, animation, secondaryAnimation) =>
+                            const HomeScreen(),
+                    transitionsBuilder: (
+                      context,
+                      animation,
+                      secondaryAnimation,
+                      child,
+                    ) {
+                      return FadeTransition(opacity: animation, child: child);
+                    },
+                    transitionDuration: const Duration(milliseconds: 300),
+                  ),
+                );
+              }
             } else if (_isSigningIn) {
               // Create a page route with a transition
               Navigator.of(context).pushReplacement(
@@ -119,6 +149,35 @@ class _SignupPageState extends State<SignupPage>
     }
   }
 
+  // Save profile image to local app directory
+  Future<String> _saveProfileImage(File imageFile, String userId) async {
+    try {
+      // Get application documents directory
+      final Directory appDocDir = await getApplicationDocumentsDirectory();
+
+      // Create the structure: profile_pics/user_id
+      final Directory profilePicsDir = Directory(
+        '${appDocDir.path}/profile_pics/$userId',
+      );
+      if (!await profilePicsDir.exists()) {
+        await profilePicsDir.create(recursive: true);
+      }
+
+      // Generate file name with original extension
+      final String fileName = 'profile${path.extension(imageFile.path)}';
+      final String localPath = '${profilePicsDir.path}/$fileName';
+
+      // Copy the file to the new location
+      await imageFile.copy(localPath);
+
+      print('Image saved at: $localPath');
+      return localPath;
+    } catch (e) {
+      print('Error saving image: $e');
+      throw Exception('Failed to save profile image: $e');
+    }
+  }
+
   Future<void> _signUpWithEmail() async {
     // If already loading, don't allow another request
     if (_isLoading) {
@@ -160,6 +219,9 @@ class _SignupPageState extends State<SignupPage>
         password: _passwordController.text.trim(),
       );
 
+      // Set flag that this was an email signup
+      _isEmailSignup = true;
+
       _startSignUpAnimation();
     } on FirebaseAuthException catch (e) {
       // Use debounce function for errors
@@ -183,15 +245,17 @@ class _SignupPageState extends State<SignupPage>
     }
   }
 
-  // Proper Google Sign In implementation
+  // Google Sign In implementation
   Future<void> _signInWithGoogle() async {
     // If already loading, don't allow another request
     if (_isLoading) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = '';
-      });
+      return;
     }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
 
     try {
       // Begin interactive sign in process
@@ -215,7 +279,51 @@ class _SignupPageState extends State<SignupPage>
       );
 
       // Sign in with credential
-      await _auth.signInWithCredential(credential);
+      final UserCredential userCredential = await _auth.signInWithCredential(
+        credential,
+      );
+      final User? user = userCredential.user;
+
+      if (user != null) {
+        // Save profile image if available from Google
+        String? photoURL;
+
+        if (gUser.photoUrl != null) {
+          try {
+            // Download the image from Google
+            final http.Response response = await http.get(
+              Uri.parse(gUser.photoUrl!),
+            );
+
+            // Create a temporary file
+            final Directory tempDir = await getTemporaryDirectory();
+            final File tempFile = File(
+              '${tempDir.path}/google_profile_image.jpg',
+            );
+            await tempFile.writeAsBytes(response.bodyBytes);
+
+            // Save profile image to local storage
+            photoURL = await _saveProfileImage(tempFile, user.uid);
+          } catch (e) {
+            print('Error downloading Google profile image: $e');
+            // Continue without image if there was an error
+          }
+        }
+
+        // Set up user data in Firestore
+        await _firestore.collection('users').doc(user.uid).set({
+          'userId': user.uid,
+          'displayName': gUser.displayName ?? '',
+          'email': gUser.email,
+          'photoURL': photoURL ?? '',
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastActive': FieldValue.serverTimestamp(),
+          'settings': {'notificationsEnabled': true, 'theme': 'light'},
+        });
+      }
+
+      // Set flag that this was NOT an email signup
+      _isEmailSignup = false;
 
       // Start animation for successful sign in
       _startSignUpAnimation();
