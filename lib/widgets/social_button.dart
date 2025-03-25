@@ -1,24 +1,53 @@
 import 'package:flutter/material.dart';
 
 class SocialButton extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
   final Color color;
-  final VoidCallback? onTap; // Change to nullable
+  final Function onTap;
   final double size;
+  final String? text;
 
   const SocialButton({
     super.key,
-    required this.icon,
+    this.icon,
     required this.color,
-    this.onTap, // Now accepts null
-    required this.size,
+    required this.onTap,
+    this.size = 24,
+    this.text,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap, // InkWell already accepts nullable callbacks
-      // ... rest of your widget implementation
+    return GestureDetector(
+      onTap: () => onTap(),
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Center(
+          child:
+              text != null
+                  ? Text(
+                    text!,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: size,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                  : Icon(icon, color: color, size: size),
+        ),
+      ),
     );
   }
 }
