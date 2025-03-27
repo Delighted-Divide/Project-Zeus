@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'journal_page.dart';
 import 'dashboard.dart';
+import 'chat_page.dart';
+import 'find_friends_page.dart';
+import 'create_group_page.dart';
+import 'join_group_page.dart';
 
 class FriendsGroupsPage extends StatefulWidget {
   const FriendsGroupsPage({super.key});
@@ -11,73 +17,86 @@ class FriendsGroupsPage extends StatefulWidget {
 
 class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
   int _selectedTabIndex = 0; // 0: Friends, 1: Groups, 2: Requests
-  bool _showSentRequests = false; // Toggle between received and sent requests
+  bool _showGroupInvites =
+      false; // Toggle between friend requests and group invites
 
-  // Sample data for demonstration
-  final List<Map<String, dynamic>> _friends = [
-    {
-      'name': 'Sarah Johnson',
-      'avatar': 'assets/images/avatar1.jpg',
-      'lastActive': '15m ago',
-    },
-    {
-      'name': 'Mike Peterson',
-      'avatar': 'assets/images/avatar2.jpg',
-      'lastActive': '1h ago',
-    },
-    {
-      'name': 'Emma Williams',
-      'avatar': 'assets/images/avatar3.jpg',
-      'lastActive': '2h ago',
-    },
-    {
-      'name': 'David Lee',
-      'avatar': 'assets/images/avatar4.jpg',
-      'lastActive': 'Just now',
-    },
-  ];
+  // Firebase instances
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  final List<Map<String, dynamic>> _groups = [
-    {
-      'name': 'Study Group',
-      'avatar': 'assets/images/group1.jpg',
-      'members': 28,
-      'lastActive': 'Active now',
-    },
-    {
-      'name': 'Math Club',
-      'avatar': 'assets/images/group2.jpg',
-      'members': 43,
-      'lastActive': '30m ago',
-    },
-    {
-      'name': 'Class of 2023',
-      'avatar': 'assets/images/group3.jpg',
-      'members': 112,
-      'lastActive': '2h ago',
-    },
-  ];
+  // Current user ID
+  String? _currentUserId;
 
-  final List<Map<String, dynamic>> _receivedRequests = [
-    {
-      'name': 'James Taylor',
-      'avatar': 'assets/images/avatar5.jpg',
-      'sentAt': '2d ago',
-    },
-    {
-      'name': 'Olivia Martin',
-      'avatar': 'assets/images/avatar6.jpg',
-      'sentAt': '5d ago',
-    },
-  ];
+  // Stream data
+  Stream<QuerySnapshot>? _friendsStream;
+  Stream<QuerySnapshot>? _groupsStream;
+  Stream<QuerySnapshot>? _friendRequestsStream;
+  Stream<QuerySnapshot>? _groupInvitesStream;
 
-  final List<Map<String, dynamic>> _sentRequests = [
-    {
-      'name': 'Daniel Wilson',
-      'avatar': 'assets/images/avatar7.jpg',
-      'sentAt': '1d ago',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _initializeCurrentUser();
+  }
+
+  @override
+  void dispose() {
+    // Make sure to clean up any resources when the widget is removed
+    super.dispose();
+  }
+
+  // Initialize current user and setup streams
+  Future<void> _initializeCurrentUser() async {
+    _currentUserId = _auth.currentUser?.uid;
+    if (_currentUserId != null) {
+      _setupStreams();
+    }
+  }
+
+  // Setup all data streams based on the Firestore schema
+  void _setupStreams() {
+    if (_currentUserId == null) return;
+
+    // Friends collection - users who are friends with the current user
+    _friendsStream =
+        _firestore
+            .collection('users')
+            .doc(_currentUserId)
+            .collection('friends')
+            .snapshots();
+
+    // Groups the user is a member of - from user's groups subcollection
+    _groupsStream =
+        _firestore
+            .collection('users')
+            .doc(_currentUserId)
+            .collection('groups')
+            .snapshots();
+
+    // Received friend requests - using friendRequests subcollection
+    _friendRequestsStream =
+        _firestore
+            .collection('users')
+            .doc(_currentUserId)
+            .collection('friendRequests')
+            .where('type', isEqualTo: 'received')
+            .where('status', isEqualTo: 'pending')
+            .snapshots();
+
+    // Group invites - using groupInvites subcollection
+    _groupInvitesStream =
+        _firestore
+            .collection('users')
+            .doc(_currentUserId)
+            .collection('groupInvites')
+            .where('status', isEqualTo: 'pending')
+            .snapshots();
+
+    // Force UI refresh after streams are set up
+    if (mounted) {
+      setState(() {});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -210,99 +229,96 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
 
   // Friends tab content
   Widget _buildFriendsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text(
-              'Your Friends',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    if (_currentUserId == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.account_circle, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Please sign in to view friends',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              textAlign: TextAlign.center,
             ),
-          ),
-          ..._friends.map((friend) => _buildFriendCard(friend)),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFA07A),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25),
-                ),
-              ),
-              child: const Text(
-                'Find More Friends',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+          ],
+        ),
+      );
+    }
 
-  // Groups tab content
-  Widget _buildGroupsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text(
-              'Your Groups',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          ..._groups.map((group) => _buildGroupCard(group)),
-          const SizedBox(height: 20),
-          Row(
+    return StreamBuilder<QuerySnapshot>(
+      stream: _friendsStream,
+      builder: (context, snapshot) {
+        // Always show content inside a SingleChildScrollView for consistency
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(
-                      0xFF80AB82,
-                    ), // Green from dashboard
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                  ),
-                  child: const Text(
-                    'Join a Group',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'Your Friends',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
+
+              // Show loading, error, or content as appropriate
+              if (snapshot.connectionState == ConnectionState.waiting)
+                _buildLoadingIndicator()
+              else if (snapshot.hasError)
+                _buildErrorMessage('Error loading friends: ${snapshot.error}')
+              else if ((snapshot.data?.docs.length ?? 0) == 0)
+                _buildEmptyFriendsMessage()
+              else
+                ...snapshot.data!.docs.map((doc) {
+                  // Build individual friend cards
+                  final friendData = doc.data() as Map<String, dynamic>;
+                  final friendId = doc.id;
+
+                  // Get friend's display name and photo from the friends subcollection
+                  final displayName =
+                      friendData['displayName'] ?? 'Unknown User';
+                  final photoURL =
+                      friendData['photoURL'] ??
+                      'assets/images/default_avatar.jpg';
+
+                  // Get befriended timestamp
+                  final becameFriendsAt = friendData['becameFriendsAt'];
+                  final lastActive =
+                      becameFriendsAt != null
+                          ? 'Friends since ${_formatLastActive(becameFriendsAt)}'
+                          : 'Unknown';
+
+                  return _buildFriendCard({
+                    'id': friendId,
+                    'name': displayName,
+                    'avatar': photoURL,
+                    'lastActive': lastActive,
+                  });
+                }).toList(),
+
+              // Always show the Find Friends button (crucial for new users!)
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const FindFriendsPage(),
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(
-                      0xFFD8BFD8,
-                    ), // Light purple from dashboard
+                    backgroundColor: const Color(0xFFFFA07A),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
                     ),
                   ),
                   child: const Text(
-                    'Create Group',
+                    'Find More Friends',
                     style: TextStyle(
                       color: Colors.black,
                       fontWeight: FontWeight.bold,
@@ -312,13 +328,269 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  // Helper widgets for the friends tab
+  Widget _buildLoadingIndicator() {
+    return Container(
+      height: 200,
+      alignment: Alignment.center,
+      child: const CircularProgressIndicator(),
+    );
+  }
+
+  Widget _buildErrorMessage(String errorMessage) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 30),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 50, color: Colors.red[300]),
+          const SizedBox(height: 16),
+          Text(
+            errorMessage,
+            style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+            textAlign: TextAlign.center,
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyFriendsMessage() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 30),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'No friends yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Use the button below to find new friends',
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Icon(Icons.arrow_downward, size: 24, color: Colors.grey[500]),
+        ],
+      ),
+    );
+  }
+
+  // Groups tab content
+  Widget _buildGroupsTab() {
+    if (_currentUserId == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.account_circle, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Please sign in to view groups',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: _groupsStream,
+      builder: (context, snapshot) {
+        // Always show content inside a SingleChildScrollView for consistency
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'Your Groups',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+
+              // Show loading, error, or content as appropriate
+              if (snapshot.connectionState == ConnectionState.waiting)
+                _buildLoadingIndicator()
+              else if (snapshot.hasError)
+                _buildErrorMessage('Error loading groups: ${snapshot.error}')
+              else if ((snapshot.data?.docs.length ?? 0) == 0)
+                _buildEmptyGroupsMessage()
+              else
+                Column(
+                  children:
+                      snapshot.data!.docs.map((doc) {
+                        // Build individual group cards
+                        final groupData = doc.data() as Map<String, dynamic>;
+
+                        // Use the document ID directly as the group ID
+                        final groupId = doc.id;
+                        final groupName = groupData['name'] ?? 'Unnamed Group';
+                        final photoURL =
+                            groupData['photoURL'] ??
+                            'assets/images/default_group.jpg';
+                        final joinedAt = groupData['joinedAt'];
+                        final role = groupData['role'] ?? 'member';
+
+                        return _buildGroupCard({
+                          'id': groupId,
+                          'name': groupName,
+                          'avatar': photoURL,
+                          'members':
+                              0, // Default to 0, we'll fetch this separately
+                          'role': role,
+                          'lastActive':
+                              joinedAt != null
+                                  ? 'Joined ${_formatLastActive(joinedAt)}'
+                                  : 'Unknown',
+                        });
+                      }).toList(),
+                ),
+
+              // Always show the Groups action buttons (crucial for new users!)
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const JoinGroupPage(),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF80AB82),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                      ),
+                      child: const Text(
+                        'Join a Group',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const CreateGroupPage(),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFD8BFD8),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                      ),
+                      child: const Text(
+                        'Create Group',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper widget for the groups tab
+  Widget _buildEmptyGroupsMessage() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 30),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.group_outlined, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'You\'re not in any groups yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Join an existing group or create a new one',
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Icon(Icons.arrow_downward, size: 24, color: Colors.grey[500]),
+        ],
+      ),
+    );
+  }
+
+  // Show a coming soon snackbar for features not yet implemented
+  void _showComingSoonSnackBar(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$feature feature coming soon!'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
 
   // Requests tab content
   Widget _buildRequestsTab() {
+    if (_currentUserId == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.account_circle, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Please sign in to view requests',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
       child: Column(
@@ -339,13 +611,13 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                   child: GestureDetector(
                     onTap: () {
                       setState(() {
-                        _showSentRequests = false;
+                        _showGroupInvites = false;
                       });
                     },
                     child: Container(
                       decoration: BoxDecoration(
                         color:
-                            !_showSentRequests
+                            !_showGroupInvites
                                 ? const Color(0xFFFFA07A)
                                 : Colors.transparent,
                         borderRadius: const BorderRadius.only(
@@ -355,10 +627,10 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                       ),
                       child: Center(
                         child: Text(
-                          'Received (${_receivedRequests.length})',
+                          'Friend Requests',
                           style: TextStyle(
                             fontWeight:
-                                !_showSentRequests
+                                !_showGroupInvites
                                     ? FontWeight.bold
                                     : FontWeight.normal,
                           ),
@@ -376,13 +648,13 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                   child: GestureDetector(
                     onTap: () {
                       setState(() {
-                        _showSentRequests = true;
+                        _showGroupInvites = true;
                       });
                     },
                     child: Container(
                       decoration: BoxDecoration(
                         color:
-                            _showSentRequests
+                            _showGroupInvites
                                 ? const Color(0xFFFFA07A)
                                 : Colors.transparent,
                         borderRadius: const BorderRadius.only(
@@ -392,10 +664,10 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                       ),
                       child: Center(
                         child: Text(
-                          'Sent (${_sentRequests.length})',
+                          'Group Invites',
                           style: TextStyle(
                             fontWeight:
-                                _showSentRequests
+                                _showGroupInvites
                                     ? FontWeight.bold
                                     : FontWeight.normal,
                           ),
@@ -408,24 +680,166 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             ),
           ),
 
-          // Display appropriate requests
-          if (_showSentRequests) ...[
-            if (_sentRequests.isEmpty)
-              _buildEmptyState('No pending friend requests'),
-            ..._sentRequests.map((request) => _buildSentRequestCard(request)),
-          ] else ...[
-            if (_receivedRequests.isEmpty)
-              _buildEmptyState('No friend requests received'),
-            ..._receivedRequests.map(
-              (request) => _buildReceivedRequestCard(request),
-            ),
-          ],
+          // Use IndexedStack to maintain both list states
+          IndexedStack(
+            index: _showGroupInvites ? 1 : 0,
+            children: [_buildFriendRequestsList(), _buildGroupInvitesList()],
+          ),
         ],
       ),
     );
   }
 
-  // Friend card UI
+  // Build the list of friend requests
+  Widget _buildFriendRequestsList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _friendRequestsStream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return SizedBox(
+            height: 100,
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return _buildErrorMessage(
+            'Error loading requests: ${snapshot.error}',
+          );
+        }
+
+        final requests = snapshot.data?.docs ?? [];
+
+        if (requests.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.symmetric(vertical: 30),
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.person_add_disabled,
+                  size: 50,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No friend requests received',
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          children:
+              requests.map((doc) {
+                final requestData = doc.data() as Map<String, dynamic>;
+                final requestId = doc.id;
+
+                // Get sender information with safer type handling
+                String userId = '';
+                try {
+                  userId = requestData['userId'] as String? ?? '';
+                } catch (e) {
+                  print('Error parsing userId: $e');
+                }
+
+                final displayName =
+                    requestData['displayName'] ?? 'Unknown User';
+                final photoURL =
+                    requestData['photoURL'] ??
+                    'assets/images/default_avatar.jpg';
+                final createdAt = requestData['createdAt'];
+
+                return _buildReceivedRequestCard({
+                  'id': requestId,
+                  'userId': userId,
+                  'name': displayName,
+                  'avatar': photoURL,
+                  'sentAt':
+                      createdAt != null
+                          ? _formatLastActive(createdAt)
+                          : 'Recently',
+                });
+              }).toList(),
+        );
+      },
+    );
+  }
+
+  // Build the list of group invites
+  Widget _buildGroupInvitesList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _groupInvitesStream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return SizedBox(
+            height: 100,
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return _buildErrorMessage(
+            'Error loading group invites: ${snapshot.error}',
+          );
+        }
+
+        final invites = snapshot.data?.docs ?? [];
+
+        if (invites.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.symmetric(vertical: 30),
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.group_off, size: 50, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'No pending group invites',
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          children:
+              invites.map((doc) {
+                final inviteData = doc.data() as Map<String, dynamic>;
+                final inviteId = doc.id;
+
+                // Get group information with null safety
+                final groupId = inviteData['groupId'] as String? ?? '';
+                final groupName = inviteData['groupName'] ?? 'Unknown Group';
+                final inviterName = inviteData['inviterName'] ?? 'Unknown User';
+                final createdAt = inviteData['createdAt'];
+
+                return _buildGroupInviteCard({
+                  'id': inviteId,
+                  'groupId': groupId,
+                  'name': groupName,
+                  'inviterName': inviterName,
+                  'avatar':
+                      'assets/images/default_group.jpg', // Default group image
+                  'sentAt':
+                      createdAt != null
+                          ? _formatLastActive(createdAt)
+                          : 'Recently',
+                });
+              }).toList(),
+        );
+      },
+    );
+  }
+
+  // Friend card UI with chat navigation
   Widget _buildFriendCard(Map<String, dynamic> friend) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -445,15 +859,8 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.black, width: 1),
               image: DecorationImage(
-                image: AssetImage(friend['avatar']),
+                image: _getImageProvider(friend['avatar']),
                 fit: BoxFit.cover,
-                onError:
-                    (exception, stackTrace) =>
-                        Container(
-                              color: Colors.grey[300],
-                              child: const Icon(Icons.person, size: 30),
-                            )
-                            as ImageProvider,
               ),
             ),
           ),
@@ -477,14 +884,28 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
               ],
             ),
           ),
-          // Message button
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFFF4A9A8), // Light coral from dashboard
+          // Message button with navigation to ChatPage
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder:
+                      (context) => ChatPage(
+                        friendName: friend['name'],
+                        friendAvatar: friend['avatar'],
+                        friendId: friend['id'],
+                      ),
+                ),
+              );
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFF4A9A8), // Light coral from dashboard
+              ),
+              padding: const EdgeInsets.all(8),
+              child: const Icon(Icons.message, color: Colors.white, size: 20),
             ),
-            padding: const EdgeInsets.all(8),
-            child: const Icon(Icons.message, color: Colors.white, size: 20),
           ),
         ],
       ),
@@ -511,15 +932,8 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.black, width: 1),
               image: DecorationImage(
-                image: AssetImage(group['avatar']),
+                image: _getImageProvider(group['avatar']),
                 fit: BoxFit.cover,
-                onError:
-                    (exception, stackTrace) =>
-                        Container(
-                              color: Colors.grey[300],
-                              child: const Icon(Icons.group, size: 30),
-                            )
-                            as ImageProvider,
               ),
             ),
           ),
@@ -540,20 +954,35 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                   '${group['members']} members · ${group['lastActive']}',
                   style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
+                if (group['role'] == 'admin')
+                  Text(
+                    'Admin',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue[700],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
               ],
             ),
           ),
           // Enter group button
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF98D8C8), // Light teal from dashboard
-            ),
-            padding: const EdgeInsets.all(8),
-            child: const Icon(
-              Icons.arrow_forward,
-              color: Colors.white,
-              size: 20,
+          GestureDetector(
+            onTap: () {
+              // TODO: Implement navigation to the group detail page
+              _showComingSoonSnackBar('Group details');
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF98D8C8), // Light teal from dashboard
+              ),
+              padding: const EdgeInsets.all(8),
+              child: const Icon(
+                Icons.arrow_forward,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ),
         ],
@@ -583,15 +1012,8 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.black, width: 1),
                   image: DecorationImage(
-                    image: AssetImage(request['avatar']),
+                    image: _getImageProvider(request['avatar']),
                     fit: BoxFit.cover,
-                    onError:
-                        (exception, stackTrace) =>
-                            Container(
-                                  color: Colors.grey[300],
-                                  child: const Icon(Icons.person, size: 30),
-                                )
-                                as ImageProvider,
                   ),
                 ),
               ),
@@ -623,11 +1045,14 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed:
+                      () => _handleFriendRequest(
+                        request['id'],
+                        request['userId'],
+                        'accept',
+                      ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(
-                      0xFF80AB82,
-                    ), // Green from dashboard
+                    backgroundColor: const Color(0xFF80AB82),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
@@ -645,7 +1070,12 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed:
+                      () => _handleFriendRequest(
+                        request['id'],
+                        request['userId'],
+                        'decline',
+                      ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.grey[300],
                     padding: const EdgeInsets.symmetric(vertical: 10),
@@ -669,8 +1099,8 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Sent friend request card
-  Widget _buildSentRequestCard(Map<String, dynamic> request) {
+  // Group invite card
+  Widget _buildGroupInviteCard(Map<String, dynamic> invite) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -683,42 +1113,41 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
         children: [
           Row(
             children: [
-              // Avatar
+              // Group avatar
               Container(
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(
+                    12,
+                  ), // Square with rounded corners for groups
                   border: Border.all(color: Colors.black, width: 1),
                   image: DecorationImage(
-                    image: AssetImage(request['avatar']),
+                    image: _getImageProvider(invite['avatar']),
                     fit: BoxFit.cover,
-                    onError:
-                        (exception, stackTrace) =>
-                            Container(
-                                  color: Colors.grey[300],
-                                  child: const Icon(Icons.person, size: 30),
-                                )
-                                as ImageProvider,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              // Name and status
+              // Group name and info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      request['name'],
+                      invite['name'],
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
-                      'Sent ${request['sentAt']}',
+                      'Invited by ${invite['inviterName']}',
                       style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                    Text(
+                      'Received ${invite['sentAt']}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                     ),
                   ],
                 ),
@@ -726,33 +1155,66 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             ],
           ),
           const SizedBox(height: 12),
-          // Cancel button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey[300],
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+          // Action buttons
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed:
+                      () => _handleGroupInvite(
+                        invite['id'],
+                        invite['groupId'],
+                        'accept',
+                      ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF80AB82),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text(
+                    'Join Group',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
-              child: const Text(
-                'Cancel Request',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed:
+                      () => _handleGroupInvite(
+                        invite['id'],
+                        invite['groupId'],
+                        'decline',
+                      ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey[300],
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text(
+                    'Decline',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  // Empty state widget
+  // Empty state widget (for places where we need a simpler empty state)
   Widget _buildEmptyState(String message) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 30),
@@ -760,26 +1222,25 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.person_off, size: 50, color: Colors.grey[400]),
+          Icon(Icons.info_outline, size: 50, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
             message,
             style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  // Bottom navigation bar - same style as journal_page.dart
+  // Bottom navigation bar
   Widget _buildBottomNavBar() {
     return Container(
       height: 55,
       margin: const EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 25.0),
       decoration: BoxDecoration(
-        color: const Color(
-          0xFFFFA07A,
-        ), // Salmon background color matching journal page
+        color: const Color(0xFFFFA07A),
         border: Border.all(color: Colors.black, width: 1.5), // Black border
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
@@ -819,7 +1280,7 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Individual navigation item - matching journal_page.dart
+  // Individual navigation item
   Widget _buildNavItem(IconData icon, bool isSelected) {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -833,5 +1294,225 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
         size: 24,
       ),
     );
+  }
+
+  // Helper methods
+  // Format last active timestamp to a readable format
+  String _formatLastActive(dynamic timestamp) {
+    if (timestamp == null) return 'Unknown';
+
+    DateTime lastActiveTime;
+
+    if (timestamp is Timestamp) {
+      lastActiveTime = timestamp.toDate();
+    } else if (timestamp is DateTime) {
+      lastActiveTime = timestamp;
+    } else {
+      return 'Unknown';
+    }
+
+    final now = DateTime.now();
+    final difference = now.difference(lastActiveTime);
+
+    if (difference.inSeconds < 60) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d ago';
+    } else {
+      return '${lastActiveTime.day}/${lastActiveTime.month}/${lastActiveTime.year}';
+    }
+  }
+
+  // Get image provider with fallback for errors
+  ImageProvider _getImageProvider(String? path) {
+    if (path == null || path.isEmpty) {
+      return const AssetImage('assets/images/default_avatar.jpg');
+    }
+
+    // Check if it's a network image or asset image
+    if (path.startsWith('http')) {
+      return NetworkImage(path);
+    } else {
+      return AssetImage(path);
+    }
+  }
+
+  // Friend request handling methods
+  Future<void> _handleFriendRequest(
+    String requestId,
+    String userId,
+    String action,
+  ) async {
+    if (_currentUserId == null) return;
+
+    try {
+      // Update the request status in friendRequests collection
+      await _firestore
+          .collection('users')
+          .doc(_currentUserId)
+          .collection('friendRequests')
+          .doc(requestId)
+          .update({'status': action == 'accept' ? 'accepted' : 'declined'});
+
+      if (action == 'accept') {
+        // Get the user data for the friend
+        final userSnapshot =
+            await _firestore.collection('users').doc(userId).get();
+        final userData = userSnapshot.data();
+
+        if (userData != null) {
+          // Add to current user's friends collection
+          await _firestore
+              .collection('users')
+              .doc(_currentUserId)
+              .collection('friends')
+              .doc(userId)
+              .set({
+                'displayName': userData['displayName'] ?? 'Unknown User',
+                'photoURL': userData['photoURL'],
+                'becameFriendsAt': FieldValue.serverTimestamp(),
+                'status': 'active',
+              });
+
+          // Get current user's data
+          final currentUserSnapshot =
+              await _firestore.collection('users').doc(_currentUserId).get();
+          final currentUserData = currentUserSnapshot.data();
+
+          if (currentUserData != null) {
+            // Add current user to friend's friends collection
+            await _firestore
+                .collection('users')
+                .doc(userId)
+                .collection('friends')
+                .doc(_currentUserId)
+                .set({
+                  'displayName':
+                      currentUserData['displayName'] ?? 'Unknown User',
+                  'photoURL': currentUserData['photoURL'],
+                  'becameFriendsAt': FieldValue.serverTimestamp(),
+                  'status': 'active',
+                });
+
+            // Show success message
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'You are now friends with ${userData['displayName'] ?? 'this user'}',
+                  ),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          }
+        }
+      }
+    } catch (error) {
+      print('Error handling friend request: $error');
+      // Show error message to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error processing friend request: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Handle group invite (accept or decline)
+  Future<void> _handleGroupInvite(
+    String inviteId,
+    String groupId,
+    String action,
+  ) async {
+    if (_currentUserId == null) return;
+
+    try {
+      // Update the invite status
+      await _firestore
+          .collection('users')
+          .doc(_currentUserId)
+          .collection('groupInvites')
+          .doc(inviteId)
+          .update({'status': action == 'accept' ? 'accepted' : 'declined'});
+
+      if (action == 'accept') {
+        // Get group details
+        final groupSnapshot =
+            await _firestore.collection('groups').doc(groupId).get();
+        final groupData = groupSnapshot.data();
+
+        if (groupData != null) {
+          // Add user to group's members subcollection
+          await _firestore
+              .collection('groups')
+              .doc(groupId)
+              .collection('members')
+              .doc(_currentUserId)
+              .set({
+                'displayName': _auth.currentUser?.displayName ?? 'Unknown User',
+                'photoURL': _auth.currentUser?.photoURL,
+                'role': 'member', // Default role for invited members
+                'joinedAt': FieldValue.serverTimestamp(),
+              });
+
+          // Add group to user's groups subcollection without the "groupId" field
+          // since the document ID itself is the group ID
+          await _firestore
+              .collection('users')
+              .doc(_currentUserId)
+              .collection('groups')
+              .doc(groupId)
+              .set({
+                'name': groupData['name'] ?? 'Unnamed Group',
+                'photoURL': groupData['photoURL'],
+                'role': 'member',
+                'joinedAt': FieldValue.serverTimestamp(),
+              });
+
+          // Remove from group's pendingInvites if it exists there
+          try {
+            await _firestore
+                .collection('groups')
+                .doc(groupId)
+                .collection('pendingInvites')
+                .doc(_currentUserId)
+                .delete();
+          } catch (e) {
+            // Ignore if not found
+          }
+
+          // Show success message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'You have joined ${groupData['name'] ?? 'the group'}',
+                ),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      }
+    } catch (error) {
+      print('Error handling group invite: $error');
+      // Show error message to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error processing group invite: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

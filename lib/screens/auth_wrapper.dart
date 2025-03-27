@@ -4,12 +4,11 @@ import 'startup_page.dart';
 import 'home_screen.dart';
 import 'dashboard.dart';
 
-// This wrapper handles authentication state and provides initial routing
 class AuthWrapper extends StatelessWidget {
   final bool directToDashboard;
 
   // Option to directly navigate to dashboard for authenticated users
-  const AuthWrapper({super.key, this.directToDashboard = false});
+  AuthWrapper({super.key, this.directToDashboard = false});
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +30,10 @@ class AuthWrapper extends StatelessWidget {
         // Check if user is authenticated or not
         if (snapshot.hasData && snapshot.data != null) {
           // User is logged in
+          // No need to set current user ID for chat service anymore
+          // Since we're now using Firebase Auth directly
+
+          // Now proceed with navigation
           if (directToDashboard) {
             // Send directly to dashboard if requested
             return const Dashboard();

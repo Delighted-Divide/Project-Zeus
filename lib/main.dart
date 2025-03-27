@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/auth_wrapper.dart';
 import 'screens/startup_page.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 void main() async {
   // Ensure Flutter is initialized
@@ -13,6 +14,19 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    try {
+      final db = FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL:
+            'https://attempt1-314eb-default-rtdb.asia-southeast1.firebasedatabase.app',
+      );
+      final ref = db.ref("test");
+      await ref.set({"test": true, "timestamp": DateTime.now().toString()});
+      print("Firebase database test write successful");
+    } catch (e) {
+      print("Firebase database test failed: $e");
+    }
 
     // Run the app
     runApp(const MyApp());
