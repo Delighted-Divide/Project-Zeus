@@ -7,7 +7,7 @@ import 'package:logger/logger.dart' as logger_pkg;
 import '../screens/dummy_data_generator.dart';
 import '../screens/signup_page.dart';
 import '../screens/friends_groups_page.dart';
-import '../screens/ai_assistant_page.dart';
+import '../screens/assistant_page.dart';
 
 /// A home screen widget that displays user information and database statistics.
 class HomeScreen extends StatefulWidget {

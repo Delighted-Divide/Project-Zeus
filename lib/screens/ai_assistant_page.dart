@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter_math_fork/flutter_math.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,10 +11,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:uuid/uuid.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Enhanced AI Assistant page with PDF processing capabilities
 class AIAssistantPage extends StatefulWidget {
@@ -41,8 +43,15 @@ class _AIAssistantPageState extends State<AIAssistantPage>
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
-  final FirebaseFunctions _functions = FirebaseFunctions.instance;
   final Uuid _uuid = Uuid();
+
+  // Secure storage for API key
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+
+  // Gemini API constants
+  static const String _geminiApiBaseUrl =
+      'https://generativelanguage.googleapis.com/v1/models/';
+  String _apiKey = '';
 
   // Animation controller for UI animations
   late AnimationController _animationController;
@@ -58,6 +67,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     text: '100',
   );
   final TextEditingController _customPromptController = TextEditingController();
+  final TextEditingController _apiKeyController = TextEditingController();
 
   // UI state variables
   bool _isLoading = false;
@@ -68,8 +78,9 @@ class _AIAssistantPageState extends State<AIAssistantPage>
   String _response = '';
   List<Map<String, dynamic>> _chatHistory = [];
   String? _errorMessage;
-  String _selectedModel = 'gemini-2.5-pro';
+  String _selectedModel = 'gemini-2.5-pro-preview-03-25';
   bool _showInstructions = false;
+  bool _isApiKeySet = false;
 
   // PDF handling variables
   File? _pdfFile;
@@ -78,6 +89,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
   int _pdfPageCount = 0;
   RangeValues _pageRange = const RangeValues(1, 1);
   String _extractedTextPreview = '';
+  String? _extractedFullText;
 
   // Question generation options
   final List<String> _difficultyLevels = ['easy', 'medium', 'hard', 'expert'];
@@ -96,6 +108,27 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     'short-answer',
   ];
 
+  // Assessment configuration
+  final Map<String, int> _questionTypePoints = {
+    'multiple-choice': 1,
+    'multiple-answer': 2,
+    'true-false': 1,
+    'fill-in-the-blank': 2,
+    'short-answer': 3,
+  };
+
+  // Question type counts
+  final Map<String, TextEditingController> _questionTypeCounts = {
+    'multiple-choice': TextEditingController(text: '5'),
+    'multiple-answer': TextEditingController(text: '3'),
+    'true-false': TextEditingController(text: '4'),
+    'fill-in-the-blank': TextEditingController(text: '3'),
+    'short-answer': TextEditingController(text: '2'),
+  };
+
+  // Total points (calculated dynamically)
+  int _totalPoints = 0;
+
   // Generated content
   Map<String, dynamic>? _generatedQuestions;
 
@@ -111,6 +144,33 @@ class _AIAssistantPageState extends State<AIAssistantPage>
 
     // Check if this is the first time opening the AI assistant
     _checkFirstTimeUser();
+
+    // Check for stored API key
+    _loadApiKey();
+
+    // Calculate initial total points
+    _calculateTotalPoints();
+  }
+
+  /// Calculate total assessment points based on question type counts
+  void _calculateTotalPoints() {
+    int total = 0;
+
+    for (final type in _selectedQuestionTypes) {
+      // Get the number of questions for this type
+      final countText = _questionTypeCounts[type]?.text ?? '0';
+      final count = int.tryParse(countText) ?? 0;
+
+      // Get points per question for this type
+      final pointsPerQuestion = _questionTypePoints[type] ?? 1;
+
+      // Add to total
+      total += count * pointsPerQuestion;
+    }
+
+    setState(() {
+      _totalPoints = total;
+    });
   }
 
   @override
@@ -121,8 +181,112 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     _difficultyController.dispose();
     _pointsController.dispose();
     _customPromptController.dispose();
+    _apiKeyController.dispose();
     _animationController.dispose();
+
+    // Dispose all question type count controllers
+    _questionTypeCounts.forEach((_, controller) => controller.dispose());
+
     super.dispose();
+  }
+
+  /// Load Gemini API key from secure storage
+  Future<void> _loadApiKey() async {
+    try {
+      final apiKey = await _secureStorage.read(key: 'gemini_api_key');
+      if (apiKey != null && apiKey.isNotEmpty) {
+        setState(() {
+          _apiKey = apiKey;
+          _isApiKeySet = true;
+        });
+        _logger.i('API key loaded from secure storage');
+      } else {
+        _logger.i('No API key found in secure storage');
+        setState(() {
+          _isApiKeySet = false;
+        });
+      }
+    } catch (e, stackTrace) {
+      _logger.e('Error loading API key', error: e, stackTrace: stackTrace);
+      setState(() {
+        _isApiKeySet = false;
+      });
+    }
+  }
+
+  /// Save Gemini API key to secure storage
+  Future<void> _saveApiKey(String apiKey) async {
+    try {
+      await _secureStorage.write(key: 'gemini_api_key', value: apiKey);
+      setState(() {
+        _apiKey = apiKey;
+        _isApiKeySet = true;
+      });
+      _logger.i('API key saved to secure storage');
+    } catch (e, stackTrace) {
+      _logger.e('Error saving API key', error: e, stackTrace: stackTrace);
+      setState(() {
+        _errorMessage = 'Failed to save API key: $e';
+      });
+    }
+  }
+
+  /// Show dialog to set or update API key
+  void _showApiKeyDialog() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(_isApiKeySet ? 'Update API Key' : 'Set Gemini API Key'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Enter your Gemini API key to use the AI features. You can get an API key from the Google AI Studio.',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _apiKeyController,
+                  decoration: const InputDecoration(
+                    labelText: 'API Key',
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter Gemini API key',
+                  ),
+                  obscureText: true,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final apiKey = _apiKeyController.text.trim();
+                  if (apiKey.isNotEmpty) {
+                    _saveApiKey(apiKey);
+                    Navigator.pop(context);
+
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('API key saved successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6A3DE8),
+                ),
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+    );
   }
 
   /// Check if this is the first time the user is opening the AI assistant
@@ -157,10 +321,18 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     }
   }
 
-  /// Send a prompt to the Gemini API through Firebase Cloud Functions
+  /// Send a prompt directly to the Gemini API
   Future<void> _sendPrompt() async {
     final prompt = _promptController.text.trim();
     if (prompt.isEmpty) {
+      return;
+    }
+
+    if (!_isApiKeySet) {
+      setState(() {
+        _errorMessage = 'Please set your Gemini API key first';
+      });
+      _showApiKeyDialog();
       return;
     }
 
@@ -170,7 +342,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     });
 
     try {
-      _logger.i('Sending prompt to Gemini API via Cloud Function');
+      _logger.i('Sending prompt directly to Gemini API');
 
       // Add user message to chat history
       _chatHistory.add({
@@ -179,50 +351,62 @@ class _AIAssistantPageState extends State<AIAssistantPage>
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
 
-      // Add more detailed logging before the call
-      _logger.i('Sending prompt to Gemini API via Cloud Function with params:');
-      _logger.i('Prompt: ${prompt.substring(0, min(50, prompt.length))}...');
-      _logger.i('Model: $_selectedModel');
-      _logger.i('MaxTokens: 1024');
-      _logger.i('Temperature: 0.7');
+      // Build the API URL
+      final modelName = _selectedModel;
+      final url = '${_geminiApiBaseUrl}$modelName:generateContent?key=$_apiKey';
 
-      // Ensure data is properly formatted
-      final paramsMap = {
-        'prompt': prompt,
-        'model': _selectedModel,
-        'maxTokens': 1024,
-        'temperature': 0.7,
+      // Prepare the request payload
+      final payload = {
+        'contents': [
+          {
+            'parts': [
+              {'text': prompt},
+            ],
+          },
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': 1024,
+          'topP': 0.95,
+          'topK': 40,
+        },
       };
 
-      // Log the exact params being sent
-      _logger.i('Params map: $paramsMap');
+      // Make the HTTP request
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
 
-      // Call Firebase Cloud Function
-      final result = await _functions.httpsCallable('callGeminiApi').call({
-        'prompt': prompt,
-        'model': _selectedModel,
-        'maxTokens': 1024,
-        'temperature': 0.7,
-      });
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
 
-      final data = result.data;
+        if (data['candidates'] != null && data['candidates'].isNotEmpty) {
+          final responseText =
+              data['candidates'][0]['content']['parts'][0]['text'] ??
+              'No response received';
 
-      if (data['success']) {
-        final responseText = data['text'] ?? 'No response received';
+          // Add assistant response to chat history
+          _chatHistory.add({
+            'role': 'assistant',
+            'content': responseText,
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          });
 
-        // Add assistant response to chat history
-        _chatHistory.add({
-          'role': 'assistant',
-          'content': responseText,
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-        });
-
-        setState(() {
-          _response = responseText;
-          _isLoading = false;
-        });
+          setState(() {
+            _response = responseText;
+            _isLoading = false;
+          });
+        } else {
+          throw Exception('No response content found in API response');
+        }
       } else {
-        throw Exception(data['error'] ?? 'Unknown error occurred');
+        final errorData = jsonDecode(response.body);
+        throw Exception(
+          errorData['error']['message'] ??
+              'API request failed: ${response.statusCode}',
+        );
       }
 
       // Clear the prompt field
@@ -245,7 +429,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     }
   }
 
-  /// Select and load a PDF file
   /// Select and load a PDF file
   Future<void> _pickPdfFile() async {
     if (!mounted) return; // Guard against widget being disposed
@@ -408,9 +591,9 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     }
   }
 
-  /// Extract text from PDF using Cloud Function
+  /// Extract text from PDF using SyncFusion library
   Future<String> _extractTextFromPdf() async {
-    if (_pdfFile == null || _pdfUrl == null) {
+    if (_pdfFile == null) {
       throw Exception('No PDF file selected');
     }
 
@@ -435,7 +618,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
       // Extract text from specific pages
       String extractedText = '';
       for (int i = startPage; i <= endPage; i++) {
-        // Page numbers in SyncFusion are 1-based
+        // Page numbers in SyncFusion are 0-based
         final pageText = extractor.extractText(
           startPageIndex: i - 1,
           endPageIndex: i - 1,
@@ -452,6 +635,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
             extractedText.length > 500
                 ? '${extractedText.substring(0, 500)}...'
                 : extractedText;
+        _extractedFullText = extractedText;
       });
 
       _logger.i(
@@ -472,11 +656,40 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     }
   }
 
-  /// Generate assessment questions based on the extracted PDF text
+  /// Generate assessment questions based on the extracted PDF text using Gemini API
   Future<void> _generateAssessmentQuestions() async {
-    if (_pdfFile == null || _pdfUrl == null) {
+    if (_pdfFile == null) {
       setState(() {
         _errorMessage = 'Please upload a PDF document first';
+      });
+      return;
+    }
+
+    if (!_isApiKeySet) {
+      setState(() {
+        _errorMessage = 'Please set your Gemini API key first';
+      });
+      _showApiKeyDialog();
+      return;
+    }
+
+    // Calculate total points one more time to ensure it's up-to-date
+    _calculateTotalPoints();
+
+    // Check if user has selected at least one question type with count > 0
+    bool hasQuestions = false;
+    for (final type in _selectedQuestionTypes) {
+      final count = int.tryParse(_questionTypeCounts[type]?.text ?? '0') ?? 0;
+      if (count > 0) {
+        hasQuestions = true;
+        break;
+      }
+    }
+
+    if (!hasQuestions) {
+      setState(() {
+        _errorMessage =
+            'Please set at least one question type with count greater than 0';
       });
       return;
     }
@@ -492,61 +705,184 @@ class _AIAssistantPageState extends State<AIAssistantPage>
 
       // Get parameters
       final difficulty = _difficultyController.text.trim().toLowerCase();
-      final totalPoints = int.tryParse(_pointsController.text) ?? 100;
 
-      // Extract text from PDF
-      final extractedText = await _extractTextFromPdf();
+      // Create question distribution information
+      final questionDistribution = <String, int>{};
+      for (final type in _selectedQuestionTypes) {
+        final countText = _questionTypeCounts[type]?.text ?? '0';
+        final count = int.tryParse(countText) ?? 0;
+        questionDistribution[type] = count;
+      }
 
-      if (extractedText.isEmpty) {
+      // Create distribution description for prompt
+      final distributionInfo = questionDistribution.entries
+          .map(
+            (entry) =>
+                "${entry.key}: ${entry.value} questions (${_questionTypePoints[entry.key]} points each)",
+          )
+          .join(', ');
+
+      // Extract text from PDF locally if not already done
+      if (_extractedFullText == null || _extractedFullText!.isEmpty) {
+        await _extractTextFromPdf();
+      }
+
+      if (_extractedFullText == null || _extractedFullText!.isEmpty) {
         throw Exception('No text could be extracted from the selected pages');
       }
 
-      await FirebaseAuth.instance.currentUser?.getIdToken(true);
-      print("Current user: ${FirebaseAuth.instance.currentUser?.uid}");
-      print("Is user null? ${FirebaseAuth.instance.currentUser == null}");
+      // Create the prompt for question generation
+      final prompt = '''
+You are an expert education assessment creator. Create assessment questions based on the following text.
 
-      // Call Firebase Cloud Function for question generation
-      final result = await _functions
-          .httpsCallable('extractPdfTextAndGenerateQuestions')
-          .call({
-            'fileUrl': _pdfUrl,
-            'startPage': _pageRange.start.toInt(),
-            'endPage': _pageRange.end.toInt(),
-            'difficulty': difficulty,
-            'totalPoints': totalPoints,
-            'questionTypes': _selectedQuestionTypes,
-          });
+Text from PDF (pages ${_pageRange.start.toInt()} to ${_pageRange.end.toInt()}):
+${_extractedFullText}
 
-      final data = result.data;
+Create a comprehensive assessment with the following specifications:
+- Difficulty level: $difficulty
+- Total points: $_totalPoints
+- Question distribution: $distributionInfo
 
-      if (data['success']) {
-        setState(() {
-          _generatedQuestions = data['generatedQuestions'];
-        });
+IMPORTANT: When creating mathematical or scientific notation in your response:
+- For mathematical equations, use standard LaTeX notation with single dollar signs (e.g., \$\\\\sqrt{x^2 + y^2}\$)
+- For chemical formulas, use correct subscripts and superscripts (e.g., H₂O, CH₃COOH)
+- For physics equations, use proper notation (e.g., F = ma, 9.8 m/s²)
+- For computer science, enclose code in triple backticks with the language name
+- For language subjects, use appropriate Unicode characters
+- For diagrams, provide clear text descriptions
 
-        _logger.i('Assessment questions generated successfully');
+Format the response as a JSON object with the following structure:
+{
+  "questions": [
+    {
+      "questionId": "unique-id",
+      "questionType": "one of the types from the list above",
+      "questionText": "the question text with proper formatting",
+      "options": ["option1", "option2", etc.] (for multiple-choice or multiple-answer questions),
+      "points": number of points for this question based on the question type
+    }
+  ],
+  "answers": [
+    {
+      "answerId": "unique-id",
+      "questionId": "matching question id",
+      "answerType": "same as question type",
+      "answerText": "the correct answer text or list of correct answers",
+      "reasoning": "explanation of why this is the correct answer"
+    }
+  ],
+  "tags": [
+    {
+      "tagId": "unique-id",
+      "name": "tag name",
+      "description": "tag description",
+      "category": "tag category"
+    }
+  ]
+}
 
-        // Add to chat history
-        _chatHistory.add({
-          'role': 'user',
-          'content':
-              'Generate assessment questions for pages ${_pageRange.start.toInt()} to ${_pageRange.end.toInt()} with difficulty $difficulty and total points $totalPoints',
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-        });
+For each question type, create exactly the number specified in the distribution.
+For each question type, use exactly the point value specified.
+Make sure all strings in the JSON are properly escaped, avoiding unnecessary escape sequences.
+Only respond with valid, well-formed JSON. Do not include any other text.
+''';
 
-        _chatHistory.add({
-          'role': 'assistant',
-          'content':
-              'I\'ve generated a set of assessment questions based on the content. There are ${_generatedQuestions!['questions'].length} questions with a total of $totalPoints points. Would you like to save these questions to your database?',
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-          'hasAttachment': true,
-          'attachmentType': 'assessment',
-        });
+      // Call Gemini API directly
+      final modelName = _selectedModel;
+      final url = '${_geminiApiBaseUrl}$modelName:generateContent?key=$_apiKey';
 
-        // Scroll to bottom of chat
-        _scrollToBottom();
+      // Prepare the request payload with high max output tokens
+      final payload = {
+        'contents': [
+          {
+            'parts': [
+              {'text': prompt},
+            ],
+          },
+        ],
+        'generationConfig': {
+          'temperature':
+              0.2, // Lower temperature for more deterministic responses
+          'maxOutputTokens': 32768, // Very high token limit to avoid truncation
+          'topP': 0.95,
+          'topK': 40,
+        },
+      };
+
+      // Make the HTTP request
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['candidates'] != null && data['candidates'].isNotEmpty) {
+          final responseText =
+              data['candidates'][0]['content']['parts'][0]['text'] ?? '';
+
+          // Extract the JSON from the response
+          String jsonStr = responseText.trim();
+
+          // Remove any markdown code block indicators if present
+          if (jsonStr.startsWith('```json')) {
+            jsonStr = jsonStr.substring(7);
+          } else if (jsonStr.startsWith('```')) {
+            jsonStr = jsonStr.substring(3);
+          }
+          if (jsonStr.endsWith('```')) {
+            jsonStr = jsonStr.substring(0, jsonStr.length - 3);
+          }
+
+          // Fix common JSON issues - this is critical for preventing parsing errors
+          jsonStr = _sanitizeJsonString(jsonStr);
+
+          try {
+            // Try to parse the JSON
+            final generatedQuestions = jsonDecode(jsonStr);
+
+            setState(() {
+              _generatedQuestions = generatedQuestions;
+            });
+
+            _logger.i('Assessment questions generated successfully');
+
+            // Add to chat history
+            _chatHistory.add({
+              'role': 'user',
+              'content':
+                  'Generate assessment questions for pages ${_pageRange.start.toInt()} to ${_pageRange.end.toInt()} with difficulty $difficulty and your specified question distribution',
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+            });
+
+            _chatHistory.add({
+              'role': 'assistant',
+              'content':
+                  'I\'ve generated a set of assessment questions based on the content. There are ${_generatedQuestions!['questions'].length} questions with a total of $_totalPoints points. You can review all questions and answers below.',
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+              'hasAttachment': true,
+              'attachmentType': 'assessment',
+            });
+
+            // Scroll to bottom of chat
+            _scrollToBottom();
+          } catch (jsonError) {
+            _logger.e('JSON parsing error', error: jsonError);
+            throw Exception(
+              'Failed to parse generated assessment JSON: $jsonError. This usually happens when the AI generates malformed JSON. Please try again or adjust the number of questions.',
+            );
+          }
+        } else {
+          throw Exception('No response content found in API response');
+        }
       } else {
-        throw Exception(data['error'] ?? 'Failed to generate questions');
+        final errorData = jsonDecode(response.body);
+        throw Exception(
+          errorData['error']['message'] ??
+              'API request failed: ${response.statusCode}',
+        );
       }
     } catch (e, stackTrace) {
       _logger.e(
@@ -561,6 +897,54 @@ class _AIAssistantPageState extends State<AIAssistantPage>
       setState(() {
         _isGeneratingQuestions = false;
       });
+    }
+  }
+
+  /// Sanitize JSON string to fix common issues that cause parsing errors
+  /// Sanitize JSON string to fix common issues that cause parsing errors
+  String _sanitizeJsonString(String input) {
+    try {
+      // First handle LaTeX expressions
+      // Find all instances of LaTeX expressions
+      final RegExp latexPattern = RegExp(r'\\\\?\$(.*?)\\\\?\$');
+      final matches = latexPattern.allMatches(input);
+
+      var output = input;
+
+      // For each LaTeX expression, ensure backslashes are properly escaped for JSON
+      for (final match in matches) {
+        final originalText = match.group(0) ?? '';
+        // Replace single backslashes with double backslashes
+        final correctedText = originalText.replaceAll(r'\', r'\\');
+        output = output.replaceAll(originalText, correctedText);
+      }
+
+      // Fix raw newlines in strings
+      output = output.replaceAll(r'\n', '\\n');
+      output = output.replaceAll(RegExp(r'(?<!\\)\n'), ' ');
+
+      // Fix raw carriage returns
+      output = output.replaceAll(r'\r', '\\r');
+      output = output.replaceAll(RegExp(r'(?<!\\)\r'), ' ');
+
+      // Fix raw tabs
+      output = output.replaceAll(r'\t', '\\t');
+      output = output.replaceAll(RegExp(r'(?<!\\)\t'), ' ');
+
+      // Fix trailing commas
+      output = output.replaceAll(RegExp(r',\s*}'), '}');
+      output = output.replaceAll(RegExp(r',\s*]'), ']');
+
+      // Fix missing quotes around property names
+      output = output.replaceAll(
+        RegExp(r'([{,]\s*)([a-zA-Z0-9_]+)(\s*:)'),
+        r'$1"$2"$3',
+      );
+
+      return output;
+    } catch (e) {
+      print('Error sanitizing JSON: $e');
+      return input; // Return original if sanitation fails
     }
   }
 
@@ -602,9 +986,13 @@ class _AIAssistantPageState extends State<AIAssistantPage>
             'Generated from pages ${_pageRange.start.toInt()} to ${_pageRange.end.toInt()} of $_pdfName',
         'difficulty': _difficultyController.text,
         'isPublic': false,
-        'totalPoints': int.tryParse(_pointsController.text) ?? 100,
+        'totalPoints': _totalPoints,
         'tags':
-            _generatedQuestions!['tags'].map((tag) => tag['tagId']).toList(),
+            _generatedQuestions!['tags'] != null
+                ? _generatedQuestions!['tags']
+                    .map((tag) => tag['tagId'])
+                    .toList()
+                : [],
         'rating': 0,
         'madeByAI': true,
       });
@@ -635,17 +1023,19 @@ class _AIAssistantPageState extends State<AIAssistantPage>
       }
 
       // Save tags to tags collection if they don't exist
-      final tags = _generatedQuestions!['tags'] as List<dynamic>;
-      for (final tag in tags) {
-        final tagRef = _firestore.collection('tags').doc(tag['tagId']);
-        final tagDoc = await tagRef.get();
+      if (_generatedQuestions!['tags'] != null) {
+        final tags = _generatedQuestions!['tags'] as List<dynamic>;
+        for (final tag in tags) {
+          final tagRef = _firestore.collection('tags').doc(tag['tagId']);
+          final tagDoc = await tagRef.get();
 
-        if (!tagDoc.exists) {
-          await tagRef.set({
-            'name': tag['name'],
-            'description': tag['description'],
-            'category': tag['category'],
-          });
+          if (!tagDoc.exists) {
+            await tagRef.set({
+              'name': tag['name'],
+              'description': tag['description'],
+              'category': tag['category'],
+            });
+          }
         }
       }
 
@@ -661,7 +1051,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
             'description':
                 'Generated from pages ${_pageRange.start.toInt()} to ${_pageRange.end.toInt()} of $_pdfName',
             'difficulty': _difficultyController.text,
-            'totalPoints': int.tryParse(_pointsController.text) ?? 100,
+            'totalPoints': _totalPoints,
             'rating': 0,
             'sourceDocumentId': _pdfUrl,
             'madeByAI': true,
@@ -737,7 +1127,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     });
   }
 
-  /// Show the PDF options dialog
+  /// Show the PDF options dialog with improved UI
   void _showPdfOptionsDialog() {
     if (_pdfFile == null) {
       return;
@@ -750,8 +1140,20 @@ class _AIAssistantPageState extends State<AIAssistantPage>
       builder:
           (context) => StatefulBuilder(
             builder: (context, setModalState) {
+              // Calculate total points
+              int calculateTotalPoints() {
+                int total = 0;
+                for (final type in _selectedQuestionTypes) {
+                  final count =
+                      int.tryParse(_questionTypeCounts[type]?.text ?? '0') ?? 0;
+                  final pointsPerQuestion = _questionTypePoints[type] ?? 1;
+                  total += count * pointsPerQuestion;
+                }
+                return total;
+              }
+
               return Container(
-                height: MediaQuery.of(context).size.height * 0.8,
+                height: MediaQuery.of(context).size.height * 0.9,
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.only(
@@ -762,7 +1164,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header
+                    // Header with document info
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -786,6 +1188,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF6A3DE8),
+                                fontFamily: 'Inter',
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -798,236 +1201,790 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                       ),
                     ),
 
-                    // Page range selection
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Select Page Range',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Page ${_pageRange.start.toInt()}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text(
-                                'Page ${_pageRange.end.toInt()}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                          RangeSlider(
-                            values: _pageRange,
-                            min: 1,
-                            max: _pdfPageCount.toDouble(),
-                            divisions:
-                                _pdfPageCount > 1 ? _pdfPageCount - 1 : 1,
-                            activeColor: const Color(0xFF6A3DE8),
-                            inactiveColor: const Color(
-                              0xFF6A3DE8,
-                            ).withOpacity(0.2),
-                            labels: RangeLabels(
-                              _pageRange.start.toInt().toString(),
-                              _pageRange.end.toInt().toString(),
-                            ),
-                            onChanged: (values) {
-                              setModalState(() {
-                                _pageRange = values;
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Question generation options
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Question Generation Options',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Difficulty
-                          Row(
-                            children: [
-                              const Text(
-                                'Difficulty:',
-                                style: TextStyle(fontWeight: FontWeight.w500),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: _difficultyController.text,
-                                  decoration: InputDecoration(
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
+                    // Main content - tabbed interface
+                    Expanded(
+                      child: DefaultTabController(
+                        length: 2,
+                        child: Column(
+                          children: [
+                            // Tab bar
+                            Container(
+                              color: Colors.white,
+                              child: TabBar(
+                                labelColor: const Color(0xFF6A3DE8),
+                                unselectedLabelColor: Colors.grey,
+                                indicatorColor: const Color(0xFF6A3DE8),
+                                tabs: const [
+                                  Tab(
+                                    icon: Icon(Icons.book),
+                                    text: "Content Selection",
                                   ),
-                                  items:
-                                      _difficultyLevels
-                                          .map(
-                                            (level) => DropdownMenuItem(
-                                              value: level,
+                                  Tab(
+                                    icon: Icon(Icons.question_answer),
+                                    text: "Question Types",
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Tab content
+                            Expanded(
+                              child: TabBarView(
+                                children: [
+                                  // Content Selection Tab
+                                  SingleChildScrollView(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Select Page Range',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: 'Inter',
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+
+                                        // Page range display
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 8,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: const Color(
+                                                  0xFF6A3DE8,
+                                                ).withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
                                               child: Text(
-                                                level
-                                                        .substring(0, 1)
-                                                        .toUpperCase() +
-                                                    level.substring(1),
+                                                'Page ${_pageRange.start.toInt()}',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w500,
+                                                  fontFamily: 'Inter',
+                                                  color: Color(0xFF6A3DE8),
+                                                ),
                                               ),
                                             ),
-                                          )
-                                          .toList(),
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      setModalState(() {
-                                        _difficultyController.text = value;
-                                      });
-                                    }
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
 
-                          // Total points
-                          Row(
-                            children: [
-                              const Text(
-                                'Total Points:',
-                                style: TextStyle(fontWeight: FontWeight.w500),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: TextField(
-                                  controller: _pointsController,
-                                  decoration: InputDecoration(
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
+                                            const Text(
+                                              'to',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w500,
+                                                fontFamily: 'Inter',
+                                              ),
+                                            ),
+
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 8,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: const Color(
+                                                  0xFF6A3DE8,
+                                                ).withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                'Page ${_pageRange.end.toInt()}',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w500,
+                                                  fontFamily: 'Inter',
+                                                  color: Color(0xFF6A3DE8),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 16),
+
+                                        // Slider
+                                        RangeSlider(
+                                          values: _pageRange,
+                                          min: 1,
+                                          max: _pdfPageCount.toDouble(),
+                                          divisions:
+                                              _pdfPageCount > 1
+                                                  ? _pdfPageCount - 1
+                                                  : 1,
+                                          activeColor: const Color(0xFF6A3DE8),
+                                          inactiveColor: const Color(
+                                            0xFF6A3DE8,
+                                          ).withOpacity(0.2),
+                                          labels: RangeLabels(
+                                            _pageRange.start.toInt().toString(),
+                                            _pageRange.end.toInt().toString(),
+                                          ),
+                                          onChanged: (values) {
+                                            setModalState(() {
+                                              _pageRange = values;
+                                            });
+                                          },
+                                        ),
+
+                                        const SizedBox(height: 24),
+
+                                        // Difficulty Selection
+                                        const Text(
+                                          'Difficulty Level',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: 'Inter',
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+
+                                        // Difficulty slider cards
+                                        Row(
+                                          children:
+                                              _difficultyLevels.map((level) {
+                                                final isSelected =
+                                                    _difficultyController
+                                                        .text ==
+                                                    level;
+                                                return Expanded(
+                                                  child: GestureDetector(
+                                                    onTap: () {
+                                                      setModalState(() {
+                                                        _difficultyController
+                                                            .text = level;
+                                                      });
+                                                    },
+                                                    child: Container(
+                                                      margin:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 4,
+                                                          ),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 12,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color:
+                                                            isSelected
+                                                                ? const Color(
+                                                                  0xFF6A3DE8,
+                                                                )
+                                                                : Colors.white,
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
+                                                        border: Border.all(
+                                                          color:
+                                                              isSelected
+                                                                  ? const Color(
+                                                                    0xFF6A3DE8,
+                                                                  )
+                                                                  : Colors
+                                                                      .grey[300]!,
+                                                        ),
+                                                        boxShadow:
+                                                            isSelected
+                                                                ? [
+                                                                  BoxShadow(
+                                                                    color: const Color(
+                                                                      0xFF6A3DE8,
+                                                                    ).withOpacity(
+                                                                      0.2,
+                                                                    ),
+                                                                    blurRadius:
+                                                                        4,
+                                                                    offset:
+                                                                        const Offset(
+                                                                          0,
+                                                                          2,
+                                                                        ),
+                                                                  ),
+                                                                ]
+                                                                : null,
+                                                      ),
+                                                      child: Center(
+                                                        child: Text(
+                                                          level
+                                                                  .substring(
+                                                                    0,
+                                                                    1,
+                                                                  )
+                                                                  .toUpperCase() +
+                                                              level.substring(
+                                                                1,
+                                                              ),
+                                                          style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color:
+                                                                isSelected
+                                                                    ? Colors
+                                                                        .white
+                                                                    : Colors
+                                                                        .grey[700],
+                                                            fontFamily: 'Inter',
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                              }).toList(),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
 
-                          // Question types
-                          const Text(
-                            'Question Types:',
-                            style: TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children:
-                                _questionTypes.map((type) {
-                                  final isSelected = _selectedQuestionTypes
-                                      .contains(type);
-                                  return FilterChip(
-                                    label: Text(
-                                      type
-                                          .split('-')
-                                          .map(
-                                            (word) =>
-                                                word
-                                                    .substring(0, 1)
-                                                    .toUpperCase() +
-                                                word.substring(1),
-                                          )
-                                          .join(' '),
-                                    ),
-                                    selected: isSelected,
-                                    onSelected: (selected) {
-                                      setModalState(() {
-                                        if (selected) {
-                                          if (!_selectedQuestionTypes.contains(
-                                            type,
-                                          )) {
-                                            _selectedQuestionTypes.add(type);
-                                          }
-                                        } else {
-                                          if (_selectedQuestionTypes.length >
-                                              1) {
-                                            _selectedQuestionTypes.remove(type);
-                                          }
-                                        }
-                                      });
-                                    },
-                                    selectedColor: const Color(
-                                      0xFF6A3DE8,
-                                    ).withOpacity(0.2),
-                                    checkmarkColor: const Color(0xFF6A3DE8),
-                                  );
-                                }).toList(),
-                          ),
-                        ],
+                                  // Question Types Tab
+                                  Column(
+                                    children: [
+                                      // Points Summary Card
+                                      Container(
+                                        width: double.infinity,
+                                        margin: const EdgeInsets.all(16),
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              Color(0xFF6A3DE8),
+                                              Color(0xFF5E35B1),
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(
+                                                0xFF6A3DE8,
+                                              ).withOpacity(0.3),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            const Text(
+                                              'Total Assessment Points',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.white,
+                                                fontFamily: 'Inter',
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              '${calculateTotalPoints()}',
+                                              style: const TextStyle(
+                                                fontSize: 36,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                                fontFamily: 'Inter',
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            const Text(
+                                              'Adjust question counts below',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.white70,
+                                                fontFamily: 'Inter',
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      // Question Types List
+                                      Expanded(
+                                        child: ListView.builder(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                          ),
+                                          itemCount: _questionTypes.length,
+                                          itemBuilder: (context, index) {
+                                            final type = _questionTypes[index];
+                                            final isSelected =
+                                                _selectedQuestionTypes.contains(
+                                                  type,
+                                                );
+                                            final pointsPerQuestion =
+                                                _questionTypePoints[type] ?? 1;
+
+                                            return AnimatedContainer(
+                                              duration: const Duration(
+                                                milliseconds: 300,
+                                              ),
+                                              margin: const EdgeInsets.only(
+                                                bottom: 16,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withOpacity(0.05),
+                                                    blurRadius: 4,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ],
+                                                border: Border.all(
+                                                  color:
+                                                      isSelected
+                                                          ? const Color(
+                                                            0xFF6A3DE8,
+                                                          )
+                                                          : Colors.transparent,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  // Header Row
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                          16,
+                                                        ),
+                                                    child: Row(
+                                                      children: [
+                                                        // Checkbox
+                                                        Theme(
+                                                          data: ThemeData(
+                                                            checkboxTheme:
+                                                                CheckboxThemeData(
+                                                                  shape: RoundedRectangleBorder(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          4,
+                                                                        ),
+                                                                  ),
+                                                                ),
+                                                          ),
+                                                          child: Checkbox(
+                                                            value: isSelected,
+                                                            activeColor:
+                                                                const Color(
+                                                                  0xFF6A3DE8,
+                                                                ),
+                                                            onChanged: (value) {
+                                                              if (value ==
+                                                                  true) {
+                                                                if (!_selectedQuestionTypes
+                                                                    .contains(
+                                                                      type,
+                                                                    )) {
+                                                                  setModalState(
+                                                                    () {
+                                                                      _selectedQuestionTypes
+                                                                          .add(
+                                                                            type,
+                                                                          );
+                                                                    },
+                                                                  );
+                                                                }
+                                                              } else {
+                                                                if (_selectedQuestionTypes
+                                                                        .length >
+                                                                    1) {
+                                                                  setModalState(() {
+                                                                    _selectedQuestionTypes
+                                                                        .remove(
+                                                                          type,
+                                                                        );
+                                                                  });
+                                                                }
+                                                              }
+                                                            },
+                                                          ),
+                                                        ),
+
+                                                        // Type Name
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Text(
+                                                                _formatQuestionType(
+                                                                  type,
+                                                                ),
+                                                                style: const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize: 16,
+                                                                  fontFamily:
+                                                                      'Inter',
+                                                                ),
+                                                              ),
+                                                              Text(
+                                                                '$pointsPerQuestion points per question',
+                                                                style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  color:
+                                                                      Colors
+                                                                          .grey[600],
+                                                                  fontFamily:
+                                                                      'Inter',
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+
+                                                        // Example Icon
+                                                        if (isSelected)
+                                                          IconButton(
+                                                            icon: const Icon(
+                                                              Icons
+                                                                  .help_outline,
+                                                              color:
+                                                                  Colors.grey,
+                                                            ),
+                                                            onPressed: () {
+                                                              // Show example of question type
+                                                              showDialog(
+                                                                context:
+                                                                    context,
+                                                                builder:
+                                                                    (
+                                                                      context,
+                                                                    ) => AlertDialog(
+                                                                      title: Text(
+                                                                        'Example: ${_formatQuestionType(type)}',
+                                                                      ),
+                                                                      content:
+                                                                          _buildQuestionTypeExample(
+                                                                            type,
+                                                                          ),
+                                                                      actions: [
+                                                                        TextButton(
+                                                                          onPressed:
+                                                                              () => Navigator.pop(
+                                                                                context,
+                                                                              ),
+                                                                          child: const Text(
+                                                                            'Close',
+                                                                          ),
+                                                                        ),
+                                                                      ],
+                                                                    ),
+                                                              );
+                                                            },
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ),
+
+                                                  // Counter section (if selected)
+                                                  if (isSelected)
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.fromLTRB(
+                                                            16,
+                                                            0,
+                                                            16,
+                                                            16,
+                                                          ),
+                                                      child: Row(
+                                                        children: [
+                                                          // Counter with + and - buttons
+                                                          Container(
+                                                            decoration: BoxDecoration(
+                                                              border: Border.all(
+                                                                color:
+                                                                    Colors
+                                                                        .grey[300]!,
+                                                              ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    8,
+                                                                  ),
+                                                            ),
+                                                            child: Row(
+                                                              children: [
+                                                                // Minus button
+                                                                IconButton(
+                                                                  icon: const Icon(
+                                                                    Icons
+                                                                        .remove,
+                                                                    size: 16,
+                                                                  ),
+                                                                  onPressed: () {
+                                                                    final currentValue =
+                                                                        int.tryParse(
+                                                                          _questionTypeCounts[type]?.text ??
+                                                                              '0',
+                                                                        ) ??
+                                                                        0;
+                                                                    if (currentValue >
+                                                                        0) {
+                                                                      setModalState(() {
+                                                                        _questionTypeCounts[type]?.text =
+                                                                            (currentValue -
+                                                                                    1)
+                                                                                .toString();
+                                                                      });
+                                                                    }
+                                                                  },
+                                                                  constraints:
+                                                                      const BoxConstraints(
+                                                                        minWidth:
+                                                                            36,
+                                                                        minHeight:
+                                                                            36,
+                                                                      ),
+                                                                  padding:
+                                                                      EdgeInsets
+                                                                          .zero,
+                                                                ),
+
+                                                                // Count input
+                                                                SizedBox(
+                                                                  width: 40,
+                                                                  child: TextField(
+                                                                    controller:
+                                                                        _questionTypeCounts[type],
+                                                                    textAlign:
+                                                                        TextAlign
+                                                                            .center,
+                                                                    keyboardType:
+                                                                        TextInputType
+                                                                            .number,
+                                                                    decoration: const InputDecoration(
+                                                                      border:
+                                                                          InputBorder
+                                                                              .none,
+                                                                      contentPadding:
+                                                                          EdgeInsets
+                                                                              .zero,
+                                                                    ),
+                                                                    inputFormatters: [
+                                                                      FilteringTextInputFormatter
+                                                                          .digitsOnly,
+                                                                    ],
+                                                                    onChanged: (
+                                                                      _,
+                                                                    ) {
+                                                                      setModalState(
+                                                                        () {},
+                                                                      );
+                                                                    },
+                                                                    style: const TextStyle(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .bold,
+                                                                      fontFamily:
+                                                                          'Inter',
+                                                                    ),
+                                                                  ),
+                                                                ),
+
+                                                                // Plus button
+                                                                IconButton(
+                                                                  icon:
+                                                                      const Icon(
+                                                                        Icons
+                                                                            .add,
+                                                                        size:
+                                                                            16,
+                                                                      ),
+                                                                  onPressed: () {
+                                                                    final currentValue =
+                                                                        int.tryParse(
+                                                                          _questionTypeCounts[type]?.text ??
+                                                                              '0',
+                                                                        ) ??
+                                                                        0;
+                                                                    setModalState(() {
+                                                                      _questionTypeCounts[type]
+                                                                              ?.text =
+                                                                          (currentValue +
+                                                                                  1)
+                                                                              .toString();
+                                                                    });
+                                                                  },
+                                                                  constraints:
+                                                                      const BoxConstraints(
+                                                                        minWidth:
+                                                                            36,
+                                                                        minHeight:
+                                                                            36,
+                                                                      ),
+                                                                  padding:
+                                                                      EdgeInsets
+                                                                          .zero,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+
+                                                          const SizedBox(
+                                                            width: 16,
+                                                          ),
+
+                                                          // Subtotal
+                                                          Expanded(
+                                                            child: Container(
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    horizontal:
+                                                                        12,
+                                                                    vertical: 8,
+                                                                  ),
+                                                              decoration: BoxDecoration(
+                                                                color:
+                                                                    Colors
+                                                                        .grey[100],
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      8,
+                                                                    ),
+                                                              ),
+                                                              child: Row(
+                                                                mainAxisAlignment:
+                                                                    MainAxisAlignment
+                                                                        .spaceBetween,
+                                                                children: [
+                                                                  Text(
+                                                                    'Subtotal:',
+                                                                    style: TextStyle(
+                                                                      fontSize:
+                                                                          14,
+                                                                      color:
+                                                                          Colors
+                                                                              .grey[700],
+                                                                      fontFamily:
+                                                                          'Inter',
+                                                                    ),
+                                                                  ),
+                                                                  Text(
+                                                                    '${(int.tryParse(_questionTypeCounts[type]?.text ?? '0') ?? 0) * pointsPerQuestion} points',
+                                                                    style: const TextStyle(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .bold,
+                                                                      color: Color(
+                                                                        0xFF6A3DE8,
+                                                                      ),
+                                                                      fontFamily:
+                                                                          'Inter',
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
 
-                    const Spacer(),
-
-                    // Generate button
-                    Padding(
+                    // Action buttons - Generate or Cancel
+                    Container(
                       padding: const EdgeInsets.all(16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _generateAssessmentQuestions();
-                          },
-                          icon: const Icon(Icons.auto_awesome),
-                          label: const Text(
-                            'Generate Assessment Questions',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            offset: const Offset(0, -4),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          // Cancel button
+                          Expanded(
+                            flex: 1,
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Colors.grey[300]!),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontFamily: 'Inter',
+                                ),
+                              ),
                             ),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6A3DE8),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+
+                          const SizedBox(width: 16),
+
+                          // Generate button
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _generateAssessmentQuestions();
+                              },
+                              icon: const Icon(Icons.auto_awesome),
+                              label: const Text(
+                                'Generate Assessment',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'Inter',
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF6A3DE8),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 2,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ],
@@ -1035,6 +1992,170 @@ class _AIAssistantPageState extends State<AIAssistantPage>
               );
             },
           ),
+    );
+  }
+
+  /// Build an example of a specific question type
+  Widget _buildQuestionTypeExample(String type) {
+    switch (type) {
+      case 'multiple-choice':
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'What is the capital of France?',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Inter',
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildExampleOption('Paris', true),
+            _buildExampleOption('London', false),
+            _buildExampleOption('Berlin', false),
+            _buildExampleOption('Madrid', false),
+          ],
+        );
+      case 'multiple-answer':
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Which of the following are primary colors?',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Inter',
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildExampleOption('Red', true),
+            _buildExampleOption('Green', false),
+            _buildExampleOption('Blue', true),
+            _buildExampleOption('Yellow', true),
+          ],
+        );
+      case 'true-false':
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'The Earth is flat.',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Inter',
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildExampleOption('True', false),
+            _buildExampleOption('False', true),
+          ],
+        );
+      case 'fill-in-the-blank':
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'The process of plants making food using sunlight is called ____________.',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Inter',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE3F2FD),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: const Text(
+                'Answer: photosynthesis',
+                style: TextStyle(color: Color(0xFF1976D2), fontFamily: 'Inter'),
+              ),
+            ),
+          ],
+        );
+      case 'short-answer':
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Explain Newton\'s Third Law of Motion in your own words.',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Inter',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE3F2FD),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: const Text(
+                'Sample answer: Newton\'s Third Law states that for every action, there is an equal and opposite reaction. When one object exerts a force on a second object, the second object exerts an equal force in the opposite direction on the first object.',
+                style: TextStyle(color: Color(0xFF1976D2), fontFamily: 'Inter'),
+              ),
+            ),
+          ],
+        );
+      default:
+        return const Text(
+          'Example not available for this question type.',
+          style: TextStyle(fontFamily: 'Inter'),
+        );
+    }
+  }
+
+  /// Helper for building example options
+  Widget _buildExampleOption(String text, bool isCorrect) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color:
+                  isCorrect
+                      ? const Color(0xFF6A3DE8).withOpacity(0.1)
+                      : Colors.transparent,
+              border: Border.all(
+                color: isCorrect ? const Color(0xFF6A3DE8) : Colors.grey,
+                width: 1.5,
+              ),
+            ),
+            child:
+                isCorrect
+                    ? const Center(
+                      child: Icon(
+                        Icons.check,
+                        size: 12,
+                        color: Color(0xFF6A3DE8),
+                      ),
+                    )
+                    : null,
+          ),
+          Text(
+            text,
+            style: TextStyle(
+              color: isCorrect ? const Color(0xFF6A3DE8) : Colors.black87,
+              fontFamily: 'Inter',
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1172,15 +2293,15 @@ class _AIAssistantPageState extends State<AIAssistantPage>
               ),
               items: const [
                 DropdownMenuItem(
-                  value: 'gemini-2.5-pro',
+                  value: 'gemini-2.5-pro-preview-03-25',
                   child: Text('Gemini 2.5 Pro'),
                 ),
                 DropdownMenuItem(
-                  value: 'gemini-2.0-pro',
-                  child: Text('Gemini 2.0 Pro'),
+                  value: 'gemini-2.0-flash',
+                  child: Text('Gemini 2.0 Flash'),
                 ),
                 DropdownMenuItem(
-                  value: 'gemini-2.0-lite',
+                  value: 'gemini-2.0-flash-lite',
                   child: Text('Gemini 2.0 Lite'),
                 ),
               ],
@@ -1195,6 +2316,17 @@ class _AIAssistantPageState extends State<AIAssistantPage>
           ),
 
           const SizedBox(width: 8),
+
+          // API key button
+          IconButton(
+            icon: Icon(
+              Icons.vpn_key,
+              color: _isApiKeySet ? Colors.green : Colors.orange,
+            ),
+            onPressed: _showApiKeyDialog,
+            tooltip: _isApiKeySet ? 'Update API Key' : 'Set API Key',
+            splashRadius: 24,
+          ),
 
           // Help button
           IconButton(
@@ -1264,7 +2396,83 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 24),
+
+                // API Key setup card (if not set)
+                if (!_isApiKeySet)
+                  Card(
+                    elevation: 4,
+                    shadowColor: Colors.black.withOpacity(0.1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.vpn_key,
+                              size: 36,
+                              color: Colors.orange,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'Set Up API Key',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'To use the AI assistant, you need to set up your Gemini API key. You can get an API key from Google AI Studio.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                              height: 1.5,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _showApiKeyDialog,
+                              icon: const Icon(Icons.vpn_key),
+                              label: const Text(
+                                'Set API Key',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                  horizontal: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 24),
 
                 // PDF upload card
                 Card(
@@ -1312,7 +2520,16 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            onPressed: _pickPdfFile,
+                            onPressed:
+                                _isApiKeySet
+                                    ? _pickPdfFile
+                                    : () {
+                                      setState(() {
+                                        _errorMessage =
+                                            'Please set your API key first';
+                                      });
+                                      _showApiKeyDialog();
+                                    },
                             icon:
                                 _isPdfLoading
                                     ? const SizedBox(
@@ -1420,20 +2637,33 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton.icon(
-                            onPressed: () {
-                              // Set focus to chat input
-                              FocusScope.of(context).requestFocus(FocusNode());
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                // Add delay to ensure the UI update has completed
-                                Future.delayed(
-                                  const Duration(milliseconds: 100),
-                                  () {
-                                    _promptController.text =
-                                        'Hello, I need help with creating an assessment.';
-                                  },
-                                );
-                              });
-                            },
+                            onPressed:
+                                _isApiKeySet
+                                    ? () {
+                                      // Set focus to chat input
+                                      FocusScope.of(
+                                        context,
+                                      ).requestFocus(FocusNode());
+                                      WidgetsBinding.instance.addPostFrameCallback((
+                                        _,
+                                      ) {
+                                        // Add delay to ensure the UI update has completed
+                                        Future.delayed(
+                                          const Duration(milliseconds: 100),
+                                          () {
+                                            _promptController.text =
+                                                'Hello, I need help with creating an assessment.';
+                                          },
+                                        );
+                                      });
+                                    }
+                                    : () {
+                                      setState(() {
+                                        _errorMessage =
+                                            'Please set your API key first';
+                                      });
+                                      _showApiKeyDialog();
+                                    },
                             icon: const Icon(Icons.chat_bubble_outline),
                             label: const Text(
                               'Start Chatting',
@@ -1499,6 +2729,13 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                         ),
                       ),
                       const SizedBox(height: 24),
+                      const InstructionItem(
+                        icon: Icons.vpn_key,
+                        title: 'Set API Key',
+                        description:
+                            'First, set your Gemini API key from Google AI Studio to enable AI features.',
+                      ),
+                      const SizedBox(height: 16),
                       const InstructionItem(
                         icon: Icons.upload_file,
                         title: 'Upload a Document',
@@ -1723,15 +2960,15 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                   _buildAssessmentStatistics(),
                   const SizedBox(height: 24),
 
-                  // Preview of questions
+                  // All questions and answers
                   const Text(
-                    'Preview of Questions:',
+                    'All Questions & Answers:',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
 
-                  // Sample questions
-                  ..._buildSampleQuestions(),
+                  // All questions
+                  ..._buildAllQuestions(),
                   const SizedBox(height: 16),
 
                   // Save button
@@ -1783,7 +3020,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     );
   }
 
-  /// Build assessment statistics
+  /// Build the assessment statistics
   Widget _buildAssessmentStatistics() {
     if (_generatedQuestions == null) {
       return const SizedBox.shrink();
@@ -1835,7 +3072,11 @@ class _AIAssistantPageState extends State<AIAssistantPage>
           // Question types breakdown
           const Text(
             'Question Types:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              fontFamily: 'Inter',
+            ),
           ),
           const SizedBox(height: 8),
           Row(
@@ -1852,6 +3093,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                               color: Color(0xFF6A3DE8),
+                              fontFamily: 'Inter',
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -1860,6 +3102,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.grey,
+                              fontFamily: 'Inter',
                             ),
                             textAlign: TextAlign.center,
                             maxLines: 2,
@@ -1889,6 +3132,16 @@ class _AIAssistantPageState extends State<AIAssistantPage>
         return 'Fill in Blank';
       case 'short-answer':
         return 'Short Answer';
+      case 'code-snippet':
+        return 'Code Snippet';
+      case 'diagram-interpretation':
+        return 'Diagram';
+      case 'math-equation':
+        return 'Math Equation';
+      case 'chemical-formula':
+        return 'Chemical Formula';
+      case 'language-translation':
+        return 'Translation';
       default:
         return type
             .split('-')
@@ -1908,56 +3161,82 @@ class _AIAssistantPageState extends State<AIAssistantPage>
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              fontFamily: 'Inter',
+            ),
           ),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+              fontFamily: 'Inter',
+            ),
+          ),
         ],
       ),
     );
   }
 
-  /// Build sample questions for preview
-  List<Widget> _buildSampleQuestions() {
+  /// Build all questions and answers for display
+  List<Widget> _buildAllQuestions() {
     if (_generatedQuestions == null) {
       return [];
     }
 
     final questions = _generatedQuestions!['questions'] as List<dynamic>;
     final answers = _generatedQuestions!['answers'] as List<dynamic>;
+    final allQuestions = <Widget>[];
 
-    // Show at most 3 questions as samples
-    final sampleCount = questions.length > 3 ? 3 : questions.length;
-    final samples = <Widget>[];
-
-    for (int i = 0; i < sampleCount; i++) {
+    // Iterate through all questions
+    for (int i = 0; i < questions.length; i++) {
       final question = questions[i];
       final questionId = question['questionId'];
 
       // Find matching answer
       final answer = answers.firstWhere(
         (a) => a['questionId'] == questionId,
-        orElse: () => {'answerText': 'No answer available'},
+        orElse: () => {'answerText': 'No answer available', 'reasoning': ''},
       );
 
-      samples.add(
+      allQuestions.add(
         Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(12),
+          margin: const EdgeInsets.only(bottom: 24),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
+            color: Colors.grey[50],
             border: Border.all(color: Colors.grey[300]!, width: 1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Question type and points
+              // Question number and type
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Text(
+                    'Question ${i + 1}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF6A3DE8),
+                      fontFamily: 'Inter',
+                    ),
+                  ),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
+                      horizontal: 10,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
@@ -1970,124 +3249,337 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: Color(0xFF6A3DE8),
+                        fontFamily: 'Inter',
                       ),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.star, size: 12, color: Colors.amber),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${question['points']} pts',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.amber,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
 
-              // Question text
-              Text(
-                question['questionText'],
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
+              // Points
+              Row(
+                children: [
+                  Icon(Icons.star, size: 14, color: Colors.amber[700]),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${question['points']} points',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.amber[700],
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
+
+              // Question text (with LaTeX support)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: _buildFormattedText(question['questionText']),
+              ),
+              const SizedBox(height: 16),
 
               // Options if applicable
               if (question['options'] != null &&
                   (question['options'] as List).isNotEmpty)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children:
-                      (question['options'] as List).map((option) {
-                        final isAnswer =
-                            question['questionType'] == 'multiple-choice'
-                                ? answer['answerText'] == option
-                                : question['questionType'] ==
-                                        'multiple-answer' &&
-                                    answer['answerText'] is List &&
-                                    (answer['answerText'] as List).contains(
-                                      option,
-                                    );
+                  children: [
+                    const Text(
+                      'Options:',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey[200]!),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children:
+                            (question['options'] as List).map((option) {
+                              final isAnswer =
+                                  question['questionType'] == 'multiple-choice'
+                                      ? answer['answerText'] == option
+                                      : question['questionType'] ==
+                                              'multiple-answer' &&
+                                          answer['answerText'] is List &&
+                                          (answer['answerText'] as List)
+                                              .contains(option);
 
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 20,
-                                height: 20,
-                                margin: const EdgeInsets.only(right: 8, top: 2),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color:
-                                        isAnswer
-                                            ? const Color(0xFF6A3DE8)
-                                            : Colors.grey[400]!,
-                                    width: 1.5,
-                                  ),
-                                  color:
-                                      isAnswer
-                                          ? const Color(
-                                            0xFF6A3DE8,
-                                          ).withOpacity(0.1)
-                                          : Colors.transparent,
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 20,
+                                      height: 20,
+                                      margin: const EdgeInsets.only(
+                                        right: 8,
+                                        top: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color:
+                                              isAnswer
+                                                  ? const Color(0xFF6A3DE8)
+                                                  : Colors.grey[400]!,
+                                          width: 1.5,
+                                        ),
+                                        color:
+                                            isAnswer
+                                                ? const Color(
+                                                  0xFF6A3DE8,
+                                                ).withOpacity(0.1)
+                                                : Colors.transparent,
+                                      ),
+                                      child:
+                                          isAnswer
+                                              ? const Center(
+                                                child: Icon(
+                                                  Icons.check,
+                                                  size: 12,
+                                                  color: Color(0xFF6A3DE8),
+                                                ),
+                                              )
+                                              : null,
+                                    ),
+                                    Expanded(
+                                      child: _buildFormattedText(
+                                        option,
+                                        textStyle: TextStyle(
+                                          fontSize: 14,
+                                          color:
+                                              isAnswer
+                                                  ? const Color(0xFF6A3DE8)
+                                                  : Colors.black87,
+                                          fontFamily: 'Inter',
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                child:
-                                    isAnswer
-                                        ? const Center(
-                                          child: Icon(
-                                            Icons.check,
-                                            size: 12,
-                                            color: Color(0xFF6A3DE8),
-                                          ),
-                                        )
-                                        : null,
-                              ),
-                              Expanded(
-                                child: Text(
-                                  option,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color:
-                                        isAnswer
-                                            ? const Color(0xFF6A3DE8)
-                                            : Colors.black87,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
+                              );
+                            }).toList(),
+                      ),
+                    ),
+                  ],
                 ),
+
+              // Answer
+              const SizedBox(height: 16),
+              const Text(
+                'Answer:',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3F2FD),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (answer['answerText'] is List)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Correct Answers:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF1976D2),
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          ...((answer['answerText'] as List)
+                              .map(
+                                (item) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        '• ',
+                                        style: TextStyle(
+                                          color: Color(0xFF1976D2),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: _buildFormattedText(
+                                          item.toString(),
+                                          textStyle: const TextStyle(
+                                            color: Color(0xFF1976D2),
+                                            fontFamily: 'Inter',
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                              .toList()),
+                        ],
+                      )
+                    else
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Correct Answer:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF1976D2),
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          _buildFormattedText(
+                            answer['answerText']?.toString() ?? 'Not available',
+                            textStyle: const TextStyle(
+                              color: Color(0xFF1976D2),
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                        ],
+                      ),
+
+                    if (answer['reasoning'] != null &&
+                        answer['reasoning'].toString().trim().isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Explanation:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF1976D2),
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          _buildFormattedText(
+                            answer['reasoning'].toString(),
+                            textStyle: const TextStyle(
+                              color: Color(0xFF1976D2),
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       );
     }
 
-    return samples;
+    return allQuestions;
+  }
+
+  /// Build formatted text with math equation support
+  /// Build formatted text with support for LaTeX math expressions and other formatting
+  Widget _buildFormattedText(String text, {TextStyle? textStyle}) {
+    // Default text style if none provided
+    final defaultStyle =
+        textStyle ??
+        const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          fontFamily: 'Inter',
+        );
+
+    // Pattern to match LaTeX expressions between $ symbols
+    final RegExp latexPattern = RegExp(r'\$(.*?)\$');
+    final matches = latexPattern.allMatches(text);
+
+    // If no LaTeX expressions found, return simple text
+    if (matches.isEmpty) {
+      return Text(text, style: defaultStyle);
+    }
+
+    // Build rich text with LaTeX rendering
+    final List<InlineSpan> spans = [];
+    int lastEnd = 0;
+
+    for (final match in matches) {
+      // Add text before the LaTeX expression
+      if (match.start > lastEnd) {
+        spans.add(
+          TextSpan(
+            text: text.substring(lastEnd, match.start),
+            style: defaultStyle,
+          ),
+        );
+      }
+
+      // Get the LaTeX content without the dollar signs
+      final latexContent = match.group(1) ?? '';
+
+      // Add LaTeX math widget
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Math.tex(
+            latexContent,
+            textStyle: defaultStyle,
+            mathStyle: MathStyle.text,
+            onErrorFallback:
+                (err) => Text(
+                  '\$${err.message}\$',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: defaultStyle.fontSize,
+                  ),
+                ),
+          ),
+        ),
+      );
+
+      lastEnd = match.end;
+    }
+
+    // Add any remaining text
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastEnd), style: defaultStyle));
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
+      overflow: TextOverflow.visible,
+    );
   }
 
   /// Build the chat input area
@@ -2111,7 +3603,15 @@ class _AIAssistantPageState extends State<AIAssistantPage>
             // PDF upload button
             IconButton(
               icon: const Icon(Icons.attach_file),
-              onPressed: _pickPdfFile,
+              onPressed:
+                  _isApiKeySet
+                      ? _pickPdfFile
+                      : () {
+                        setState(() {
+                          _errorMessage = 'Please set your API key first';
+                        });
+                        _showApiKeyDialog();
+                      },
               tooltip: 'Upload PDF',
               color: const Color(0xFF6A3DE8),
               splashRadius: 24,
@@ -2185,6 +3685,15 @@ class _AIAssistantPageState extends State<AIAssistantPage>
             icon: Icons.smart_toy,
             backgroundColor: const Color(0xFF6A3DE8),
             isFirstPage: true,
+          ),
+
+          // API Key page
+          _buildOnboardingPage(
+            title: 'Set Up Your API Key',
+            description:
+                'You\'ll need a Gemini API key from Google AI Studio to use all features. Set it up once and you\'re ready to go.',
+            icon: Icons.vpn_key,
+            backgroundColor: Colors.orange,
           ),
 
           // PDF Processing page
@@ -2329,7 +3838,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
 
                   // Page indicator
                   Row(
-                    children: List.generate(4, (index) {
+                    children: List.generate(5, (index) {
                       final isActive =
                           index == _onboardingController.page?.round() ||
                           (index == 0 && _onboardingController.page == null);
@@ -2425,6 +3934,7 @@ class InstructionItem extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
                 ),
               ),
               const SizedBox(height: 4),
@@ -2434,6 +3944,7 @@ class InstructionItem extends StatelessWidget {
                   fontSize: 14,
                   color: Colors.grey[600],
                   height: 1.4,
+                  fontFamily: 'Inter',
                 ),
               ),
             ],
