@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'assessment_page.dart';
+import 'dashboard.dart';
+import 'friends_groups_page.dart';
+import 'ai_learning_page.dart';
 
 class JournalPage extends StatefulWidget {
   const JournalPage({super.key});
@@ -521,15 +525,14 @@ class _JournalPageState extends State<JournalPage> {
   }
 
   // Bottom navigation bar
+  // Modified section from journal_page.dart to update the navigation for the bar chart icon
+
+  // Bottom navigation bar
+  // Update to _buildBottomNavBar in journal_page.dart
   Widget _buildBottomNavBar() {
     return Container(
-      height: 55, // Thinner height
-      margin: const EdgeInsets.fromLTRB(
-        16.0,
-        10.0,
-        16.0,
-        25.0,
-      ), // Increased bottom margin to move it higher
+      height: 55,
+      margin: const EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 25.0),
       decoration: BoxDecoration(
         color: const Color(0xFFFFA07A), // Salmon background color
         border: Border.all(color: Colors.black, width: 1.5), // Black border
@@ -545,19 +548,45 @@ class _JournalPageState extends State<JournalPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildNavItem(Icons.bar_chart, false),
-          _buildNavItem(Icons.access_time, false),
-          // Home icon with navigation back to Dashboard
+          // Bar chart icon with navigation to AssessmentPage
           GestureDetector(
             onTap: () {
-              Navigator.of(
-                context,
-              ).pop(); // Return to the previous screen (Dashboard)
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const AssessmentPage()),
+              );
+            },
+            child: _buildNavItem(Icons.bar_chart, false),
+          ),
+          // AI Learning page navigation
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const AILearningPage()),
+              );
+            },
+            child: _buildNavItem(Icons.access_time, false),
+          ),
+          // Home icon with navigation to Dashboard
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const Dashboard()),
+              );
             },
             child: _buildNavItem(Icons.home, false),
           ),
           _buildNavItem(Icons.assessment, true), // Assessment icon is selected
-          _buildNavItem(Icons.person_outline, false),
+          // Person icon with navigation to FriendsGroupsPage
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const FriendsGroupsPage(),
+                ),
+              );
+            },
+            child: _buildNavItem(Icons.person_outline, false),
+          ),
         ],
       ),
     );

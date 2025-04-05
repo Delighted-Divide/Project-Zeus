@@ -132,7 +132,8 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
               : PDFView(
                 filePath: _pdfFile!.path,
                 enableSwipe: true,
-                swipeHorizontal: true,
+                swipeHorizontal:
+                    false, // Changed to false for vertical scrolling
                 autoSpacing: true,
                 pageFling: true,
                 pageSnap: true,
@@ -165,38 +166,7 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
                   }
                 },
               ),
-      floatingActionButton:
-          _isReady && _totalPages > 1
-              ? Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (_currentPage > 0)
-                    FloatingActionButton(
-                      heroTag: 'prevPage',
-                      backgroundColor: const Color(0xFF4CAF50),
-                      child: const Icon(Icons.arrow_back),
-                      onPressed: () {
-                        if (_pdfViewController != null && _currentPage > 0) {
-                          _pdfViewController!.setPage(_currentPage - 1);
-                        }
-                      },
-                    ),
-                  const SizedBox(width: 16),
-                  if (_currentPage < _totalPages - 1)
-                    FloatingActionButton(
-                      heroTag: 'nextPage',
-                      backgroundColor: const Color(0xFF4CAF50),
-                      child: const Icon(Icons.arrow_forward),
-                      onPressed: () {
-                        if (_pdfViewController != null &&
-                            _currentPage < _totalPages - 1) {
-                          _pdfViewController!.setPage(_currentPage + 1);
-                        }
-                      },
-                    ),
-                ],
-              )
-              : null,
+      // Removed floating action buttons for navigation
     );
   }
 }

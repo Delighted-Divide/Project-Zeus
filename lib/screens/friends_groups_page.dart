@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:math' as math;
 import 'journal_page.dart';
 import 'dashboard.dart';
 import 'chat_page.dart';
 import 'find_friends_page.dart';
 import 'create_group_page.dart';
 import 'join_group_page.dart';
+import 'user_profile_page.dart';
+import 'assessment_page.dart';
+import 'ai_learning_page.dart';
 
 class FriendsGroupsPage extends StatefulWidget {
   const FriendsGroupsPage({super.key});
@@ -23,6 +28,7 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
   // Firebase instances
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   // Current user ID
   String? _currentUserId;
@@ -33,10 +39,18 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
   Stream<QuerySnapshot>? _friendRequestsStream;
   Stream<QuerySnapshot>? _groupInvitesStream;
 
+  // Cache for profile images to avoid excessive storage calls
+  final Map<String, String> _profileImageCache = {};
+  bool _isLoadingRandomImage = false;
+
+  // Default profile image URLs from cloud storage
+  List<String> _defaultProfileImageUrls = [];
+
   @override
   void initState() {
     super.initState();
     _initializeCurrentUser();
+    _preloadDefaultProfileImages();
   }
 
   @override
@@ -95,6 +109,87 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     // Force UI refresh after streams are set up
     if (mounted) {
       setState(() {});
+    }
+  }
+
+  // Preload default profile images from Firebase Storage
+  Future<void> _preloadDefaultProfileImages() async {
+    try {
+      // List all items in the profile_pics folder
+      final storageRef = _storage.ref().child('profile_pics');
+      final listResult = await storageRef.listAll();
+
+      if (listResult.items.isEmpty) {
+        print('No profile images found in storage');
+        return;
+      }
+
+      // Load URLs for all images (or up to 5 to avoid excessive downloads)
+      final maxImages = math.min(5, listResult.items.length);
+      for (int i = 0; i < maxImages; i++) {
+        try {
+          final downloadURL = await listResult.items[i].getDownloadURL();
+          _defaultProfileImageUrls.add(downloadURL);
+        } catch (e) {
+          print('Error loading default profile image ${i + 1}: $e');
+        }
+      }
+
+      print(
+        'Preloaded ${_defaultProfileImageUrls.length} default profile images',
+      );
+
+      // Force refresh if widget is still mounted
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      print('Error preloading default profile images: $e');
+    }
+  }
+
+  // Get a random profile picture from Firebase Storage
+  Future<String?> _getRandomProfilePicture() async {
+    if (_isLoadingRandomImage) return null;
+
+    // Use preloaded images if available
+    if (_defaultProfileImageUrls.isNotEmpty) {
+      final randomIndex = math.Random().nextInt(
+        _defaultProfileImageUrls.length,
+      );
+      return _defaultProfileImageUrls[randomIndex];
+    }
+
+    try {
+      setState(() {
+        _isLoadingRandomImage = true;
+      });
+
+      // List all items in the profile_pics folder
+      final storageRef = _storage.ref().child('profile_pics');
+      final listResult = await storageRef.listAll();
+
+      if (listResult.items.isEmpty) {
+        print('No profile images found in storage');
+        return null;
+      }
+
+      // Select random image from the folder
+      final randomIndex = math.Random().nextInt(listResult.items.length);
+      final randomImageRef = listResult.items[randomIndex];
+
+      // Get the download URL
+      final downloadURL = await randomImageRef.getDownloadURL();
+      return downloadURL;
+    } catch (e) {
+      print('Error fetching random profile image: $e');
+      return null;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingRandomImage = false;
+        });
+      }
     }
   }
 
@@ -282,6 +377,8 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                   final photoURL =
                       friendData['photoURL'] ??
                       'assets/images/default_avatar.jpg';
+                  final isActive = friendData['isActive'] ?? false;
+                  final privacyLevel = friendData['privacyLevel'] ?? 'public';
 
                   // Get befriended timestamp
                   final becameFriendsAt = friendData['becameFriendsAt'];
@@ -295,6 +392,8 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                     'name': displayName,
                     'avatar': photoURL,
                     'lastActive': lastActive,
+                    'isActive': isActive,
+                    'privacyLevel': privacyLevel,
                   });
                 }).toList(),
 
@@ -841,6 +940,12 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
 
   // Friend card UI with chat navigation
   Widget _buildFriendCard(Map<String, dynamic> friend) {
+    final bool isActive = friend['isActive'] ?? false;
+    final String privacyLevel = friend['privacyLevel'] ?? 'public';
+
+    // Determine if we should show the active status
+    final bool showActiveStatus = privacyLevel != 'private';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -851,39 +956,94 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
       ),
       child: Row(
         children: [
-          // Avatar
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.black, width: 1),
-              image: DecorationImage(
-                image: _getImageProvider(friend['avatar']),
-                fit: BoxFit.cover,
+          // Stack for avatar with active status indicator
+          Stack(
+            children: [
+              // Avatar - wrapped with GestureDetector for profile navigation
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder:
+                          (context) => UserProfilePage(userId: friend['id']),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black, width: 1),
+                    image: DecorationImage(
+                      image: _getImageProvider(friend['avatar']),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Active status indicator
+              if (showActiveStatus)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color:
+                          isActive
+                              ? Colors.green.shade500
+                              : Colors.grey.shade400,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              isActive
+                                  ? Colors.green.withOpacity(0.4)
+                                  : Colors.black.withOpacity(0.2),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 12),
+
+          // Name and status - also navigates to profile
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => UserProfilePage(userId: friend['id']),
+                  ),
+                );
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    friend['name'],
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    friend['lastActive'],
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                ],
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          // Name and status
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  friend['name'],
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  friend['lastActive'],
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ),
+
           // Message button with navigation to ChatPage
           GestureDetector(
             onTap: () {
@@ -1004,37 +1164,59 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
         children: [
           Row(
             children: [
-              // Avatar
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.black, width: 1),
-                  image: DecorationImage(
-                    image: _getImageProvider(request['avatar']),
-                    fit: BoxFit.cover,
+              // Avatar with profile navigation
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder:
+                          (context) =>
+                              UserProfilePage(userId: request['userId']),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black, width: 1),
+                    image: DecorationImage(
+                      image: _getImageProvider(request['avatar']),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              // Name and status
+              // Name and status with profile navigation
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      request['name'],
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder:
+                            (context) =>
+                                UserProfilePage(userId: request['userId']),
                       ),
-                    ),
-                    Text(
-                      'Sent ${request['sentAt']}',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    ),
-                  ],
+                    );
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        request['name'],
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Sent ${request['sentAt']}',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1235,6 +1417,7 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
   }
 
   // Bottom navigation bar
+  // Update to _buildBottomNavBar in friends_groups_page.dart
   Widget _buildBottomNavBar() {
     return Container(
       height: 55,
@@ -1254,8 +1437,24 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildNavItem(Icons.bar_chart, false),
-          _buildNavItem(Icons.access_time, false),
+          // Bar chart icon - Navigate to AssessmentPage
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const AssessmentPage()),
+              );
+            },
+            child: _buildNavItem(Icons.bar_chart, false),
+          ),
+          // AI Learning page navigation
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const AILearningPage()),
+              );
+            },
+            child: _buildNavItem(Icons.access_time, false),
+          ),
           // Home icon with navigation back to Dashboard
           GestureDetector(
             onTap: () {
@@ -1327,17 +1526,95 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     }
   }
 
-  // Get image provider with fallback for errors
+  // Get image provider with fallback for errors and random profile pic selection
   ImageProvider _getImageProvider(String? path) {
+    // If path is null or empty, get a random image from cloud storage
     if (path == null || path.isEmpty) {
+      // Try to use a cached random image if we have one for empty paths
+      if (_profileImageCache.containsKey('empty_path') &&
+          _profileImageCache['empty_path'] != null &&
+          _profileImageCache['empty_path']!.isNotEmpty) {
+        return NetworkImage(_profileImageCache['empty_path']!);
+      }
+
+      // Get a random image and update the UI when it's ready
+      _getRandomProfilePicture().then((randomPic) {
+        if (randomPic != null && mounted) {
+          _profileImageCache['empty_path'] = randomPic;
+          setState(() {});
+        }
+      });
+
+      // In the meantime, use a placeholder
       return const AssetImage('assets/images/default_avatar.jpg');
     }
 
-    // Check if it's a network image or asset image
+    // Check if we have a cached random image for this path
+    if (_profileImageCache.containsKey(path)) {
+      final cachedPath = _profileImageCache[path];
+      if (cachedPath != null && cachedPath.isNotEmpty) {
+        return NetworkImage(cachedPath);
+      }
+    }
+
+    // Handle network images
     if (path.startsWith('http')) {
-      return NetworkImage(path);
-    } else {
-      return AssetImage(path);
+      return NetworkImage(path)
+        ..resolve(const ImageConfiguration()).addListener(
+          ImageStreamListener(
+            (info, _) {
+              // Image loaded successfully
+            },
+            onError: (error, stackTrace) async {
+              print('Error loading network image $path: $error');
+              _handleImageLoadError(path);
+            },
+          ),
+        );
+    }
+    // Handle asset images
+    else {
+      try {
+        // For asset images, we need to handle errors differently
+        return AssetImage(path)
+          ..resolve(const ImageConfiguration()).addListener(
+            ImageStreamListener(
+              (info, _) {
+                // Image loaded successfully
+              },
+              onError: (error, stackTrace) async {
+                print('Error loading asset image $path: $error');
+                _handleImageLoadError(path);
+              },
+            ),
+          );
+      } catch (e) {
+        print('Exception with asset image $path: $e');
+        // Handle immediate exceptions with asset images
+        _handleImageLoadError(path);
+        return const AssetImage('assets/images/default_avatar.jpg');
+      }
+    }
+  }
+
+  // Helper method to handle image load errors
+  void _handleImageLoadError(String path) async {
+    // Only proceed if not already loading an image for this path
+    if (_profileImageCache.containsKey(path) &&
+        _profileImageCache[path] == 'loading') {
+      return;
+    }
+
+    // Mark this path as currently loading
+    _profileImageCache[path] = 'loading';
+
+    // Get a random profile picture
+    final randomPic = await _getRandomProfilePicture();
+    if (randomPic != null && mounted) {
+      // Cache the random image for this path
+      _profileImageCache[path] = randomPic;
+      // Force a rebuild to show the new image
+      setState(() {});
     }
   }
 
@@ -1350,13 +1627,23 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     if (_currentUserId == null) return;
 
     try {
-      // Update the request status in friendRequests collection
-      await _firestore
-          .collection('users')
-          .doc(_currentUserId)
-          .collection('friendRequests')
-          .doc(requestId)
-          .update({'status': action == 'accept' ? 'accepted' : 'declined'});
+      // Start a batch to ensure all operations are atomic
+      final batch = _firestore.batch();
+
+      // Get the request document to have access to all its data
+      final requestDoc =
+          await _firestore
+              .collection('users')
+              .doc(_currentUserId)
+              .collection('friendRequests')
+              .doc(requestId)
+              .get();
+
+      if (!requestDoc.exists) {
+        throw Exception('Friend request not found');
+      }
+
+      final requestData = requestDoc.data();
 
       if (action == 'accept') {
         // Get the user data for the friend
@@ -1365,52 +1652,97 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
         final userData = userSnapshot.data();
 
         if (userData != null) {
-          // Add to current user's friends collection
-          await _firestore
-              .collection('users')
-              .doc(_currentUserId)
-              .collection('friends')
-              .doc(userId)
-              .set({
-                'displayName': userData['displayName'] ?? 'Unknown User',
-                'photoURL': userData['photoURL'],
-                'becameFriendsAt': FieldValue.serverTimestamp(),
-                'status': 'active',
-              });
-
           // Get current user's data
           final currentUserSnapshot =
               await _firestore.collection('users').doc(_currentUserId).get();
           final currentUserData = currentUserSnapshot.data();
 
           if (currentUserData != null) {
+            // Add to current user's friends collection
+            batch.set(
+              _firestore
+                  .collection('users')
+                  .doc(_currentUserId)
+                  .collection('friends')
+                  .doc(userId),
+              {
+                'displayName': userData['displayName'] ?? 'Unknown User',
+                'photoURL': userData['photoURL'],
+                'becameFriendsAt': FieldValue.serverTimestamp(),
+                'status': 'active',
+                'isActive': userData['isActive'] ?? false,
+                'privacyLevel': userData['privacyLevel'] ?? 'public',
+              },
+            );
+
             // Add current user to friend's friends collection
+            batch.set(
+              _firestore
+                  .collection('users')
+                  .doc(userId)
+                  .collection('friends')
+                  .doc(_currentUserId),
+              {
+                'displayName': currentUserData['displayName'] ?? 'Unknown User',
+                'photoURL': currentUserData['photoURL'],
+                'becameFriendsAt': FieldValue.serverTimestamp(),
+                'status': 'active',
+                'isActive': currentUserData['isActive'] ?? false,
+                'privacyLevel': currentUserData['privacyLevel'] ?? 'public',
+              },
+            );
+
+            // Find and delete the corresponding request in the other user's collection
+            // (the request that the friend sent to the current user)
+            final otherRequestsQuery =
+                await _firestore
+                    .collection('users')
+                    .doc(userId)
+                    .collection('friendRequests')
+                    .where('userId', isEqualTo: _currentUserId)
+                    .where('type', isEqualTo: 'sent')
+                    .get();
+
+            for (final doc in otherRequestsQuery.docs) {
+              batch.delete(doc.reference);
+            }
+
+            // Delete the current request
+            batch.delete(requestDoc.reference);
+          }
+        }
+      } else if (action == 'decline') {
+        // Update status to declined in current user's request
+        batch.update(requestDoc.reference, {'status': 'declined'});
+
+        // Find and update the corresponding request in the other user's collection
+        final otherRequestsQuery =
             await _firestore
                 .collection('users')
                 .doc(userId)
-                .collection('friends')
-                .doc(_currentUserId)
-                .set({
-                  'displayName':
-                      currentUserData['displayName'] ?? 'Unknown User',
-                  'photoURL': currentUserData['photoURL'],
-                  'becameFriendsAt': FieldValue.serverTimestamp(),
-                  'status': 'active',
-                });
+                .collection('friendRequests')
+                .where('userId', isEqualTo: _currentUserId)
+                .where('type', isEqualTo: 'sent')
+                .get();
 
-            // Show success message
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'You are now friends with ${userData['displayName'] ?? 'this user'}',
-                  ),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            }
-          }
+        for (final doc in otherRequestsQuery.docs) {
+          batch.update(doc.reference, {'status': 'declined'});
         }
+      }
+
+      // Execute all operations as a batch
+      await batch.commit();
+
+      if (action == 'accept' && mounted) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'You are now friends with ${requestData?['displayName'] ?? 'this user'}',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (error) {
       print('Error handling friend request: $error');
@@ -1435,13 +1767,24 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     if (_currentUserId == null) return;
 
     try {
-      // Update the invite status
-      await _firestore
-          .collection('users')
-          .doc(_currentUserId)
-          .collection('groupInvites')
-          .doc(inviteId)
-          .update({'status': action == 'accept' ? 'accepted' : 'declined'});
+      // Start a batch to ensure all operations are atomic
+      final batch = _firestore.batch();
+
+      // Get the invite document
+      final inviteDoc =
+          await _firestore
+              .collection('users')
+              .doc(_currentUserId)
+              .collection('groupInvites')
+              .doc(inviteId)
+              .get();
+
+      if (!inviteDoc.exists) {
+        throw Exception('Group invite not found');
+      }
+
+      final inviteData = inviteDoc.data();
+      final invitedBy = inviteData?['invitedBy'] as String?;
 
       if (action == 'accept') {
         // Get group details
@@ -1451,56 +1794,77 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
 
         if (groupData != null) {
           // Add user to group's members subcollection
-          await _firestore
-              .collection('groups')
-              .doc(groupId)
-              .collection('members')
-              .doc(_currentUserId)
-              .set({
-                'displayName': _auth.currentUser?.displayName ?? 'Unknown User',
-                'photoURL': _auth.currentUser?.photoURL,
-                'role': 'member', // Default role for invited members
-                'joinedAt': FieldValue.serverTimestamp(),
-              });
+          batch.set(
+            _firestore
+                .collection('groups')
+                .doc(groupId)
+                .collection('members')
+                .doc(_currentUserId),
+            {
+              'displayName': _auth.currentUser?.displayName ?? 'Unknown User',
+              'photoURL': _auth.currentUser?.photoURL,
+              'role': 'member', // Default role for invited members
+              'joinedAt': FieldValue.serverTimestamp(),
+            },
+          );
 
-          // Add group to user's groups subcollection without the "groupId" field
-          // since the document ID itself is the group ID
-          await _firestore
-              .collection('users')
-              .doc(_currentUserId)
-              .collection('groups')
-              .doc(groupId)
-              .set({
-                'name': groupData['name'] ?? 'Unnamed Group',
-                'photoURL': groupData['photoURL'],
-                'role': 'member',
-                'joinedAt': FieldValue.serverTimestamp(),
-              });
+          // Add group to user's groups subcollection
+          batch.set(
+            _firestore
+                .collection('users')
+                .doc(_currentUserId)
+                .collection('groups')
+                .doc(groupId),
+            {
+              'name': groupData['name'] ?? 'Unnamed Group',
+              'photoURL': groupData['photoURL'],
+              'role': 'member',
+              'joinedAt': FieldValue.serverTimestamp(),
+            },
+          );
 
-          // Remove from group's pendingInvites if it exists there
-          try {
-            await _firestore
+          // Delete the invite from the user's invites
+          batch.delete(inviteDoc.reference);
+
+          // Delete from the group's pendingInvites if it exists
+          batch.delete(
+            _firestore
                 .collection('groups')
                 .doc(groupId)
                 .collection('pendingInvites')
-                .doc(_currentUserId)
-                .delete();
-          } catch (e) {
-            // Ignore if not found
-          }
-
-          // Show success message
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'You have joined ${groupData['name'] ?? 'the group'}',
-                ),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
+                .doc(_currentUserId),
+          );
         }
+      } else if (action == 'decline') {
+        // Update status to declined in current user's invite
+        batch.update(inviteDoc.reference, {'status': 'declined'});
+
+        // Update status in the group's pendingInvites if it exists
+        if (groupId.isNotEmpty) {
+          batch.update(
+            _firestore
+                .collection('groups')
+                .doc(groupId)
+                .collection('pendingInvites')
+                .doc(_currentUserId),
+            {'status': 'declined'},
+          );
+        }
+      }
+
+      // Execute all operations as a batch
+      await batch.commit();
+
+      if (action == 'accept' && mounted) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'You have joined ${inviteData?['groupName'] ?? 'the group'}',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (error) {
       print('Error handling group invite: $error');

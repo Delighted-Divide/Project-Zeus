@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'dart:async'; // Import for Timer class
+import 'dart:async';
 import 'journal_page.dart';
+import 'assessment_page.dart';
+import 'friends_groups_page.dart';
+import 'ai_learning_page.dart';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -749,6 +752,10 @@ class _DashboardState extends State<Dashboard> {
   }
 
   // Bottom navigation bar - using the journal_page style
+  // Modified section from dashboard.dart to update the navigation for the bar chart icon
+
+  // Bottom navigation bar - using the journal_page style
+  // Update to _buildBottomNavBar in dashboard.dart
   Widget _buildBottomNavBar() {
     return Container(
       height: 55, // Match journal page height
@@ -768,9 +775,24 @@ class _DashboardState extends State<Dashboard> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildNavItem(Icons.bar_chart, false),
-          _buildNavItem(Icons.access_time, false),
-          // Home icon with navigation back to Dashboard
+          // Bar chart icon - Navigate to AssessmentPage
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const AssessmentPage()),
+              );
+            },
+            child: _buildNavItem(Icons.bar_chart, false),
+          ),
+          // AI Learning page navigation
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const AILearningPage()),
+              );
+            },
+            child: _buildNavItem(Icons.access_time, false),
+          ),
           _buildNavItem(Icons.home, true), // Home is selected
           // Journal navigation - using route replacement
           GestureDetector(
@@ -781,7 +803,17 @@ class _DashboardState extends State<Dashboard> {
             },
             child: _buildNavItem(Icons.assessment, false),
           ),
-          _buildNavItem(Icons.person_outline, false),
+          // Person icon with navigation to FriendsGroupsPage
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const FriendsGroupsPage(),
+                ),
+              );
+            },
+            child: _buildNavItem(Icons.person_outline, false),
+          ),
         ],
       ),
     );
