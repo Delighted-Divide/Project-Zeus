@@ -370,10 +370,9 @@ class AssessmentView extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.grey[200]!),
                 ),
-                child: TextFormatter.buildFormattedText(
+                child: TextFormatter.renderTextWithEquations(
                   question['questionText']?.toString() ??
                       'No question text available',
-                  textStyle: const TextStyle(fontSize: 15, fontFamily: 'Inter'),
                 ),
               ),
               const SizedBox(height: 16),

@@ -1,11 +1,25 @@
-// utils/text_formatter.dart - Fixed implementation
+// utils/text_formatter.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'dart:convert';
+import 'dart:math';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 /// Utility class for text formatting
 class TextFormatter {
+  /// Normalize LaTeX content to handle escaping issues
+  static String normalizeLatexEscaping(String mathContent) {
+    // Handle escaped backslashes that often cause issues
+    String normalized = mathContent;
+
+    // Handle multiple backslash sequences properly
+    normalized = normalized.replaceAll(r'\\\\', r'\\');
+    normalized = normalized.replaceAll(r'\\', r'\');
+
+    return normalized;
+  }
+
   /// Build formatted text with support for LaTeX math expressions
   static Widget buildFormattedText(String text, {TextStyle? textStyle}) {
     // Default text style if none provided
@@ -28,184 +42,165 @@ class TextFormatter {
         return Text(text, style: defaultStyle);
       }
 
-      // List to hold all spans (text and LaTeX)
-      List<InlineSpan> spans = [];
-
-      // Split by dollar sign but keep the delimiters
-      List<String> parts = [];
-      String currentPart = '';
-      bool inMath = false;
-
-      for (int i = 0; i < text.length; i++) {
-        if (text[i] == '\$') {
-          if (currentPart.isNotEmpty) {
-            parts.add(currentPart);
-            currentPart = '';
-          }
-          inMath = !inMath;
-          parts.add('\$');
-        } else {
-          currentPart += text[i];
-        }
-      }
-
-      if (currentPart.isNotEmpty) {
-        parts.add(currentPart);
-      }
-
-      // Process the parts into spans
-      inMath = false;
-      String mathContent = '';
-      String textContent = '';
+      // List to hold text segments and math expressions
+      final List<Widget> segments = [];
+      final parts = text.split('\$');
 
       for (int i = 0; i < parts.length; i++) {
-        if (parts[i] == '\$') {
-          if (inMath) {
-            // End of math, add the math span
-            spans.add(
-              WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
-                child: Math.tex(
-                  mathContent,
-                  textStyle: defaultStyle,
-                  onErrorFallback:
-                      (err) => Text(
-                        '\$$mathContent\$',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: defaultStyle.fontSize,
-                        ),
-                      ),
-                ),
+        // Even indices are regular text, odd indices are LaTeX expressions
+        if (i % 2 == 0) {
+          if (parts[i].isNotEmpty) {
+            segments.add(Text(parts[i], style: defaultStyle));
+          }
+        } else {
+          // Handle LaTeX expression
+          try {
+            final normalized = normalizeLatexEscaping(parts[i]);
+            segments.add(
+              Math.tex(
+                normalized,
+                textStyle: defaultStyle,
+                onErrorFallback: (e) {
+                  print(
+                    'LaTeX rendering error: $e for expression: ${parts[i]}',
+                  );
+                  return Text('\$${parts[i]}\$', style: defaultStyle);
+                },
               ),
             );
-            mathContent = '';
-          } else {
-            // Start of math, add any pending text span
-            if (textContent.isNotEmpty) {
-              spans.add(TextSpan(text: textContent, style: defaultStyle));
-              textContent = '';
-            }
+          } catch (e) {
+            print('Error rendering LaTeX: $e for ${parts[i]}');
+            segments.add(Text('\$${parts[i]}\$', style: defaultStyle));
           }
-          inMath = !inMath;
-        } else if (inMath) {
-          mathContent += parts[i];
-        } else {
-          textContent += parts[i];
         }
       }
 
-      // Add any remaining text
-      if (textContent.isNotEmpty) {
-        spans.add(TextSpan(text: textContent, style: defaultStyle));
-      }
-
-      return RichText(
-        text: TextSpan(children: spans),
-        overflow: TextOverflow.visible,
+      // Wrap all segments
+      return Wrap(
+        children: segments,
+        spacing: 0,
+        runSpacing: 4,
+        alignment: WrapAlignment.start,
+        crossAxisAlignment: WrapCrossAlignment.center,
       );
     } catch (e) {
-      // If any error occurs, return the original text
       print('Error in buildFormattedText: $e');
       return Text(text, style: defaultStyle);
     }
   }
 
+  /// Render text with equations - uses the buildFormattedText method
+  static Widget renderTextWithEquations(String text, {TextStyle? textStyle}) {
+    return buildFormattedText(text, textStyle: textStyle);
+  }
+
   /// Sanitize JSON string to fix common issues that cause parsing errors
   static String sanitizeJsonString(String input) {
+    // Try to parse as-is first
     try {
-      // Step 1: Extract and protect LaTeX expressions
-      final Map<String, String> latexExpressions = {};
-      String placeholder = '##LATEX_EXPR_';
-      int placeholderIndex = 0;
+      jsonDecode(input);
+      return input;
+    } catch (_) {
+      // Continue with sanitization
+    }
 
-      // Find and extract all LaTeX expressions to protect them from JSON processing
+    try {
+      // Log the original input for debugging
+      _logToFile('json_sanitize_input.txt', input);
+
+      // Replace LaTeX expressions with placeholders
+      final Map<String, String> placeholders = {};
+      int counter = 0;
       String processed = input;
-      final RegExp latexPattern = RegExp(r'\$(.*?)\$', dotAll: true);
-      final matches = latexPattern.allMatches(input);
 
-      for (final match in matches) {
-        final originalText = match.group(0) ?? '';
-        final placeholderKey = '$placeholder${placeholderIndex++}##';
+      // Replace LaTeX expressions
+      RegExp latexRegex = RegExp(r'\$([^\$]*)\$');
+      processed = processed.replaceAllMapped(latexRegex, (match) {
+        final placeholder = "##LATEX_${counter++}##";
+        placeholders[placeholder] = match.group(0) ?? '';
+        return placeholder;
+      });
 
-        // Replace LaTeX with placeholder in processed string
-        processed = processed.replaceFirst(originalText, placeholderKey);
+      // Fix common JSON issues
+      processed = processed.replaceAll(
+        RegExp(r',(\s*[\]}])'),
+        r'$1',
+      ); // Remove trailing commas
+      processed = processed.replaceAll(
+        RegExp(r'([{,]\s*)([a-zA-Z0-9_]+)(\s*:)'),
+        r'$1"$2"$3',
+      ); // Quote property names
 
-        // Store original expression with properly escaped backslashes for JSON
-        latexExpressions[placeholderKey] = originalText.replaceAll(r'\', r'\\');
+      // Restore LaTeX expressions
+      placeholders.forEach((placeholder, latex) {
+        processed = processed.replaceAll(placeholder, latex);
+      });
+
+      // Try parsing the processed JSON
+      try {
+        jsonDecode(processed);
+        _logToFile('json_sanitize_output.txt', processed);
+        return processed;
+      } catch (e) {
+        print('First-pass sanitization failed: $e');
+        return _aggressiveSanitizeJSON(input);
+      }
+    } catch (e) {
+      print('Error in sanitizeJsonString: $e');
+      return _aggressiveSanitizeJSON(input);
+    }
+  }
+
+  /// Aggressive sanitization for severely malformed JSON
+  static String _aggressiveSanitizeJSON(String input) {
+    try {
+      // Extract JSON-like structure
+      RegExp jsonObjectRegex = RegExp(r'(\{.*\})', dotAll: true);
+      Match? match = jsonObjectRegex.firstMatch(input);
+
+      if (match == null) {
+        return '{"questions":[],"answers":[],"tags":[]}';
       }
 
-      // Step 2: Fix common JSON syntax issues
-      // Fix newlines and other escape sequences
-      processed = processed.replaceAll(r'\n', '\\n');
-      processed = processed.replaceAll(RegExp(r'(?<!\\)\n'), ' ');
-      processed = processed.replaceAll(r'\r', '\\r');
-      processed = processed.replaceAll(RegExp(r'(?<!\\)\r'), ' ');
-      processed = processed.replaceAll(r'\t', '\\t');
-      processed = processed.replaceAll(RegExp(r'(?<!\\)\t'), ' ');
+      String extracted = match.group(1) ?? '';
 
-      // Fix trailing commas in objects and arrays
-      processed = processed.replaceAll(RegExp(r',\s*}'), '}');
-      processed = processed.replaceAll(RegExp(r',\s*]'), ']');
+      // Replace all LaTeX with placeholders
+      extracted = extracted.replaceAll(
+        RegExp(r'\$[^\$]*\$'),
+        '"[MATH_EXPRESSION]"',
+      );
 
-      // Fix missing quotes around property names
-      processed = processed.replaceAll(
+      // Fix common issues
+      extracted = extracted.replaceAll(
         RegExp(r'([{,]\s*)([a-zA-Z0-9_]+)(\s*:)'),
         r'$1"$2"$3',
       );
 
-      // Fix unquoted string values (but avoid messing with placeholders)
-      processed = processed.replaceAll(
-        RegExp(r':\s*([^"#{[\s][^,}\]]*?)([,}\]])'),
-        r': "$1"$2',
-      );
+      extracted = extracted.replaceAll(RegExp(r',(\s*[\]}])'), r'$1');
 
-      // Step 3: Restore LaTeX expressions
-      latexExpressions.forEach((placeholder, latex) {
-        processed = processed.replaceAll(placeholder, latex);
-      });
-
-      // Verify JSON is valid (will throw if still invalid)
-      jsonDecode(processed);
-
-      return processed;
-    } catch (e) {
-      // If regular sanitization fails, try more aggressive approach
-      print('Regular JSON sanitization failed: $e');
       try {
-        // More aggressive fixes
-        String aggressive = input;
-
-        // Replace all LaTeX expressions with simple placeholders
-        aggressive = aggressive.replaceAll(
-          RegExp(r'\$(.*?)\$', dotAll: true),
-          '"[MATH_FORMULA]"',
-        );
-
-        // Fix structure more aggressively
-        aggressive = aggressive.replaceAll(
-          RegExp(r'([{,]\s*)([a-zA-Z0-9_]+)(\s*:)'),
-          r'$1"$2"$3',
-        );
-        aggressive = aggressive.replaceAll(
-          RegExp(r':\s*([^"{\[\s][^,}\]]*?)([,}\]])'),
-          r': "$1"$2',
-        );
-
-        // Updated trailing comma fix in aggressive cleaning
-        aggressive = aggressive.replaceAllMapped(
-          RegExp(r',\s*([}\]])'),
-          (match) => match.group(1)!,
-        );
-
-        // Check if we've created valid JSON
-        jsonDecode(aggressive);
-        return aggressive;
+        jsonDecode(extracted);
+        return extracted;
       } catch (e) {
-        print('Aggressive JSON sanitization failed: $e');
-        // If all strategies fail, return the original
-        return input;
+        print('Aggressive sanitization failed: $e');
+        return '{"questions":[],"answers":[],"tags":[]}';
       }
+    } catch (e) {
+      print('Error in aggressive sanitization: $e');
+      return '{"questions":[],"answers":[],"tags":[]}';
+    }
+  }
+
+  /// Log content to a file for debugging
+  static Future<void> _logToFile(String filename, String content) async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final path = '${directory.path}/logs';
+      await Directory(path).create(recursive: true);
+      final file = File('$path/$filename');
+      await file.writeAsString(content, mode: FileMode.append);
+    } catch (e) {
+      print('Error logging to file: $e');
     }
   }
 
