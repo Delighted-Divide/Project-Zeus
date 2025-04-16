@@ -564,6 +564,10 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Get the screen size for responsive layout
+    final Size screenSize = MediaQuery.of(context).size;
+    final bool isSmallScreen = screenSize.width < 600;
+
     if (_isLoading) {
       return Scaffold(
         body: Container(
@@ -601,15 +605,16 @@ class _HomeScreenState extends State<HomeScreen>
         slivers: [
           // Sliver app bar with profile info
           SliverAppBar(
-            expandedHeight: 220,
+            expandedHeight:
+                screenSize.height * 0.28, // Dynamic height based on screen size
             pinned: true,
             floating: false,
             backgroundColor: const Color(0xFF6A3DE8),
             elevation: 0,
             flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 16,
+              titlePadding: EdgeInsets.symmetric(
+                horizontal: screenSize.width * 0.04,
+                vertical: screenSize.height * 0.02,
               ),
               background: Container(
                 decoration: BoxDecoration(
@@ -620,7 +625,7 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: EdgeInsets.all(screenSize.width * 0.04),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,8 +636,9 @@ class _HomeScreenState extends State<HomeScreen>
                           Hero(
                             tag: 'profileImage',
                             child: Container(
-                              width: 90,
-                              height: 90,
+                              width: screenSize.width * 0.2, // Dynamic width
+                              height:
+                                  screenSize.width * 0.2, // Keep aspect ratio
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
@@ -673,10 +679,13 @@ class _HomeScreenState extends State<HomeScreen>
                                                 );
                                                 return Container(
                                                   color: Colors.white,
-                                                  child: const Icon(
+                                                  child: Icon(
                                                     Icons.person,
-                                                    size: 45,
-                                                    color: Color(0xFF6A3DE8),
+                                                    size:
+                                                        screenSize.width * 0.1,
+                                                    color: const Color(
+                                                      0xFF6A3DE8,
+                                                    ),
                                                   ),
                                                 );
                                               },
@@ -696,26 +705,29 @@ class _HomeScreenState extends State<HomeScreen>
                                                 );
                                                 return Container(
                                                   color: Colors.white,
-                                                  child: const Icon(
+                                                  child: Icon(
                                                     Icons.person,
-                                                    size: 45,
-                                                    color: Color(0xFF6A3DE8),
+                                                    size:
+                                                        screenSize.width * 0.1,
+                                                    color: const Color(
+                                                      0xFF6A3DE8,
+                                                    ),
                                                   ),
                                                 );
                                               },
                                             )
                                         : Container(
                                           color: Colors.white,
-                                          child: const Icon(
+                                          child: Icon(
                                             Icons.person,
-                                            size: 45,
-                                            color: Color(0xFF6A3DE8),
+                                            size: screenSize.width * 0.1,
+                                            color: const Color(0xFF6A3DE8),
                                           ),
                                         ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          SizedBox(width: screenSize.width * 0.04),
                           // User info with improved typography
                           Expanded(
                             child: Column(
@@ -723,40 +735,49 @@ class _HomeScreenState extends State<HomeScreen>
                               children: [
                                 Text(
                                   _userName ?? 'Welcome',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 28,
+                                    fontSize: screenSize.width * 0.06,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 0.5,
                                     shadows: [
                                       Shadow(
-                                        offset: Offset(0, 2),
+                                        offset: const Offset(0, 2),
                                         blurRadius: 5,
-                                        color: Color.fromRGBO(0, 0, 0, 0.3),
+                                        color: const Color.fromRGBO(
+                                          0,
+                                          0,
+                                          0,
+                                          0.3,
+                                        ),
                                       ),
                                     ],
                                   ),
                                   overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
                                 ),
                                 if (_userEmail != null)
                                   Padding(
-                                    padding: const EdgeInsets.only(top: 4.0),
+                                    padding: EdgeInsets.only(
+                                      top: screenSize.height * 0.005,
+                                    ),
                                     child: Text(
                                       _userEmail!,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: Colors.white,
-                                        fontSize: 14,
+                                        fontSize: screenSize.width * 0.035,
                                         fontWeight: FontWeight.w400,
                                       ),
                                       overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
                                     ),
                                   ),
-                                const SizedBox(height: 8),
+                                SizedBox(height: screenSize.height * 0.01),
                                 // Online status indicator
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: screenSize.width * 0.025,
+                                    vertical: screenSize.height * 0.005,
                                   ),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.2),
@@ -766,19 +787,19 @@ class _HomeScreenState extends State<HomeScreen>
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Container(
-                                        width: 8,
-                                        height: 8,
+                                        width: screenSize.width * 0.02,
+                                        height: screenSize.width * 0.02,
                                         decoration: const BoxDecoration(
                                           color: Color(0xFF4ADE80),
                                           shape: BoxShape.circle,
                                         ),
                                       ),
-                                      const SizedBox(width: 6),
-                                      const Text(
+                                      SizedBox(width: screenSize.width * 0.015),
+                                      Text(
                                         'Online',
                                         style: TextStyle(
                                           color: Colors.white,
-                                          fontSize: 12,
+                                          fontSize: screenSize.width * 0.03,
                                         ),
                                       ),
                                     ],
@@ -800,7 +821,8 @@ class _HomeScreenState extends State<HomeScreen>
                               ),
                               onPressed: () => _signOut(context),
                               tooltip: 'Sign Out',
-                              splashRadius: 24,
+                              padding: EdgeInsets.all(screenSize.width * 0.02),
+                              constraints: const BoxConstraints(),
                             ),
                           ),
                         ],
@@ -813,12 +835,13 @@ class _HomeScreenState extends State<HomeScreen>
             actions: [
               // Refresh statistics button
               Padding(
-                padding: const EdgeInsets.only(right: 8.0),
+                padding: EdgeInsets.only(right: screenSize.width * 0.02),
                 child: IconButton(
                   icon: const Icon(Icons.refresh),
                   tooltip: 'Refresh Statistics',
                   onPressed: _loadDatabaseStats,
-                  splashRadius: 24,
+                  padding: EdgeInsets.all(screenSize.width * 0.02),
+                  constraints: const BoxConstraints(),
                 ),
               ),
             ],
@@ -827,9 +850,9 @@ class _HomeScreenState extends State<HomeScreen>
           // Content
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 8.0,
+              padding: EdgeInsets.symmetric(
+                horizontal: screenSize.width * 0.04,
+                vertical: screenSize.height * 0.01,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -842,62 +865,68 @@ class _HomeScreenState extends State<HomeScreen>
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(20.0),
+                      padding: EdgeInsets.all(screenSize.width * 0.05),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(12),
+                                padding: EdgeInsets.all(
+                                  screenSize.width * 0.03,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(
                                     0xFF6A3DE8,
                                   ).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.school,
-                                  color: Color(0xFF6A3DE8),
-                                  size: 28,
+                                  color: const Color(0xFF6A3DE8),
+                                  size: screenSize.width * 0.07,
                                 ),
                               ),
-                              const SizedBox(width: 16),
-                              const Expanded(
+                              SizedBox(width: screenSize.width * 0.04),
+                              Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       'Welcome to Grade Genie!',
                                       style: TextStyle(
-                                        fontSize: 22,
+                                        fontSize: screenSize.width * 0.055,
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFF6A3DE8),
+                                        color: const Color(0xFF6A3DE8),
                                       ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
                                     ),
-                                    SizedBox(height: 4),
+                                    SizedBox(height: screenSize.height * 0.005),
                                     Text(
                                       'Your ultimate learning companion',
                                       style: TextStyle(
-                                        fontSize: 14,
+                                        fontSize: screenSize.width * 0.035,
                                         color: Colors.grey,
                                       ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
                                     ),
                                   ],
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
-                          const Text(
+                          SizedBox(height: screenSize.height * 0.02),
+                          Text(
                             'Explore your educational journey, connect with friends, join groups, and assess your progress with personalized learning recommendations.',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: screenSize.width * 0.04,
                               color: Colors.grey,
                               height: 1.5,
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          SizedBox(height: screenSize.height * 0.03),
                           // Action buttons with improved design
                           Row(
                             children: [
@@ -912,16 +941,15 @@ class _HomeScreenState extends State<HomeScreen>
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: screenSize.width * 0.04,
+                                      vertical: screenSize.height * 0.015,
                                     ),
                                     elevation: 2,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              // New AI Assistant button
+                              SizedBox(width: screenSize.width * 0.03),
                               Expanded(
                                 child: ElevatedButton.icon(
                                   onPressed: _navigateToAIAssistant,
@@ -933,9 +961,9 @@ class _HomeScreenState extends State<HomeScreen>
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: screenSize.width * 0.04,
+                                      vertical: screenSize.height * 0.015,
                                     ),
                                     elevation: 2,
                                   ),
@@ -948,47 +976,48 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  SizedBox(height: screenSize.height * 0.03),
 
-                  // Database Statistics Section with improved header
+                  // Database Statistics Section
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenSize.width * 0.02,
+                    ),
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: EdgeInsets.all(screenSize.width * 0.02),
                           decoration: BoxDecoration(
                             color: const Color(0xFF6A3DE8).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.bar_chart,
-                            color: Color(0xFF6A3DE8),
-                            size: 20,
+                            color: const Color(0xFF6A3DE8),
+                            size: screenSize.width * 0.05,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        const Text(
+                        SizedBox(width: screenSize.width * 0.03),
+                        Text(
                           'Database Statistics',
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: screenSize.width * 0.05,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF6A3DE8),
+                            color: const Color(0xFF6A3DE8),
                           ),
                         ),
                         const Spacer(),
-                        // Stats refresh indicator
                         if (_isLoadingStats)
                           Container(
-                            padding: const EdgeInsets.all(6),
+                            padding: EdgeInsets.all(screenSize.width * 0.015),
                             decoration: BoxDecoration(
                               color: Colors.grey.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
+                            child: SizedBox(
+                              width: screenSize.width * 0.04,
+                              height: screenSize.width * 0.04,
+                              child: const CircularProgressIndicator(
                                 strokeWidth: 2,
                                 color: Color(0xFF6A3DE8),
                               ),
@@ -997,43 +1026,26 @@ class _HomeScreenState extends State<HomeScreen>
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
 
-                  // User and Group Stats
-                  const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 8.0,
-                      vertical: 4.0,
-                    ),
-                    child: Text(
-                      'Users & Groups',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  // User & Group stats in grid
-                  _isLoadingStats
-                      ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                      : SizedBox(
-                        height: 120,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          children: [
+                  // Use LayoutBuilder for the stat cards to make them responsive
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cardWidth =
+                          isSmallScreen
+                              ? constraints.maxWidth * 0.4
+                              : constraints.maxWidth * 0.3;
+
+                      return Column(
+                        children: [
+                          // Users & Groups stats
+                          _buildStatSection('Users & Groups', [
                             _buildAnimatedStatCard(
                               'Users',
                               _dbStats['users'] ?? 0,
                               Icons.people,
                               Colors.blue,
                               0,
+                              cardWidth,
                             ),
                             _buildAnimatedStatCard(
                               'Groups',
@@ -1041,6 +1053,7 @@ class _HomeScreenState extends State<HomeScreen>
                               Icons.group,
                               Colors.green,
                               1,
+                              cardWidth,
                             ),
                             _buildAnimatedStatCard(
                               'Friendships',
@@ -1048,253 +1061,45 @@ class _HomeScreenState extends State<HomeScreen>
                               Icons.handshake,
                               Colors.pink,
                               2,
+                              cardWidth,
                             ),
-                            _buildAnimatedStatCard(
-                              'Tags',
-                              _dbStats['tags'] ?? 0,
-                              Icons.label,
-                              Colors.purple,
-                              3,
-                            ),
-                          ],
-                        ),
-                      ),
+                          ]),
 
-                  const SizedBox(height: 16),
+                          SizedBox(height: screenSize.height * 0.02),
 
-                  // Assessments Stats
-                  const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 8.0,
-                      vertical: 4.0,
-                    ),
-                    child: Text(
-                      'Assessments',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  // Assessment stats in grid
-                  _isLoadingStats
-                      ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                      : SizedBox(
-                        height: 120,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          children: [
+                          // Assessments stats
+                          _buildStatSection('Assessments', [
                             _buildAnimatedStatCard(
-                              'Assessments',
+                              'Total',
                               _dbStats['assessments'] ?? 0,
                               Icons.assignment,
                               Colors.orange,
-                              4,
+                              3,
+                              cardWidth,
                             ),
                             _buildAnimatedStatCard(
-                              'Shared with Users',
+                              'Shared Users',
                               _dbStats['sharedWithUser'] ?? 0,
                               Icons.person_add,
                               Colors.indigo,
-                              5,
+                              4,
+                              cardWidth,
                             ),
                             _buildAnimatedStatCard(
-                              'Shared in Groups',
+                              'Shared Groups',
                               _dbStats['sharedInGroup'] ?? 0,
                               Icons.group_add,
                               Colors.deepOrange,
-                              6,
+                              5,
+                              cardWidth,
                             ),
-                          ],
-                        ),
-                      ),
+                          ]),
 
-                  const SizedBox(height: 16),
-
-                  // Submissions Stats
-                  const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 8.0,
-                      vertical: 4.0,
-                    ),
-                    child: Text(
-                      'Submissions',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  // Submission stats with detailed breakdown
-                  _isLoadingStats
-                      ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                      : Column(
-                        children: [
-                          // Total submissions card
-                          _buildSubmissionTotalCard(
-                            _dbStats['submissions']['total'] ?? 0,
-                            {
-                              'In Progress':
-                                  _dbStats['submissions']['inProgress'] ?? 0,
-                              'Submitted':
-                                  _dbStats['submissions']['submitted'] ?? 0,
-                              'Evaluated':
-                                  _dbStats['submissions']['evaluated'] ?? 0,
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          // Submission status breakdown in horizontal list
-                          SizedBox(
-                            height: 120,
-                            child: ListView(
-                              scrollDirection: Axis.horizontal,
-                              physics: const BouncingScrollPhysics(),
-                              children: [
-                                _buildAnimatedStatCard(
-                                  'In Progress',
-                                  _dbStats['submissions']['inProgress'] ?? 0,
-                                  Icons.hourglass_top,
-                                  Colors.amber,
-                                  7,
-                                ),
-                                _buildAnimatedStatCard(
-                                  'Submitted',
-                                  _dbStats['submissions']['submitted'] ?? 0,
-                                  Icons.check_circle_outline,
-                                  Colors.lightBlue,
-                                  8,
-                                ),
-                                _buildAnimatedStatCard(
-                                  'Evaluated',
-                                  _dbStats['submissions']['evaluated'] ?? 0,
-                                  Icons.grading,
-                                  Colors.teal,
-                                  9,
-                                ),
-                              ],
-                            ),
-                          ),
+                          // Continue with other sections...
                         ],
-                      ),
-
-                  const SizedBox(height: 24),
-
-                  // Dummy Data Generator with improved design
-                  Card(
-                    elevation: 4,
-                    shadowColor: Colors.black.withOpacity(0.1),
-                    color: const Color(0xFFF0F8FF),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: const BorderSide(
-                        color: Color(0xFF6A3DE8),
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFF6A3DE8,
-                                  ).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.data_usage,
-                                  color: Color(0xFF6A3DE8),
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              const Expanded(
-                                child: Text(
-                                  'Generate Dummy Data',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF6A3DE8),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Generate comprehensive dummy data including users, groups, assessments, submissions, and tags with proper relationships for testing and demonstration purposes.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
-                              height: 1.5,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed:
-                                  _isGeneratingDummyData
-                                      ? null
-                                      : _generateDummyData,
-                              icon:
-                                  _isGeneratingDummyData
-                                      ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                      : const Icon(Icons.play_arrow),
-                              label: Text(
-                                _isGeneratingDummyData
-                                    ? 'Generating Data...'
-                                    : 'Generate Data',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF4CAF50),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                disabledBackgroundColor: Colors.grey,
-                                elevation: 2,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                      );
+                    },
                   ),
-
-                  const SizedBox(height: 32),
                 ],
               ),
             ),
@@ -1313,25 +1118,43 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  // Helper method to build animated stat cards
+  Widget _buildStatSection(String title, List<Widget> cards) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(children: cards),
+        ),
+      ],
+    );
+  }
+
+  // Updated helper method to build animated stat cards with dynamic width
   Widget _buildAnimatedStatCard(
     String title,
     int count,
     IconData icon,
     Color color,
     int index,
+    double width,
   ) {
-    // Staggered animation delay based on index
-    final delay = Duration(milliseconds: 100 * index);
-
     return FadeTransition(
       opacity: CurvedAnimation(
         parent: _animationController,
-        curve: Interval(
-          0.1 * (index % 5), // Stagger the start times
-          1.0,
-          curve: Curves.easeOut,
-        ),
+        curve: Interval(0.1 * index, 1.0, curve: Curves.easeOut),
       ),
       child: SlideTransition(
         position: Tween<Offset>(
@@ -1340,12 +1163,12 @@ class _HomeScreenState extends State<HomeScreen>
         ).animate(
           CurvedAnimation(
             parent: _animationController,
-            curve: Interval(0.1 * (index % 5), 1.0, curve: Curves.easeOut),
+            curve: Interval(0.1 * index, 1.0, curve: Curves.easeOut),
           ),
         ),
         child: Container(
-          margin: const EdgeInsets.only(left: 8, right: 8, bottom: 4),
-          width: 160,
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          width: width,
           child: Card(
             elevation: 2,
             shadowColor: color.withOpacity(0.3),
@@ -1362,15 +1185,16 @@ class _HomeScreenState extends State<HomeScreen>
                     children: [
                       Icon(icon, color: color, size: 20),
                       const SizedBox(width: 6),
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: color,
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: color,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -1395,146 +1219,6 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
       ),
-    );
-  }
-
-  // Helper method to build submission total card with pie chart
-  Widget _buildSubmissionTotalCard(int total, Map<String, int> breakdown) {
-    return Card(
-      elevation: 3,
-      shadowColor: Colors.black.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.summarize, color: Colors.deepPurple, size: 20),
-                SizedBox(width: 8),
-                Text(
-                  'Submission Summary',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.deepPurple,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                // Total count with animation
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Total Submissions',
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 4),
-                      TweenAnimationBuilder<int>(
-                        tween: IntTween(begin: 0, end: total),
-                        duration: const Duration(milliseconds: 1000),
-                        builder: (context, value, child) {
-                          return Text(
-                            value.toString(),
-                            style: const TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.deepPurple,
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                // Breakdown in progress bars
-                Expanded(
-                  flex: 3,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildProgressIndicator(
-                        'In Progress',
-                        breakdown['In Progress'] ?? 0,
-                        total,
-                        Colors.amber,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildProgressIndicator(
-                        'Submitted',
-                        breakdown['Submitted'] ?? 0,
-                        total,
-                        Colors.lightBlue,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildProgressIndicator(
-                        'Evaluated',
-                        breakdown['Evaluated'] ?? 0,
-                        total,
-                        Colors.teal,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Helper method to build progress indicators for submission breakdown
-  Widget _buildProgressIndicator(
-    String label,
-    int count,
-    int total,
-    Color color,
-  ) {
-    final percentage = total > 0 ? (count / total * 100) : 0;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-            Text(
-              '$count (${percentage.toStringAsFixed(1)}%)',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        TweenAnimationBuilder<double>(
-          tween: Tween<double>(begin: 0, end: percentage / 100),
-          duration: const Duration(milliseconds: 1000),
-          builder: (context, value, child) {
-            return LinearProgressIndicator(
-              value: value,
-              backgroundColor: Colors.grey[200],
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 6,
-              borderRadius: BorderRadius.circular(3),
-            );
-          },
-        ),
-      ],
     );
   }
 }

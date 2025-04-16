@@ -265,222 +265,473 @@ class _LoginPageState extends State<LoginPage>
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
+    final bool isSmallScreen = screenHeight < 600; // Detect smaller screens
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SizedBox(
-        height: screenHeight,
-        width: screenWidth,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Background purple circle in top right
-            Positioned(
-              top: -50,
-              right: -50,
-              child: Container(
-                width: 150,
-                height: 150,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE6D8FA), // Light purple
-                  shape: BoxShape.circle,
-                ),
+      // Add resizeToAvoidBottomInset to prevent keyboard from pushing up content
+      resizeToAvoidBottomInset: true,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Background purple circle in top right
+          Positioned(
+            top: -50,
+            right: -50,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: const BoxDecoration(
+                color: Color(0xFFE6D8FA), // Light purple
+                shape: BoxShape.circle,
               ),
             ),
+          ),
 
-            // Background pink circle in bottom left
-            Positioned(
-              bottom: -50,
-              left: -50,
-              child: Container(
-                width: 150,
-                height: 150,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFD6E0), // Light pink
-                  shape: BoxShape.circle,
-                ),
+          // Background pink circle in bottom left
+          Positioned(
+            bottom: -50,
+            left: -50,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFD6E0), // Light pink
+                shape: BoxShape.circle,
               ),
             ),
+          ),
 
-            // Main content
-            SafeArea(
-              child: SingleChildScrollView(
-                child: SizedBox(
-                  height:
-                      screenHeight -
-                      MediaQuery.of(context).padding.top -
-                      MediaQuery.of(context).padding.bottom,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 30),
+          // Use SafeArea and LayoutBuilder for responsive layout
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Calculate a more adaptive height for the image based on available height
+                final double imageHeight =
+                    isSmallScreen
+                        ? constraints.maxHeight *
+                            0.2 // Smaller image for small screens
+                        : constraints.maxHeight *
+                            0.28; // Normal size for larger screens
 
-                        // LOGIN title
-                        const Text(
-                          'LOGIN',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF6A5CB5),
-                            letterSpacing: 1.2,
-                          ),
+                return GestureDetector(
+                  // Add GestureDetector to dismiss keyboard when tapping outside
+                  onTap: () => FocusScope.of(context).unfocus(),
+                  child: SingleChildScrollView(
+                    // Avoid ScrollView inside ScrollView
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 24.0,
+                        // Add bottom padding when keyboard is visible to prevent overflow
+                        vertical:
+                            MediaQuery.of(context).viewInsets.bottom > 0
+                                ? 20
+                                : 0,
+                      ),
+                      child: ConstrainedBox(
+                        // Make sure content is at least as tall as available space
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
                         ),
+                        child: Column(
+                          mainAxisSize:
+                              MainAxisSize
+                                  .min, // Use min size to avoid overflow
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            SizedBox(height: isSmallScreen ? 15 : 30),
 
-                        // Login illustration - Increased height for larger image
-                        SizedBox(
-                          height:
-                              screenHeight *
-                              0.35, // Increased to 35% of screen height
-                          child: Center(
-                            child: Image.asset(
-                              'assets/images/login2.png',
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(
-                                      Icons.laptop_mac,
-                                      size: 100,
-                                      color: Colors.deepPurple,
-                                    ),
-                                    const SizedBox(height: 20),
-                                    const Icon(
-                                      Icons.person,
-                                      size: 60,
-                                      color: Colors.amber,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Login illustration',
-                                      style: TextStyle(color: Colors.grey[600]),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-
-                        // Increased spacing after image to push fields further down
-                        const SizedBox(height: 80),
-
-                        // Error message
-                        if (_errorMessage.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 16.0),
-                            child: Text(
-                              _errorMessage,
-                              style: const TextStyle(
-                                color: Colors.red,
-                                fontSize: 14,
+                            // LOGIN title
+                            const Text(
+                              'LOGIN',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF6A5CB5),
+                                letterSpacing: 1.2,
                               ),
-                              textAlign: TextAlign.center,
                             ),
-                          ),
 
-                        // Forgot password UI
-                        if (_showForgotPassword) _buildForgotPasswordUI(),
+                            // Adaptive login illustration with reduced height
+                            SizedBox(
+                              height: imageHeight,
+                              child: Center(
+                                child: Image.asset(
+                                  'assets/images/login2.png',
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.laptop_mac,
+                                          size:
+                                              isSmallScreen
+                                                  ? 60
+                                                  : 100, // Smaller icon on small screens
+                                          color: Colors.deepPurple,
+                                        ),
+                                        SizedBox(
+                                          height: isSmallScreen ? 10 : 20,
+                                        ),
+                                        Icon(
+                                          Icons.person,
+                                          size:
+                                              isSmallScreen
+                                                  ? 40
+                                                  : 60, // Smaller icon on small screens
+                                          color: Colors.amber,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Login illustration',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
 
-                        // Main login form when not showing forgot password
-                        if (!_showForgotPassword) _buildLoginForm(),
+                            // Adaptive spacing after image
+                            SizedBox(height: isSmallScreen ? 40 : 60),
 
-                        const Spacer(), // Push the home indicator to the bottom
-                        // Bottom home indicator
-                        Container(
-                          width: 80,
-                          height: 5,
-                          margin: const EdgeInsets.only(bottom: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(5),
-                          ),
+                            // Error message
+                            if (_errorMessage.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16.0),
+                                child: Text(
+                                  _errorMessage,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 14,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+
+                            // Forgot password UI or Login form - no more Expanded that causes overflow
+                            _showForgotPassword
+                                ? _buildForgotPasswordUI(isSmallScreen)
+                                : _buildLoginForm(isSmallScreen),
+
+                            // Add flexible space
+                            SizedBox(height: isSmallScreen ? 15 : 30),
+
+                            // Bottom home indicator
+                            Container(
+                              width: 80,
+                              height: 5,
+                              margin: const EdgeInsets.only(bottom: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
+            ),
+          ),
+
+          // Animation circles for transitions - matching signup page style
+          if (_isSigningUp)
+            AnimatedBuilder(
+              animation: _animation,
+              builder: (context, child) {
+                return Positioned(
+                  bottom: -80,
+                  left: -80,
+                  child: Transform.scale(
+                    scale: _animation.value,
+                    child: Container(
+                      width: screenWidth,
+                      height: screenWidth,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF6A3DE8), // Purple circle for sign up
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
 
-            // Animation circles for transitions - matching signup page style
-            if (_isSigningUp)
-              AnimatedBuilder(
-                animation: _animation,
-                builder: (context, child) {
-                  return Positioned(
-                    bottom: -80,
-                    left: -80,
-                    child: Transform.scale(
-                      scale: _animation.value,
-                      child: Container(
-                        width: screenWidth,
-                        height: screenWidth,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF6A3DE8), // Purple circle for sign up
-                          shape: BoxShape.circle,
-                        ),
+          if (_isLoggingIn)
+            AnimatedBuilder(
+              animation: _animation,
+              builder: (context, child) {
+                return Positioned(
+                  top: -80,
+                  right: -80,
+                  child: Transform.scale(
+                    scale: _animation.value,
+                    child: Container(
+                      width: screenWidth,
+                      height: screenWidth,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF6A3DE8), // Purple circle for login
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  );
-                },
-              ),
-
-            if (_isLoggingIn)
-              AnimatedBuilder(
-                animation: _animation,
-                builder: (context, child) {
-                  return Positioned(
-                    top: -80,
-                    right: -80,
-                    child: Transform.scale(
-                      scale: _animation.value,
-                      child: Container(
-                        width: screenWidth,
-                        height: screenWidth,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF6A3DE8), // Purple circle for login
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-          ],
-        ),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
     );
   }
 
-  // Login form UI
-  Widget _buildLoginForm() {
-    return Expanded(
-      flex: 4,
+  // Login form UI - removed Expanded to avoid overflow
+  Widget _buildLoginForm(bool isSmallScreen) {
+    return Column(
+      mainAxisSize: MainAxisSize.min, // Use min size to prevent overflow
+      children: [
+        // Email field
+        Container(
+          width: double.infinity,
+          height: 55,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE6D8FA), // Light purple
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: TextField(
+            controller: _emailController,
+            decoration: const InputDecoration(
+              hintText: 'Email',
+              hintStyle: TextStyle(
+                color: Color(0xFFA391C8),
+                fontWeight: FontWeight.w400,
+              ),
+              prefixIcon: Padding(
+                padding: EdgeInsets.only(left: 15, right: 10),
+                child: Icon(Icons.person, color: Color(0xFF6A5CB5), size: 22),
+              ),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(vertical: 18),
+            ),
+            keyboardType: TextInputType.emailAddress,
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Password field
+        Container(
+          width: double.infinity,
+          height: 55,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE6D8FA), // Light purple
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: TextField(
+            controller: _passwordController,
+            obscureText: _obscureText,
+            decoration: InputDecoration(
+              hintText: 'Password',
+              hintStyle: const TextStyle(
+                color: Color(0xFFA391C8),
+                fontWeight: FontWeight.w400,
+              ),
+              prefixIcon: const Padding(
+                padding: EdgeInsets.only(left: 15, right: 10),
+                child: Icon(Icons.lock, color: Color(0xFF6A5CB5), size: 22),
+              ),
+              suffixIcon: Padding(
+                padding: const EdgeInsets.only(right: 15),
+                child: IconButton(
+                  icon: Icon(
+                    _obscureText ? Icons.visibility_off : Icons.visibility,
+                    color: const Color(0xFFA391C8),
+                    size: 22,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscureText = !_obscureText;
+                    });
+                  },
+                ),
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 18),
+            ),
+          ),
+        ),
+
+        SizedBox(height: isSmallScreen ? 16 : 24),
+
+        // Login button
+        SizedBox(
+          width: double.infinity,
+          height: 55,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _login,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6A3DE8), // Purple
+              disabledBackgroundColor: const Color(
+                0xFFA391C8,
+              ), // Lighter purple when disabled
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+            child:
+                _isLoading
+                    ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                    : const Text(
+                      'LOGIN',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+          ),
+        ),
+
+        SizedBox(height: isSmallScreen ? 12 : 16),
+
+        // Don't have an Account text
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Don\'t have an Account? ',
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+            GestureDetector(
+              onTap: _isLoading ? null : _startSignUpAnimation,
+              child: const Text(
+                'Sign up',
+                style: TextStyle(
+                  color: Color(0xFF6A3DE8),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        SizedBox(height: isSmallScreen ? 16 : 20),
+
+        // Forgot Password button with improved UI
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _isLoading ? null : _toggleForgotPassword,
+            borderRadius: BorderRadius.circular(30),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: const Color(0xFF6A3DE8), width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.lock_reset, size: 18, color: Color(0xFF6A3DE8)),
+                  SizedBox(width: 8),
+                  Text(
+                    'Forgot Password?',
+                    style: TextStyle(
+                      color: Color(0xFF6A3DE8),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Forgot password UI - removed Expanded to avoid overflow
+  Widget _buildForgotPasswordUI(bool isSmallScreen) {
+    return Container(
+      padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            spreadRadius: 1,
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: Column(
+        mainAxisSize: MainAxisSize.min, // Use min size to prevent overflow
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Email field
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Reset Password',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF6A3DE8),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.grey),
+                onPressed: _toggleForgotPassword,
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints(), // Remove padding constraints
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          const Text(
+            'Enter your email address and we will send you instructions to reset your password.',
+            style: TextStyle(color: Colors.grey, fontSize: 14),
+          ),
+
+          SizedBox(height: isSmallScreen ? 16 : 20),
+
+          // Email field for password reset
           Container(
             width: double.infinity,
             height: 55,
             decoration: BoxDecoration(
-              color: const Color(0xFFE6D8FA), // Light purple
-              borderRadius: BorderRadius.circular(30),
+              color: const Color(0xFFF5F5F5),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE0E0E0)),
             ),
             child: TextField(
-              controller: _emailController,
+              controller: _resetEmailController,
               decoration: const InputDecoration(
                 hintText: 'Email',
-                hintStyle: TextStyle(
-                  color: Color(0xFFA391C8),
-                  fontWeight: FontWeight.w400,
-                ),
-                prefixIcon: Padding(
-                  padding: EdgeInsets.only(left: 15, right: 10),
-                  child: Icon(Icons.person, color: Color(0xFF6A5CB5), size: 22),
-                ),
+                hintStyle: TextStyle(color: Colors.grey),
+                prefixIcon: Icon(Icons.email, color: Color(0xFF6A3DE8)),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(vertical: 18),
               ),
@@ -488,66 +739,20 @@ class _LoginPageState extends State<LoginPage>
             ),
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: isSmallScreen ? 16 : 20),
 
-          // Password field
-          Container(
-            width: double.infinity,
-            height: 55,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE6D8FA), // Light purple
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: TextField(
-              controller: _passwordController,
-              obscureText: _obscureText,
-              decoration: InputDecoration(
-                hintText: 'Password',
-                hintStyle: const TextStyle(
-                  color: Color(0xFFA391C8),
-                  fontWeight: FontWeight.w400,
-                ),
-                prefixIcon: const Padding(
-                  padding: EdgeInsets.only(left: 15, right: 10),
-                  child: Icon(Icons.lock, color: Color(0xFF6A5CB5), size: 22),
-                ),
-                suffixIcon: Padding(
-                  padding: const EdgeInsets.only(right: 15),
-                  child: IconButton(
-                    icon: Icon(
-                      _obscureText ? Icons.visibility_off : Icons.visibility,
-                      color: const Color(0xFFA391C8),
-                      size: 22,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscureText = !_obscureText;
-                      });
-                    },
-                  ),
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 18),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Login button
+          // Send button
           SizedBox(
             width: double.infinity,
             height: 55,
             child: ElevatedButton(
-              onPressed: _isLoading ? null : _login,
+              onPressed: _isLoading ? null : _sendPasswordResetEmail,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6A3DE8), // Purple
-                disabledBackgroundColor: const Color(
-                  0xFFA391C8,
-                ), // Lighter purple when disabled
+                backgroundColor: const Color(0xFF6A3DE8),
+                disabledBackgroundColor: const Color(0xFFA391C8),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
               child:
@@ -561,206 +766,33 @@ class _LoginPageState extends State<LoginPage>
                         ),
                       )
                       : const Text(
-                        'LOGIN',
+                        'SEND RESET LINK',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
-                          letterSpacing: 1.0,
                         ),
                       ),
             ),
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: isSmallScreen ? 12 : 15),
 
-          // Don't have an Account text
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Don\'t have an Account? ',
-                style: TextStyle(color: Colors.grey, fontSize: 14),
-              ),
-              GestureDetector(
-                onTap: _isLoading ? null : _startSignUpAnimation,
-                child: const Text(
-                  'Sign up',
-                  style: TextStyle(
-                    color: Color(0xFF6A3DE8),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Forgot Password button with improved UI
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _isLoading ? null : _toggleForgotPassword,
-              borderRadius: BorderRadius.circular(30),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: const Color(0xFF6A3DE8), width: 1),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.lock_reset, size: 18, color: Color(0xFF6A3DE8)),
-                    SizedBox(width: 8),
-                    Text(
-                      'Forgot Password?',
-                      style: TextStyle(
-                        color: Color(0xFF6A3DE8),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          // Back to login option
+          TextButton.icon(
+            onPressed: _toggleForgotPassword,
+            icon: const Icon(
+              Icons.arrow_back,
+              size: 18,
+              color: Color(0xFF6A3DE8),
             ),
+            label: const Text(
+              'Back to Login',
+              style: TextStyle(color: Color(0xFF6A3DE8), fontSize: 14),
+            ),
+            style: TextButton.styleFrom(padding: EdgeInsets.zero),
           ),
         ],
-      ),
-    );
-  }
-
-  // Forgot password UI
-  Widget _buildForgotPasswordUI() {
-    return Expanded(
-      flex: 4,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              spreadRadius: 1,
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Reset Password',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF6A3DE8),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey),
-                  onPressed: _toggleForgotPassword,
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 10),
-
-            const Text(
-              'Enter your email address and we will send you instructions to reset your password.',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Email field for password reset
-            Container(
-              width: double.infinity,
-              height: 55,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE0E0E0)),
-              ),
-              child: TextField(
-                controller: _resetEmailController,
-                decoration: const InputDecoration(
-                  hintText: 'Email',
-                  hintStyle: TextStyle(color: Colors.grey),
-                  prefixIcon: Icon(Icons.email, color: Color(0xFF6A3DE8)),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 18),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Send button
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _sendPasswordResetEmail,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6A3DE8),
-                  disabledBackgroundColor: const Color(0xFFA391C8),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child:
-                    _isLoading
-                        ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Colors.white,
-                          ),
-                        )
-                        : const Text(
-                          'SEND RESET LINK',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            // Back to login option
-            TextButton.icon(
-              onPressed: _toggleForgotPassword,
-              icon: const Icon(
-                Icons.arrow_back,
-                size: 18,
-                color: Color(0xFF6A3DE8),
-              ),
-              label: const Text(
-                'Back to Login',
-                style: TextStyle(color: Color(0xFF6A3DE8), fontSize: 14),
-              ),
-              style: TextButton.styleFrom(padding: EdgeInsets.zero),
-            ),
-          ],
-        ),
       ),
     );
   }

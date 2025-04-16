@@ -32,9 +32,6 @@ class _SignupPageState extends State<SignupPage>
   bool _isSigningIn = false;
   bool _isSigningUp = false;
 
-  // Track whether signup was with email (to determine where to navigate)
-  bool _isEmailSignup = false;
-
   // Firebase Auth instance
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -59,45 +56,33 @@ class _SignupPageState extends State<SignupPage>
         Future.delayed(const Duration(milliseconds: 100), () {
           if (mounted) {
             if (_isSigningUp && _errorMessage.isEmpty) {
-              if (_isEmailSignup) {
-                // Redirect to profile setup page for email sign-ups only
-                Navigator.of(context).pushReplacement(
-                  PageRouteBuilder(
-                    pageBuilder:
-                        (context, animation, secondaryAnimation) =>
-                            const ProfileSetupPage(),
-                    transitionsBuilder: (
-                      context,
-                      animation,
-                      secondaryAnimation,
-                      child,
-                    ) {
-                      return FadeTransition(opacity: animation, child: child);
-                    },
-                    transitionDuration: const Duration(milliseconds: 300),
-                  ),
-                );
-              } else {
-                // Social sign-ups go straight to home screen
-                Navigator.of(context).pushReplacement(
-                  PageRouteBuilder(
-                    pageBuilder:
-                        (context, animation, secondaryAnimation) =>
-                            const HomeScreen(),
-                    transitionsBuilder: (
-                      context,
-                      animation,
-                      secondaryAnimation,
-                      child,
-                    ) {
-                      return FadeTransition(opacity: animation, child: child);
-                    },
-                    transitionDuration: const Duration(milliseconds: 300),
-                  ),
-                );
-              }
+              // Redirect all sign-ups to profile setup page
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) {
+                    // For Google Sign In, pass the pre-filled values
+                    if (!_isEmailSignup && _googleUserInfo != null) {
+                      return ProfileSetupPage(
+                        prefillName: _googleUserInfo!['displayName'],
+                        prefillPhotoURL: _googleUserInfo!['photoURL'],
+                      );
+                    }
+                    // For email signup, just go to the regular profile setup
+                    return const ProfileSetupPage();
+                  },
+                  transitionsBuilder: (
+                    context,
+                    animation,
+                    secondaryAnimation,
+                    child,
+                  ) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
+                  transitionDuration: const Duration(milliseconds: 300),
+                ),
+              );
             } else if (_isSigningIn) {
-              // Create a page route with a transition
+              // Navigate to login page
               Navigator.of(context).pushReplacement(
                 PageRouteBuilder(
                   pageBuilder:
@@ -149,34 +134,11 @@ class _SignupPageState extends State<SignupPage>
     }
   }
 
-  // Save profile image to local app directory
-  Future<String> _saveProfileImage(File imageFile, String userId) async {
-    try {
-      // Get application documents directory
-      final Directory appDocDir = await getApplicationDocumentsDirectory();
+  // Track whether signup was with email
+  bool _isEmailSignup = false;
 
-      // Create the structure: profile_pics/user_id
-      final Directory profilePicsDir = Directory(
-        '${appDocDir.path}/profile_pics/$userId',
-      );
-      if (!await profilePicsDir.exists()) {
-        await profilePicsDir.create(recursive: true);
-      }
-
-      // Generate file name with original extension
-      final String fileName = 'profile${path.extension(imageFile.path)}';
-      final String localPath = '${profilePicsDir.path}/$fileName';
-
-      // Copy the file to the new location
-      await imageFile.copy(localPath);
-
-      print('Image saved at: $localPath');
-      return localPath;
-    } catch (e) {
-      print('Error saving image: $e');
-      throw Exception('Failed to save profile image: $e');
-    }
-  }
+  // Store Google user info for pre-filling in profile setup
+  Map<String, String>? _googleUserInfo;
 
   Future<void> _signUpWithEmail() async {
     // If already loading, don't allow another request
@@ -285,41 +247,23 @@ class _SignupPageState extends State<SignupPage>
       final User? user = userCredential.user;
 
       if (user != null) {
-        // Save profile image if available from Google
-        String? photoURL;
-
-        if (gUser.photoUrl != null) {
-          try {
-            // Download the image from Google
-            final http.Response response = await http.get(
-              Uri.parse(gUser.photoUrl!),
-            );
-
-            // Create a temporary file
-            final Directory tempDir = await getTemporaryDirectory();
-            final File tempFile = File(
-              '${tempDir.path}/google_profile_image.jpg',
-            );
-            await tempFile.writeAsBytes(response.bodyBytes);
-
-            // Save profile image to local storage
-            photoURL = await _saveProfileImage(tempFile, user.uid);
-          } catch (e) {
-            print('Error downloading Google profile image: $e');
-            // Continue without image if there was an error
-          }
-        }
-
-        // Set up user data in Firestore
-        await _firestore.collection('users').doc(user.uid).set({
-          'userId': user.uid,
+        // Store Google user data for pre-filling profile setup
+        _googleUserInfo = {
           'displayName': gUser.displayName ?? '',
+          'photoURL': gUser.photoUrl ?? '',
           'email': gUser.email,
-          'photoURL': photoURL ?? '',
-          'createdAt': FieldValue.serverTimestamp(),
-          'lastActive': FieldValue.serverTimestamp(),
-          'settings': {'notificationsEnabled': true, 'theme': 'light'},
-        });
+        };
+
+        // Create minimal user record in Firestore
+        // (The full profile will be created in ProfileSetupPage)
+        await _firestore.collection('users').doc(user.uid).set(
+          {
+            'userId': user.uid,
+            'email': gUser.email,
+            'createdAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        ); // Use merge true to prevent overwriting if exists
       }
 
       // Set flag that this was NOT an email signup
@@ -370,8 +314,14 @@ class _SignupPageState extends State<SignupPage>
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    final screenWidth = mediaQuery.size.width;
+    final safeAreaTop = mediaQuery.padding.top;
+    final safeAreaBottom = mediaQuery.padding.bottom;
+
+    // Calculate the available height for content
+    final availableHeight = screenHeight - safeAreaTop - safeAreaBottom;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -381,14 +331,6 @@ class _SignupPageState extends State<SignupPage>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Status bar placeholder
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(height: 40, color: Colors.transparent),
-            ),
-
             // Background purple circle in top left
             Positioned(
               top: -50,
@@ -417,17 +359,16 @@ class _SignupPageState extends State<SignupPage>
               ),
             ),
 
-            // Main content
+            // Main content with SingleChildScrollView to handle overflow
             SafeArea(
               child: SingleChildScrollView(
-                child: SizedBox(
-                  height:
-                      screenHeight -
-                      MediaQuery.of(context).padding.top -
-                      MediaQuery.of(context).padding.bottom,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                physics: const ClampingScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: availableHeight),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const SizedBox(height: 30),
@@ -445,10 +386,9 @@ class _SignupPageState extends State<SignupPage>
 
                         const SizedBox(height: 20),
 
-                        // Signup illustration - making it larger
+                        // Signup illustration - responsive sizing
                         SizedBox(
-                          height:
-                              screenHeight * 0.28, // About 28% of screen height
+                          height: availableHeight * 0.25, // Adaptive height
                           child: Center(
                             child: Image.asset(
                               'assets/images/signup2.png',
@@ -474,9 +414,7 @@ class _SignupPageState extends State<SignupPage>
                           ),
                         ),
 
-                        // More space after image - increased
-                        const SizedBox(height: 60),
-
+                        const SizedBox(height: 30), // Reduced space
                         // Error message
                         if (_errorMessage.isNotEmpty)
                           Padding(
@@ -491,344 +429,316 @@ class _SignupPageState extends State<SignupPage>
                             ),
                           ),
 
-                        // Form fields and buttons - now in an Expanded to take remaining space
-                        Expanded(
-                          child: Column(
-                            children: [
-                              // Email field
-                              Container(
-                                width: double.infinity,
-                                height: 55,
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFFF0E6FA,
-                                  ), // Light purple
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                                child: TextField(
-                                  controller: _emailController,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Email',
-                                    hintStyle: TextStyle(
-                                      color: Color(0xFFA391C8),
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                    prefixIcon: Padding(
-                                      padding: EdgeInsets.only(
-                                        left: 15,
-                                        right: 10,
-                                      ),
-                                      child: Icon(
-                                        Icons.person,
-                                        color: Color(0xFF6A5CB5),
-                                        size: 22,
-                                      ),
-                                    ),
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      vertical: 18,
-                                    ),
-                                  ),
-                                  keyboardType: TextInputType.emailAddress,
+                        // Email field
+                        Container(
+                          width: double.infinity,
+                          height: 55,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0E6FA), // Light purple
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: TextField(
+                            controller: _emailController,
+                            decoration: const InputDecoration(
+                              hintText: 'Email',
+                              hintStyle: TextStyle(
+                                color: Color(0xFFA391C8),
+                                fontWeight: FontWeight.w400,
+                              ),
+                              prefixIcon: Padding(
+                                padding: EdgeInsets.only(left: 15, right: 10),
+                                child: Icon(
+                                  Icons.person,
+                                  color: Color(0xFF6A5CB5),
+                                  size: 22,
                                 ),
                               ),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 18,
+                              ),
+                            ),
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                        ),
 
-                              const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
-                              // Password field
-                              Container(
-                                width: double.infinity,
-                                height: 55,
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFFF0E6FA,
-                                  ), // Light purple
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                                child: TextField(
-                                  controller: _passwordController,
-                                  obscureText: _obscureText,
-                                  decoration: InputDecoration(
-                                    hintText: 'Password',
-                                    hintStyle: const TextStyle(
-                                      color: Color(0xFFA391C8),
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                    prefixIcon: const Padding(
-                                      padding: EdgeInsets.only(
-                                        left: 15,
-                                        right: 10,
-                                      ),
-                                      child: Icon(
-                                        Icons.lock,
-                                        color: Color(0xFF6A5CB5),
-                                        size: 22,
-                                      ),
-                                    ),
-                                    suffixIcon: Padding(
-                                      padding: const EdgeInsets.only(right: 15),
-                                      child: IconButton(
-                                        icon: Icon(
-                                          _obscureText
-                                              ? Icons.visibility_off
-                                              : Icons.visibility,
-                                          color: const Color(0xFFA391C8),
-                                          size: 22,
-                                        ),
-                                        onPressed: () {
-                                          setState(() {
-                                            _obscureText = !_obscureText;
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                    border: InputBorder.none,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      vertical: 18,
-                                    ),
-                                  ),
+                        // Password field
+                        Container(
+                          width: double.infinity,
+                          height: 55,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0E6FA), // Light purple
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: TextField(
+                            controller: _passwordController,
+                            obscureText: _obscureText,
+                            decoration: InputDecoration(
+                              hintText: 'Password',
+                              hintStyle: const TextStyle(
+                                color: Color(0xFFA391C8),
+                                fontWeight: FontWeight.w400,
+                              ),
+                              prefixIcon: const Padding(
+                                padding: EdgeInsets.only(left: 15, right: 10),
+                                child: Icon(
+                                  Icons.lock,
+                                  color: Color(0xFF6A5CB5),
+                                  size: 22,
                                 ),
                               ),
-
-                              const SizedBox(height: 24),
-
-                              // Signup button
-                              SizedBox(
-                                width: double.infinity,
-                                height: 55,
-                                child: ElevatedButton(
-                                  onPressed:
-                                      _isLoading ? null : _signUpWithEmail,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(
-                                      0xFF6A3DE8,
-                                    ), // Bright purple
-                                    disabledBackgroundColor: const Color(
-                                      0xFFA391C8,
-                                    ), // Lighter purple when disabled
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(30),
-                                    ),
+                              suffixIcon: Padding(
+                                padding: const EdgeInsets.only(right: 15),
+                                child: IconButton(
+                                  icon: Icon(
+                                    _obscureText
+                                        ? Icons.visibility_off
+                                        : Icons.visibility,
+                                    color: const Color(0xFFA391C8),
+                                    size: 22,
                                   ),
-                                  child:
-                                      _isLoading
-                                          ? const SizedBox(
-                                            height: 20,
-                                            width: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2.5,
-                                              color: Colors.white,
-                                            ),
-                                          )
-                                          : const Text(
-                                            'SIGNUP',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.white,
-                                              letterSpacing: 1.0,
-                                            ),
-                                          ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscureText = !_obscureText;
+                                    });
+                                  },
                                 ),
                               ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 18,
+                              ),
+                            ),
+                          ),
+                        ),
 
-                              const SizedBox(height: 16),
+                        const SizedBox(height: 24),
 
-                              // Already have an Account text
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Text(
-                                    'Already have an Account? ',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  GestureDetector(
-                                    onTap:
-                                        _isLoading
-                                            ? null
-                                            : _startSignInAnimation,
-                                    child: const Text(
-                                      'Sign in',
+                        // Signup button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 55,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _signUpWithEmail,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(
+                                0xFF6A3DE8,
+                              ), // Bright purple
+                              disabledBackgroundColor: const Color(
+                                0xFFA391C8,
+                              ), // Lighter purple when disabled
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
+                            child:
+                                _isLoading
+                                    ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                    : const Text(
+                                      'SIGNUP',
                                       style: TextStyle(
-                                        color: Color(0xFF6A3DE8),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                        letterSpacing: 1.0,
                                       ),
                                     ),
-                                  ),
-                                ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Already have an Account text
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'Already have an Account? ',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
                               ),
+                            ),
+                            GestureDetector(
+                              onTap: _isLoading ? null : _startSignInAnimation,
+                              child: const Text(
+                                'Sign in',
+                                style: TextStyle(
+                                  color: Color(0xFF6A3DE8),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
 
-                              const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
-                              // OR divider
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Container(
-                                      height: 1,
-                                      color: Colors.grey[300],
+                        // OR divider
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                height: 1,
+                                color: Colors.grey[300],
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8.0),
+                              child: Text(
+                                'OR',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Container(
+                                height: 1,
+                                color: Colors.grey[300],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Social media buttons row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // GitHub button
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _signInWithGitHub,
+                                borderRadius: BorderRadius.circular(25),
+                                splashColor: Colors.grey.withOpacity(0.1),
+                                child: Ink(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.code,
+                                      color: Color(
+                                        0xFF333333,
+                                      ), // GitHub dark color
+                                      size: 24,
                                     ),
                                   ),
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 8.0,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(width: 20),
+
+                            // Microsoft button
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _signInWithMicrosoft,
+                                borderRadius: BorderRadius.circular(25),
+                                splashColor: Colors.grey.withOpacity(0.1),
+                                child: Ink(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.grid_view,
+                                      color: Color(
+                                        0xFF00A4EF,
+                                      ), // Microsoft blue
+                                      size: 24,
                                     ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(width: 20),
+
+                            // Google button with Material for better touch response
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _signInWithGoogle,
+                                borderRadius: BorderRadius.circular(25),
+                                splashColor: Colors.grey.withOpacity(0.1),
+                                child: Ink(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
                                     child: Text(
-                                      'OR',
-                                      textAlign: TextAlign.center,
+                                      'G',
                                       style: TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 14,
+                                        color: Colors.red[500],
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                  Expanded(
-                                    child: Container(
-                                      height: 1,
-                                      color: Colors.grey[300],
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              // Social media buttons row
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  // GitHub button
-                                  Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: _signInWithGitHub,
-                                      borderRadius: BorderRadius.circular(25),
-                                      splashColor: Colors.grey.withOpacity(0.1),
-                                      child: Ink(
-                                        width: 50,
-                                        height: 50,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.1,
-                                              ),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Center(
-                                          child: Icon(
-                                            Icons.code,
-                                            color: Color(
-                                              0xFF333333,
-                                            ), // GitHub dark color
-                                            size: 24,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                  const SizedBox(width: 20),
-
-                                  // Microsoft button
-                                  Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: _signInWithMicrosoft,
-                                      borderRadius: BorderRadius.circular(25),
-                                      splashColor: Colors.grey.withOpacity(0.1),
-                                      child: Ink(
-                                        width: 50,
-                                        height: 50,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.1,
-                                              ),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Center(
-                                          child: Icon(
-                                            Icons.grid_view,
-                                            color: Color(
-                                              0xFF00A4EF,
-                                            ), // Microsoft blue
-                                            size: 24,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                  const SizedBox(width: 20),
-
-                                  // Google button with Material for better touch response
-                                  Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: _signInWithGoogle,
-                                      borderRadius: BorderRadius.circular(25),
-                                      splashColor: Colors.grey.withOpacity(0.1),
-                                      child: Ink(
-                                        width: 50,
-                                        height: 50,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.1,
-                                              ),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            'G',
-                                            style: TextStyle(
-                                              color: Colors.red[500],
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const Spacer(), // Push the home indicator to the bottom
-                              // Bottom home indicator
-                              Container(
-                                width: 80,
-                                height: 5,
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade300,
-                                  borderRadius: BorderRadius.circular(5),
                                 ),
                               ),
-                            ],
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 30),
+
+                        // Bottom home indicator
+                        Container(
+                          width: 80,
+                          height: 5,
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(5),
                           ),
                         ),
                       ],

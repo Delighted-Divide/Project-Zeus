@@ -121,7 +121,7 @@ class _StartupPageState extends State<StartupPage> {
                               ),
                               const SizedBox(height: 20),
                               Text(
-                                'Welcome to EDU',
+                                'Welcome to Grade Genie',
                                 style: TextStyle(
                                   color: Colors.grey[600],
                                   fontSize: 24,

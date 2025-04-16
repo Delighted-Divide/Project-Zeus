@@ -8,7 +8,10 @@ import 'package:path_provider/path_provider.dart';
 import 'home_screen.dart';
 
 class ProfileSetupPage extends StatefulWidget {
-  const ProfileSetupPage({super.key});
+  final String? prefillName;
+  final String? prefillPhotoURL;
+
+  const ProfileSetupPage({this.prefillName, this.prefillPhotoURL, super.key});
 
   @override
   State<ProfileSetupPage> createState() => _ProfileSetupPageState();
@@ -17,11 +20,17 @@ class ProfileSetupPage extends StatefulWidget {
 class _ProfileSetupPageState extends State<ProfileSetupPage>
     with SingleTickerProviderStateMixin {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
+  final TextEditingController _statusController = TextEditingController();
+  final TextEditingController _tagSearchController = TextEditingController();
+
   File? _selectedImage;
+  String? _networkImageURL;
   bool _isLoading = false;
   String _errorMessage = '';
   DateTime? _lastErrorTime;
   bool _isCompleting = false;
+  bool _isSearchingTags = false;
 
   // New controllers and variables for additional fields
   String _selectedPrivacyLevel = 'friends-only';
@@ -39,6 +48,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     'Chemistry',
     'Biology',
   ];
+  List<String> _filteredTags = [];
   final List<String> _selectedTags = [];
 
   // Animation controller for transitions
@@ -91,11 +101,45 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
         });
       }
     });
+
+    // Set prefilled values if available
+    if (widget.prefillName != null && widget.prefillName!.isNotEmpty) {
+      _nameController.text = widget.prefillName!;
+    }
+
+    if (widget.prefillPhotoURL != null && widget.prefillPhotoURL!.isNotEmpty) {
+      _networkImageURL = widget.prefillPhotoURL;
+    }
+
+    _filteredTags = List.from(_availableTags);
+
+    _tagSearchController.addListener(_filterTags);
+  }
+
+  void _filterTags() {
+    final query = _tagSearchController.text.toLowerCase();
+    if (query.isEmpty) {
+      setState(() {
+        _filteredTags = List.from(_availableTags);
+        _isSearchingTags = false;
+      });
+    } else {
+      setState(() {
+        _filteredTags =
+            _availableTags
+                .where((tag) => tag.toLowerCase().contains(query))
+                .toList();
+        _isSearchingTags = true;
+      });
+    }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _bioController.dispose();
+    _statusController.dispose();
+    _tagSearchController.dispose();
     _animationController.dispose();
     _pageController.dispose();
     super.dispose();
@@ -127,6 +171,8 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
       if (image != null) {
         setState(() {
           _selectedImage = File(image.path);
+          _networkImageURL =
+              null; // Clear network image if local image is selected
         });
       }
     } catch (e) {
@@ -262,6 +308,20 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     });
   }
 
+  // Create a new tag from search input
+  void _createNewTag() {
+    final newTag = _tagSearchController.text.trim();
+    if (newTag.isNotEmpty && !_availableTags.contains(newTag)) {
+      setState(() {
+        _availableTags.add(newTag);
+        _selectedTags.add(newTag);
+        _tagSearchController.clear();
+        _filteredTags = List.from(_availableTags);
+        _isSearchingTags = false;
+      });
+    }
+  }
+
   // Complete profile setup
   Future<void> _completeProfileSetup() async {
     // If already loading, don't allow another request
@@ -297,7 +357,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
       // Prepare user data
       String? photoURL;
 
-      // Save image if selected
+      // Save image if selected (local file takes precedence over network URL)
       if (_selectedImage != null) {
         try {
           photoURL = await _saveProfileImage(_selectedImage!, user.uid);
@@ -308,16 +368,21 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
           });
           return;
         }
+      } else if (_networkImageURL != null) {
+        photoURL = _networkImageURL;
       }
 
-      // Set up user data in Firestore with all the new fields
+      // Set up user data in Firestore with all the fields
       await _firestore.collection('users').doc(user.uid).set({
         'userId': user.uid,
         'displayName': _nameController.text.trim(),
         'email': user.email,
         'photoURL': photoURL ?? '',
+        'bio': _bioController.text.trim(),
+        'status': _statusController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
         'lastActive': FieldValue.serverTimestamp(),
+        'isActive': true,
         'privacyLevel': _selectedPrivacyLevel,
         'favTags': _selectedTags,
         'settings': {
@@ -482,6 +547,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                       },
                       children: [
                         _buildBasicInfoPage(),
+                        _buildBioStatusPage(), // New page for bio and status
                         _buildPreferencesPage(),
                         _buildFinalSettingsPage(),
                       ],
@@ -628,6 +694,11 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                                 image: FileImage(_selectedImage!),
                                 fit: BoxFit.cover,
                               )
+                              : _networkImageURL != null
+                              ? DecorationImage(
+                                image: NetworkImage(_networkImageURL!),
+                                fit: BoxFit.cover,
+                              )
                               : null,
                       boxShadow: [
                         BoxShadow(
@@ -638,7 +709,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                       ],
                     ),
                     child:
-                        _selectedImage == null
+                        (_selectedImage == null && _networkImageURL == null)
                             ? const Icon(
                               Icons.person,
                               size: 60,
@@ -667,7 +738,9 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
 
             // Add photo text
             Text(
-              _selectedImage == null ? 'Add Profile Photo' : 'Change Photo',
+              (_selectedImage == null && _networkImageURL == null)
+                  ? 'Add Profile Photo'
+                  : 'Change Photo',
               style: const TextStyle(
                 color: Color(0xFF6A3DE8),
                 fontWeight: FontWeight.w500,
@@ -737,6 +810,138 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                   SizedBox(height: 8),
                   Text(
                     'Your name will be visible to other users in the app. Adding a profile picture helps your friends recognize you.',
+                    style: TextStyle(color: Colors.black87),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // New Page: Bio and Status
+  Widget _buildBioStatusPage() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+
+            // Section title
+            const Text(
+              'Tell us about yourself',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF6A5CB5),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Bio field
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0E6FA),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
+              ),
+              child: TextField(
+                controller: _bioController,
+                style: const TextStyle(fontSize: 16),
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Bio',
+                  hintText: 'Share a little about yourself...',
+                  labelStyle: TextStyle(
+                    color: Color(0xFF6A5CB5),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  floatingLabelBehavior: FloatingLabelBehavior.auto,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  border: InputBorder.none,
+                  prefixIcon: Padding(
+                    padding: EdgeInsets.only(bottom: 64),
+                    child: Icon(
+                      Icons.description_outlined,
+                      color: Color(0xFF6A5CB5),
+                    ),
+                  ),
+                ),
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Status field
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0E6FA),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
+              ),
+              child: TextField(
+                controller: _statusController,
+                style: const TextStyle(fontSize: 16),
+                decoration: const InputDecoration(
+                  labelText: 'Status',
+                  hintText: 'What are you up to right now?',
+                  labelStyle: TextStyle(
+                    color: Color(0xFF6A5CB5),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  floatingLabelBehavior: FloatingLabelBehavior.auto,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  border: InputBorder.none,
+                  prefixIcon: Icon(
+                    Icons.sentiment_satisfied_alt,
+                    color: Color(0xFF6A5CB5),
+                  ),
+                ),
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            // Explanation text
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE1F5FE),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: const Color(0xFFB3E5FC), width: 1),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Row(
+                    children: [
+                      Icon(Icons.tips_and_updates, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Text(
+                        'Profile Tips',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Your bio helps others learn more about you. Your status shows what you\'re currently focusing on or interested in.',
                     style: TextStyle(color: Colors.black87),
                   ),
                 ],
@@ -840,47 +1045,131 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
 
             const SizedBox(height: 16),
 
-            // Tags grid
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children:
-                  _availableTags.map((tag) {
-                    final isSelected = _selectedTags.contains(tag);
-                    return GestureDetector(
-                      onTap: () => _toggleTag(tag),
-                      child: Container(
+            // Search tags field
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0E6FA),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
+              ),
+              child: TextField(
+                controller: _tagSearchController,
+                style: const TextStyle(fontSize: 16),
+                decoration: InputDecoration(
+                  hintText: 'Search or create a tag...',
+                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: Color(0xFF6A5CB5),
+                  ),
+                  suffixIcon:
+                      _isSearchingTags
+                          ? IconButton(
+                            icon: const Icon(
+                              Icons.add_circle,
+                              color: Color(0xFF6A3DE8),
+                            ),
+                            onPressed: _createNewTag,
+                            tooltip: 'Create new tag',
+                          )
+                          : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Selected tags
+            if (_selectedTags.isNotEmpty) ...[
+              const Text(
+                'Selected Tags:',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF6A5CB5),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children:
+                    _selectedTags.map((tag) {
+                      return Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 10,
                         ),
                         decoration: BoxDecoration(
-                          color:
-                              isSelected
-                                  ? const Color(0xFF6A3DE8)
-                                  : const Color(0xFFF0E6FA),
+                          color: const Color(0xFF6A3DE8),
                           borderRadius: BorderRadius.circular(30),
-                          border: Border.all(
-                            color:
-                                isSelected
-                                    ? const Color(0xFF6A3DE8)
-                                    : const Color(0xFFE0E0E0),
-                            width: 1,
-                          ),
                         ),
-                        child: Text(
-                          tag,
-                          style: TextStyle(
-                            color:
-                                isSelected
-                                    ? Colors.white
-                                    : const Color(0xFF6A5CB5),
-                            fontWeight: FontWeight.w500,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              tag,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            GestureDetector(
+                              onTap: () => _toggleTag(tag),
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    );
-                  }).toList(),
+                      );
+                    }).toList(),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Filtered tags
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children:
+                  _filteredTags
+                      .where((tag) => !_selectedTags.contains(tag))
+                      .map((tag) {
+                        return GestureDetector(
+                          onTap: () => _toggleTag(tag),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0E6FA),
+                              borderRadius: BorderRadius.circular(30),
+                              border: Border.all(
+                                color: const Color(0xFFE0E0E0),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              tag,
+                              style: const TextStyle(
+                                color: Color(0xFF6A5CB5),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        );
+                      })
+                      .toList(),
             ),
 
             const SizedBox(height: 30),

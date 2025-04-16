@@ -53,6 +53,7 @@ class AppConstants {
     {'value': 'gemini-2.0-flash-lite', 'label': 'Gemini 2.0 Lite'},
   ];
 
+  static const String defaultModel = 'gemini-2.0-flash';
   // Secure storage keys
   static const String apiKeyStorageKey = 'gemini_api_key';
 

@@ -12,6 +12,7 @@ import 'join_group_page.dart';
 import 'user_profile_page.dart';
 import 'assessment_page.dart';
 import 'ai_learning_page.dart';
+import 'group_page.dart';
 
 class FriendsGroupsPage extends StatefulWidget {
   const FriendsGroupsPage({super.key});
@@ -1129,8 +1130,12 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
           // Enter group button
           GestureDetector(
             onTap: () {
-              // TODO: Implement navigation to the group detail page
-              _showComingSoonSnackBar('Group details');
+              // Navigate to the group detail page
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => GroupPage(groupId: group['id']),
+                ),
+              );
             },
             child: Container(
               decoration: BoxDecoration(

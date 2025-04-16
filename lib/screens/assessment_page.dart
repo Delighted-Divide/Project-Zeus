@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'ai_learning_page.dart';
 import 'friends_groups_page.dart';
+import 'assessment_conditions_page.dart';
 
 // Extension for string capitalization
 extension StringExtension on String {
@@ -93,6 +94,18 @@ class _AssessmentPageState extends State<AssessmentPage>
     'points',
     'rating',
   ];
+
+  // NEW: Filter state
+  String _filterOption = 'all'; // Default filter option
+  final List<String> _filterOptions = [
+    'all',
+    'in-progress',
+    'submitted',
+    'evaluated',
+  ];
+
+  // NEW: Sort/Filter UI state
+  int _currentTabIndex = 0; // 0 for sort, 1 for filter
 
   @override
   void initState() {
@@ -253,6 +266,9 @@ class _AssessmentPageState extends State<AssessmentPage>
       // Apply sorting to loaded assessments
       _sortAssessmentsList(loadedAssessments);
 
+      // NEW: Apply filtering to loaded assessments
+      _filterAssessmentsList(loadedAssessments);
+
       // Fetch submission data for My Assessments and Shared categories
       if (categoryIndex == 0 || categoryIndex == 1) {
         await _fetchSubmissionDataForAssessments(loadedAssessments);
@@ -285,7 +301,7 @@ class _AssessmentPageState extends State<AssessmentPage>
     }
   }
 
-  // NEW METHOD: Fetch submission data for assessments
+  // Fetch submission data for assessments
   Future<void> _fetchSubmissionDataForAssessments(
     List<Map<String, dynamic>> assessments,
   ) async {
@@ -351,7 +367,7 @@ class _AssessmentPageState extends State<AssessmentPage>
     }
   }
 
-  // NEW METHOD: Fetch oldest submission for group assessments
+  // Fetch oldest submission for group assessments
   Future<void> _fetchOldestSubmissionForGroupAssessments(
     List<Map<String, dynamic>> assessments,
   ) async {
@@ -819,11 +835,31 @@ class _AssessmentPageState extends State<AssessmentPage>
     }
   }
 
+  // NEW: Filter assessments based on selected filter option
+  void _filterAssessmentsList(List<Map<String, dynamic>> assessments) {
+    if (_filterOption == 'all') {
+      // No filtering needed
+      return;
+    }
+
+    developer.log(
+      'AssessmentPage: Filtering assessments by $_filterOption',
+      name: 'AssessmentPage',
+    );
+
+    // Create a new list with filtered assessments
+    assessments.removeWhere((assessment) {
+      final String status = assessment['submissionStatus'] ?? '';
+      return status != _filterOption;
+    });
+  }
+
   // Resort and refresh current category's assessments
   void _resortCurrentAssessments() {
     if (_cachedAssessments.containsKey(_selectedCategoryIndex)) {
       final assessments = _cachedAssessments[_selectedCategoryIndex] ?? [];
       _sortAssessmentsList(assessments);
+      _filterAssessmentsList(assessments); // Also apply filtering
       setState(() {
         _cachedAssessments[_selectedCategoryIndex] = assessments;
       });
@@ -904,7 +940,7 @@ class _AssessmentPageState extends State<AssessmentPage>
         PageRouteBuilder(
           pageBuilder:
               (context, animation, secondaryAnimation) =>
-                  CreateAssessmentPage(type: type),
+                  CreateAssessmentPage(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             const begin = Offset(1.0, 0.0);
             const end = Offset.zero;
@@ -929,10 +965,10 @@ class _AssessmentPageState extends State<AssessmentPage>
     });
   }
 
-  // Choose a sort option
+  // MODIFIED: Choose sort and filter options
   void _chooseSortOption() {
     developer.log(
-      'AssessmentPage: Opening sort options',
+      'AssessmentPage: Opening sort/filter options',
       name: 'AssessmentPage',
     );
 
@@ -944,106 +980,255 @@ class _AssessmentPageState extends State<AssessmentPage>
       barrierColor: Colors.black.withOpacity(0.5),
       isScrollControlled: true,
       builder: (context) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: Container(
-            padding: const EdgeInsets.only(top: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+              child: Container(
+                padding: const EdgeInsets.only(top: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, -5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Handle
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Tab selector
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Row(
+                        children: [
+                          // Sort tab
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setModalState(() {
+                                  _currentTabIndex = 0;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color:
+                                          _currentTabIndex == 0
+                                              ? categoryColor
+                                              : Colors.transparent,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.sort,
+                                      color:
+                                          _currentTabIndex == 0
+                                              ? categoryColor
+                                              : Colors.grey,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Sort',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color:
+                                            _currentTabIndex == 0
+                                                ? categoryColor
+                                                : Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Filter tab
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setModalState(() {
+                                  _currentTabIndex = 1;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color:
+                                          _currentTabIndex == 1
+                                              ? categoryColor
+                                              : Colors.transparent,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.filter_list,
+                                      color:
+                                          _currentTabIndex == 1
+                                              ? categoryColor
+                                              : Colors.grey,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Filter',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color:
+                                            _currentTabIndex == 1
+                                                ? categoryColor
+                                                : Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+
+                    // Show sort or filter options based on selected tab
+                    _currentTabIndex == 0
+                        ? _buildSortOptionsView(categoryColor)
+                        : _buildFilterOptionsView(categoryColor, setModalState),
+
+                    // Safe area padding
+                    SizedBox(
+                      height: MediaQuery.of(context).padding.bottom + 16,
+                    ),
+                  ],
+                ),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Handle
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Title
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    children: [
-                      Icon(Icons.sort, color: categoryColor),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Sort Assessments',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: categoryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-                const Divider(height: 1),
-
-                // Sort options
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildSortOption(
-                        'newest',
-                        'Newest First',
-                        Icons.arrow_downward,
-                        categoryColor,
-                      ),
-                      _buildSortOption(
-                        'oldest',
-                        'Oldest First',
-                        Icons.arrow_upward,
-                        categoryColor,
-                      ),
-                      _buildSortOption(
-                        'difficulty',
-                        'By Difficulty',
-                        Icons.signal_cellular_alt,
-                        categoryColor,
-                      ),
-                      _buildSortOption(
-                        'points',
-                        'Highest Points',
-                        Icons.star,
-                        categoryColor,
-                      ),
-                      _buildSortOption(
-                        'rating',
-                        'Highest Rating',
-                        Icons.thumb_up,
-                        categoryColor,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Safe area padding
-                SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
-              ],
-            ),
-          ),
+            );
+          },
         );
       },
+    );
+  }
+
+  // NEW: Build sort options view
+  Widget _buildSortOptionsView(Color categoryColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildSortOption(
+            'newest',
+            'Newest First',
+            Icons.arrow_downward,
+            categoryColor,
+          ),
+          _buildSortOption(
+            'oldest',
+            'Oldest First',
+            Icons.arrow_upward,
+            categoryColor,
+          ),
+          _buildSortOption(
+            'difficulty',
+            'By Difficulty',
+            Icons.signal_cellular_alt,
+            categoryColor,
+          ),
+          _buildSortOption(
+            'points',
+            'Highest Points',
+            Icons.star,
+            categoryColor,
+          ),
+          _buildSortOption(
+            'rating',
+            'Highest Rating',
+            Icons.thumb_up,
+            categoryColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // NEW: Build filter options view
+  Widget _buildFilterOptionsView(
+    Color categoryColor,
+    StateSetter setModalState,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildFilterOption(
+            'all',
+            'All Assessments',
+            Icons.all_inclusive,
+            categoryColor,
+            setModalState,
+          ),
+          _buildFilterOption(
+            'in-progress',
+            'In Progress',
+            Icons.edit,
+            categoryColor,
+            setModalState,
+          ),
+          _buildFilterOption(
+            'submitted',
+            'Submitted',
+            Icons.check_circle_outline,
+            categoryColor,
+            setModalState,
+          ),
+          _buildFilterOption(
+            'evaluated',
+            'Evaluated/Finished',
+            Icons.verified,
+            categoryColor,
+            setModalState,
+          ),
+        ],
+      ),
     );
   }
 
@@ -1063,6 +1248,89 @@ class _AssessmentPageState extends State<AssessmentPage>
         });
         Navigator.pop(context);
         _resortCurrentAssessments();
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color:
+              isSelected ? categoryColor.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected ? categoryColor : Colors.grey.shade200,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: isSelected ? Colors.white : Colors.grey.shade600,
+                size: 18,
+              ),
+            ),
+
+            const SizedBox(width: 16),
+
+            // Label
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? categoryColor : Colors.black87,
+              ),
+            ),
+
+            const Spacer(),
+
+            // Selected indicator
+            if (isSelected)
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: categoryColor,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check, color: Colors.white, size: 16),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // NEW: Build a filter option
+  Widget _buildFilterOption(
+    String value,
+    String label,
+    IconData icon,
+    Color categoryColor,
+    StateSetter setModalState,
+  ) {
+    final bool isSelected = _filterOption == value;
+
+    return InkWell(
+      onTap: () {
+        // Update the state of both the modal and the parent widget
+        setModalState(() {
+          _filterOption = value;
+        });
+
+        setState(() {
+          _filterOption = value;
+        });
+
+        Navigator.pop(context);
+
+        // Force reload to apply the new filter
+        setState(() {
+          _categoryLoaded[_selectedCategoryIndex] = false;
+        });
+        _loadAssessmentsForCategory(_selectedCategoryIndex);
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -1353,10 +1621,25 @@ class _AssessmentPageState extends State<AssessmentPage>
                 onTap: _chooseSortOption,
                 child: Padding(
                   padding: const EdgeInsets.all(10),
-                  child: Icon(
-                    Icons.sort,
-                    size: 20,
-                    color: _categories[_selectedCategoryIndex]['color'],
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.sort,
+                        size: 20,
+                        color: _categories[_selectedCategoryIndex]['color'],
+                      ),
+                      if (_filterOption != 'all') ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: _categories[_selectedCategoryIndex]['color'],
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
@@ -1792,7 +2075,7 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Build assessment card - MODIFIED with submission status indicators
+  // MODIFIED: Build assessment card with submission status indicators
   Widget _buildAssessmentCard(
     Map<String, dynamic> assessment,
     Map<String, dynamic> category,
@@ -1803,6 +2086,7 @@ class _AssessmentPageState extends State<AssessmentPage>
     final Color difficultyColor = _getDifficultyColor(difficulty);
     final int points = assessment['totalPoints'] ?? 0;
     final Color categoryColor = category['color'];
+    final String sourceType = assessment['sourceType'] ?? '';
 
     // Check if assessment is locked (start time in future)
     bool isLocked = false;
@@ -1829,7 +2113,7 @@ class _AssessmentPageState extends State<AssessmentPage>
     IconData statusIcon = Icons.play_arrow;
 
     if (assessment['hasSubmission'] == true) {
-      final String status = assessment['submissionStatus'];
+      final String status = assessment['submissionStatus'] ?? '';
 
       switch (status) {
         case 'in-progress':
@@ -2223,8 +2507,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                                           builder:
                                               (context) => AssessmentDetailPage(
                                                 assessmentId: assessment['id'],
-                                                initialTab:
-                                                    1, // Submissions tab
                                               ),
                                         ),
                                       );
@@ -2286,16 +2568,22 @@ class _AssessmentPageState extends State<AssessmentPage>
                                       isLocked
                                           ? null
                                           : () {
-                                            // Navigate to attempt page
+                                            // Always navigate to conditions page first for all assessments
                                             Navigator.push(
                                               context,
                                               MaterialPageRoute(
                                                 builder:
-                                                    (context) =>
-                                                        AssessmentDetailPage(
-                                                          assessmentId:
-                                                              assessment['id'],
-                                                        ),
+                                                    (
+                                                      context,
+                                                    ) => AssessmentConditionsPage(
+                                                      assessmentId:
+                                                          assessment['id'],
+                                                      groupName:
+                                                          assessment['sourceType'] ==
+                                                                  'group'
+                                                              ? assessment['groupName']
+                                                              : null,
+                                                    ),
                                               ),
                                             );
                                           },
@@ -2334,49 +2622,50 @@ class _AssessmentPageState extends State<AssessmentPage>
                               ),
                             ),
 
-                            // Share button for ALL assessments
-                            Container(
-                              decoration: BoxDecoration(
-                                color: categoryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
+                            // MODIFIED: Share button (not for group assessments)
+                            if (sourceType != 'group')
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: categoryColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(12),
-                                  onTap:
-                                      () => _shareAssessment(
-                                        assessment['id'],
-                                        assessment['title'],
-                                      ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.share,
-                                          size: 14,
-                                          color: categoryColor,
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap:
+                                        () => _shareAssessment(
+                                          assessment['id'],
+                                          assessment['title'],
                                         ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Share',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.share,
+                                            size: 14,
                                             color: categoryColor,
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Share',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: categoryColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       ],

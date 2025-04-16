@@ -51,10 +51,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'EDU App',
+      title: 'Grade Genie',
       theme: ThemeData(
         primarySwatch: Colors.deepPurple,
-        fontFamily: 'Roboto',
+        fontFamily: 'Poppins',
         useMaterial3: true,
       ),
       // Use the appropriate home widget based on Firebase initialization status
