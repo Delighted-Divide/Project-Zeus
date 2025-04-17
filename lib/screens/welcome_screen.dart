@@ -1,32 +1,16 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
-// Import the InstructionItem class here to avoid circular dependency
 import 'instruction_item.dart';
 
-/// Welcome screen shown when the user first opens the AI assistant
 class WelcomeScreen extends StatelessWidget {
-  /// Whether the API key is set
   final bool isApiKeySet;
-
-  /// Function to handle showing API key dialog
   final VoidCallback onShowApiKeyDialog;
-
-  /// Function to handle PDF file picking
   final VoidCallback onPickPdf;
-
-  /// Function to handle setting a sample message
   final Function(String) onSetSampleMessage;
-
-  /// Loading state for PDF upload
   final bool isPdfLoading;
-
-  /// Whether instructions should be shown
   final bool showInstructions;
-
-  /// Function to toggle instructions
   final VoidCallback onToggleInstructions;
 
-  /// Constructor
   const WelcomeScreen({
     Key? key,
     required this.isApiKeySet,
@@ -42,7 +26,6 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Main welcome content
         SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -51,25 +34,23 @@ class WelcomeScreen extends StatelessWidget {
               children: [
                 const SizedBox(height: 32),
 
-                // AI Assistant logo/icon
                 Container(
                   width: 120,
                   height: 120,
                   decoration: BoxDecoration(
-                    color: AppConstants.primaryColor.withOpacity(0.1),
+                    color: AppConstants.primaryColor.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: Icon(
                       Icons.smart_toy,
                       size: 72,
-                      color: AppConstants.primaryColor.withOpacity(0.8),
+                      color: AppConstants.primaryColor.withValues(alpha: 0.8),
                     ),
                   ),
                 ),
                 const SizedBox(height: 32),
 
-                // Welcome text
                 const Text(
                   'Welcome to your AI Assistant',
                   style: TextStyle(
@@ -81,7 +62,6 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // Description
                 Text(
                   'I can help you create assessments, analyze documents, and assist with your educational content.',
                   style: TextStyle(
@@ -93,11 +73,10 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
 
-                // API Key setup card (if not set)
                 if (!isApiKeySet)
                   Card(
                     elevation: 4,
-                    shadowColor: Colors.black.withOpacity(0.1),
+                    shadowColor: Colors.black.withValues(alpha: 0.1),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -109,7 +88,7 @@ class WelcomeScreen extends StatelessWidget {
                             width: 72,
                             height: 72,
                             decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.1),
+                              color: Colors.orange.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -169,10 +148,9 @@ class WelcomeScreen extends StatelessWidget {
 
                 const SizedBox(height: 24),
 
-                // PDF upload card
                 Card(
                   elevation: 4,
-                  shadowColor: Colors.black.withOpacity(0.1),
+                  shadowColor: Colors.black.withValues(alpha: 0.1),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -184,7 +162,9 @@ class WelcomeScreen extends StatelessWidget {
                           width: 72,
                           height: 72,
                           decoration: BoxDecoration(
-                            color: AppConstants.primaryColor.withOpacity(0.1),
+                            color: AppConstants.primaryColor.withValues(
+                              alpha: 0.1,
+                            ),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -254,7 +234,6 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
 
-                // Or divider
                 Row(
                   children: [
                     Expanded(
@@ -278,10 +257,9 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
 
-                // Ask directly card
                 Card(
                   elevation: 4,
-                  shadowColor: Colors.black.withOpacity(0.1),
+                  shadowColor: Colors.black.withValues(alpha: 0.1),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -293,18 +271,18 @@ class WelcomeScreen extends StatelessWidget {
                           width: 72,
                           height: 72,
                           decoration: BoxDecoration(
-                            color: AppConstants.primaryColor.withOpacity(0.1),
+                            color: Colors.green.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.chat,
                             size: 36,
-                            color: AppConstants.primaryColor,
+                            color: Colors.green,
                           ),
                         ),
                         const SizedBox(height: 20),
                         const Text(
-                          'Ask Me Anything',
+                          'Try Sample Questions',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -312,7 +290,7 @@ class WelcomeScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Type in the chat below to ask questions or get educational assistance.',
+                          'Not sure where to start? Try one of these sample questions:',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[600],
@@ -320,39 +298,20 @@ class WelcomeScreen extends StatelessWidget {
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed:
-                                isApiKeySet
-                                    ? () => onSetSampleMessage(
-                                      'Hello, I need help with creating an assessment.',
-                                    )
-                                    : onShowApiKeyDialog,
-                            icon: const Icon(Icons.chat_bubble_outline),
-                            label: const Text(
-                              'Start Chatting',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppConstants.primaryColor,
-                              side: const BorderSide(
-                                color: AppConstants.primaryColor,
-                                width: 2,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 16,
-                                horizontal: 16,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
+                        const SizedBox(height: 16),
+                        _buildSampleQuestion(
+                          'Create a quiz about basic algebra',
+                          onSetSampleMessage,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildSampleQuestion(
+                          'Generate practice problems for calculus',
+                          onSetSampleMessage,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildSampleQuestion(
+                          'Make a test about Newton\'s laws of motion',
+                          onSetSampleMessage,
                         ),
                       ],
                     ),
@@ -365,13 +324,11 @@ class WelcomeScreen extends StatelessWidget {
           ),
         ),
 
-        // Instructions overlay
         if (showInstructions) _buildInstructionsOverlay(onToggleInstructions),
       ],
     );
   }
 
-  /// Build the instructions overlay
   Widget _buildInstructionsOverlay(VoidCallback onClose) {
     return GestureDetector(
       onTap: onClose,
@@ -446,6 +403,33 @@ class WelcomeScreen extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSampleQuestion(String text, Function(String) onTap) {
+    return InkWell(
+      onTap: () => onTap(text),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+          ],
         ),
       ),
     );

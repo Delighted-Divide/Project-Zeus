@@ -1,21 +1,10 @@
-/// Model representing a chat message in the AI assistant
 class ChatMessage {
-  /// The role of the sender (user or assistant)
   final String role;
-
-  /// The content of the message
   final String content;
-
-  /// Timestamp of when the message was created
   final int timestamp;
-
-  /// Whether the message has an attachment
   final bool hasAttachment;
-
-  /// The type of attachment if present
   final String? attachmentType;
 
-  /// Constructor
   ChatMessage({
     required this.role,
     required this.content,
@@ -24,7 +13,6 @@ class ChatMessage {
     this.attachmentType,
   });
 
-  /// Create a message from a map
   factory ChatMessage.fromMap(Map<String, dynamic> map) {
     return ChatMessage(
       role: map['role'] ?? '',
@@ -35,7 +23,6 @@ class ChatMessage {
     );
   }
 
-  /// Convert message to a map
   Map<String, dynamic> toMap() {
     return {
       'role': role,
@@ -46,7 +33,6 @@ class ChatMessage {
     };
   }
 
-  /// Create a user message
   static ChatMessage user(String content) {
     return ChatMessage(
       role: 'user',
@@ -55,7 +41,6 @@ class ChatMessage {
     );
   }
 
-  /// Create an assistant message
   static ChatMessage assistant(
     String content, {
     bool hasAttachment = false,

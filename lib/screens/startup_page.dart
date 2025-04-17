@@ -12,35 +12,28 @@ class StartupPage extends StatefulWidget {
 }
 
 class _StartupPageState extends State<StartupPage> {
-  // Firebase Auth instance to check authentication status
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   void initState() {
     super.initState();
-    // Check if the user is already signed in when the page loads
     _checkCurrentUser();
   }
 
-  // Method to check if a user is already signed in
   void _checkCurrentUser() {
-    // Get the current user (will be null if not signed in)
     final User? user = _auth.currentUser;
 
     if (user != null) {
-      // User is signed in, navigate to home screen
       Future.delayed(Duration.zero, () {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       });
     }
-    // If user is null, stay on this page so they can log in or sign up
   }
 
   @override
   Widget build(BuildContext context) {
-    // Get the screen dimensions for responsive layout
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -51,9 +44,6 @@ class _StartupPageState extends State<StartupPage> {
         width: screenWidth,
         child: Stack(
           children: [
-            // Background design elements
-
-            // Top left purple circle
             Positioned(
               top: -50,
               left: -50,
@@ -61,13 +51,11 @@ class _StartupPageState extends State<StartupPage> {
                 width: 150,
                 height: 150,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF0E6FA), // Light purple
+                  color: Color(0xFFF0E6FA),
                   shape: BoxShape.circle,
                 ),
               ),
             ),
-
-            // Bottom right purple circle
             Positioned(
               bottom: -50,
               right: -50,
@@ -75,13 +63,11 @@ class _StartupPageState extends State<StartupPage> {
                 width: 150,
                 height: 150,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF0E6FA), // Light purple
+                  color: Color(0xFFF0E6FA),
                   shape: BoxShape.circle,
                 ),
               ),
             ),
-
-            // Main content
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -89,8 +75,6 @@ class _StartupPageState extends State<StartupPage> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const SizedBox(height: 40),
-
-                    // Welcome text
                     const Text(
                       'Welcome to Grade Genie',
                       style: TextStyle(
@@ -101,16 +85,12 @@ class _StartupPageState extends State<StartupPage> {
                       ),
                       textAlign: TextAlign.center,
                     ),
-
                     const SizedBox(height: 40),
-
-                    // Main illustration
                     Expanded(
                       child: Image.asset(
                         'assets/images/startup.png',
                         fit: BoxFit.contain,
                         errorBuilder: (context, error, stackTrace) {
-                          // Fallback if image doesn't load
                           return Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -133,10 +113,7 @@ class _StartupPageState extends State<StartupPage> {
                         },
                       ),
                     ),
-
                     const SizedBox(height: 60),
-
-                    // Login button
                     SizedBox(
                       width: double.infinity,
                       height: 55,
@@ -149,9 +126,7 @@ class _StartupPageState extends State<StartupPage> {
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(
-                            0xFF6A3DE8,
-                          ), // Deep purple
+                          backgroundColor: const Color(0xFF6A3DE8),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
@@ -168,10 +143,7 @@ class _StartupPageState extends State<StartupPage> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 16),
-
-                    // Sign up button (with lighter background)
                     SizedBox(
                       width: double.infinity,
                       height: 55,
@@ -184,9 +156,7 @@ class _StartupPageState extends State<StartupPage> {
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(
-                            0xFFF0E6FA,
-                          ), // Light purple
+                          backgroundColor: const Color(0xFFF0E6FA),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
@@ -197,13 +167,12 @@ class _StartupPageState extends State<StartupPage> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF6A3DE8), // Deep purple text
+                            color: Color(0xFF6A3DE8),
                             letterSpacing: 1.0,
                           ),
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 40),
                   ],
                 ),

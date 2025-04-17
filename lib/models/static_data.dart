@@ -1,6 +1,4 @@
-/// A class that provides static data for generating test content
 class StaticData {
-  // Constants for generation
   static const int NUM_USERS = 40;
   static const int MIN_FRIENDS = 10;
   static const int MAX_FRIENDS = 20;
@@ -13,63 +11,54 @@ class StaticData {
   static const int MIN_SHARED_USERS = 5;
   static const int MIN_SHARED_GROUPS = 3;
 
-  // Test user email domain - helps with filtering during cleanup
   static const String TEST_EMAIL_DOMAIN = "example.com";
 
-  /// Pre-generate static data to avoid recreating it repeatedly
   static Map<String, List<String>> getPreGeneratedData() {
     final Map<String, List<String>> data = {};
 
-    // First names for generating test users
     data['firstNames'] = [
       'Alex',
       'Jamie',
-      'Taylor',
       'Jordan',
-      'Casey',
-      'Riley',
+      'Taylor',
       'Morgan',
-      'Avery',
+      'Casey',
+      'Drew',
+      'Parker',
       'Quinn',
-      'Dakota',
-      'Reese',
-      'Skyler',
-      'Cameron',
-      'Logan',
+      'Riley',
+      'Sam',
+      'Avery',
+      'Charlie',
+      'Frankie',
       'Harper',
       'Kennedy',
-      'Peyton',
-      'Emerson',
-      'Bailey',
-      'Rowan',
-      'Finley',
-      'Blake',
-      'Hayden',
-      'Parker',
-      'Charlie',
-      'Addison',
-      'Sage',
-      'Jean',
-      'Ariel',
-      'Robin',
-      'Jesse',
-      'Ellis',
+      'London',
       'Phoenix',
-      'River',
       'Remy',
-      'Drew',
-      'Harley',
-      'Tracy',
-      'Kai',
+      'Sage',
+      'Blair',
+      'Cameron',
+      'Denver',
+      'Ellis',
+      'Finley',
+      'Hayden',
       'Jules',
-      'Spencer',
-      'Devon',
-      'Angel',
-      'Ezra',
-      'Rory',
+      'Kai',
+      'Lake',
+      'Marley',
+      'Noah',
+      'Ocean',
+      'Paris',
+      'Reagan',
+      'Salem',
+      'Tatum',
+      'Utah',
+      'Val',
+      'Winter',
+      'Yael',
     ];
 
-    // Last names for generating test users
     data['lastNames'] = [
       'Smith',
       'Johnson',
@@ -118,7 +107,6 @@ class StaticData {
       'Rivera',
     ];
 
-    // Status options
     data['statusOptions'] = [
       'Learning new concepts',
       'Preparing for exam',
@@ -132,7 +120,6 @@ class StaticData {
       'Focusing on studies',
     ];
 
-    // Bio templates
     data['bioTemplates'] = [
       'Student interested in %s and %s.',
       'Passionate about learning %s. Also enjoys %s in free time.',
@@ -146,7 +133,6 @@ class StaticData {
       'Lifelong learner with special interest in %s and %s.',
     ];
 
-    // Interest areas for bios
     data['interests'] = [
       'mathematics',
       'physics',
@@ -172,7 +158,6 @@ class StaticData {
     return data;
   }
 
-  /// Assessment titles and descriptions
   static List<Map<String, String>> getAssessmentData() {
     return [
       {
@@ -195,11 +180,9 @@ class StaticData {
         'title': 'Biology Cell Functions',
         'description': 'Quiz on cell structures and their functions',
       },
-      // Truncated for brevity, add all assessments in the actual implementation
     ];
   }
 
-  /// Group names and descriptions
   static List<Map<String, String>> getGroupData() {
     return [
       {
@@ -215,11 +198,9 @@ class StaticData {
         'name': 'Chemistry Tutoring',
         'description': 'Group for chemistry tutoring and homework help',
       },
-      // Truncated for brevity, add all groups in the actual implementation
     ];
   }
 
-  /// Subject tags data
   static List<Map<String, String>> getSubjectTags() {
     return [
       {
@@ -233,11 +214,9 @@ class StaticData {
         'description':
             'Study of matter, energy, and the interaction between them',
       },
-      // Truncated for brevity, add all subject tags in the actual implementation
     ];
   }
 
-  /// Topic tags data
   static List<Map<String, String>> getTopicTags() {
     return [
       {
@@ -250,11 +229,9 @@ class StaticData {
         'category': 'Topic',
         'description': 'Study of continuous change',
       },
-      // Truncated for brevity, add all topic tags in the actual implementation
     ];
   }
 
-  /// Skill tags data
   static List<Map<String, String>> getSkillTags() {
     return [
       {
@@ -268,11 +245,9 @@ class StaticData {
         'category': 'Skill',
         'description': 'Objective analysis and evaluation to form a judgment',
       },
-      // Truncated for brevity, add all skill tags in the actual implementation
     ];
   }
 
-  /// Goal description templates
   static List<String> getGoalDescriptions() {
     return [
       'Complete 10 assessments in mathematics',
@@ -293,7 +268,6 @@ class StaticData {
     ];
   }
 
-  /// Question types for assessments
   static List<String> getQuestionTypes() {
     return [
       'multiple-choice',

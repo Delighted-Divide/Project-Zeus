@@ -18,7 +18,6 @@ class UserProfilePage extends StatefulWidget {
 
 class _UserProfilePageState extends State<UserProfilePage>
     with SingleTickerProviderStateMixin {
-  // Logger for debugging
   final Logger _logger = Logger(
     printer: PrettyPrinter(
       methodCount: 2,
@@ -30,50 +29,44 @@ class _UserProfilePageState extends State<UserProfilePage>
     ),
   );
 
-  // Firebase instances
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // Animation controller
   late AnimationController _animationController;
 
-  // User data state
   String? _currentUserId;
   Map<String, dynamic>? _userData;
   List<String> _userTags = [];
   List<Map<String, dynamic>> _userGroups = [];
   String? _profileImageUrl;
 
-  // UI state
   bool _isLoading = true;
   bool _isSendingRequest = false;
 
-  // Relationship states
   bool _hasAlreadySentRequest = false;
   bool _receivedPendingRequest = false;
   bool _userRejectedMyRequest = false;
   bool _iRejectedUserRequest = false;
   bool _areFriends = false;
 
-  // Theme colors
   static const Map<String, Color> colors = {
-    'background': Color(0xFFF5F7FA), // Light background
-    'primary': Color(0xFF6B8DE3), // Soft blue
-    'primaryDark': Color(0xFF4B64DA), // Darker primary
-    'secondary': Color(0xFFF2994A), // Warm orange
-    'secondaryDark': Color(0xFFE77E23), // Darker secondary
-    'accent': Color(0xFF6FCF97), // Mint green
-    'accentDark': Color(0xFF4BB543), // Darker accent
-    'accent2': Color(0xFFBB6BD9), // Purple
-    'groupColor': Color(0xFF4ECDC4), // Teal
-    'text': Color(0xFF2D3748), // Dark blue-gray
-    'textLight': Color(0xFF718096), // Medium gray
-    'divider': Color(0xFFEDF2F7), // Light gray for dividers
-    'error': Color(0xFFE53E3E), // Red
-    'inactive': Color(0xFFCBD5E0), // Gray for inactive status
-    'white': Colors.white, // White
-    'transparent': Colors.transparent, // Transparent
+    'background': Color(0xFFF5F7FA),
+    'primary': Color(0xFF6B8DE3),
+    'primaryDark': Color(0xFF4B64DA),
+    'secondary': Color(0xFFF2994A),
+    'secondaryDark': Color(0xFFE77E23),
+    'accent': Color(0xFF6FCF97),
+    'accentDark': Color(0xFF4BB543),
+    'accent2': Color(0xFFBB6BD9),
+    'groupColor': Color(0xFF4ECDC4),
+    'text': Color(0xFF2D3748),
+    'textLight': Color(0xFF718096),
+    'divider': Color(0xFFEDF2F7),
+    'error': Color(0xFFE53E3E),
+    'inactive': Color(0xFFCBD5E0),
+    'white': Colors.white,
+    'transparent': Colors.transparent,
   };
 
   @override
@@ -81,7 +74,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     super.initState();
     _logger.i("Initializing UserProfilePage for userId: ${widget.userId}");
 
-    // Initialize animation controller
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -97,7 +89,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     super.dispose();
   }
 
-  // Initialize user data
   Future<void> _initializeUserData() async {
     _logger.d("Starting initialization of user data");
 
@@ -108,7 +99,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     });
 
     try {
-      // Get current user ID
       _currentUserId = _auth.currentUser?.uid;
       _logger.d("Current user ID: $_currentUserId");
 
@@ -116,7 +106,6 @@ class _UserProfilePageState extends State<UserProfilePage>
         throw Exception('No user signed in');
       }
 
-      // Get user document
       final userDoc =
           await _firestore.collection('users').doc(widget.userId).get();
 
@@ -125,16 +114,13 @@ class _UserProfilePageState extends State<UserProfilePage>
         throw Exception('User not found');
       }
 
-      // Parse user data
       final data = userDoc.data() as Map<String, dynamic>;
       _logger.d("User data retrieved successfully");
 
-      // Load all required data in parallel
       await Future.wait([
         _getProfileImage(data['photoURL']),
         _loadUserTags(data),
         _checkRelationshipStatus(),
-        // Only load groups if profile is not private
         if (data['privacyLevel'] != 'private')
           _loadUserGroups()
         else
@@ -148,31 +134,25 @@ class _UserProfilePageState extends State<UserProfilePage>
         _isLoading = false;
       });
 
-      // Start animations after data is loaded
       _animationController.forward();
       _logger.i("User profile data loaded successfully");
     } catch (e) {
       _logger.e("Error loading user data", error: e);
 
       if (mounted) {
-        // Show error and navigate back
         Navigator.of(context).pop();
         _showSnackbar('Error loading profile', isError: true);
       }
     }
   }
 
-  // Get profile image with URL validation and random selection
   Future<void> _getProfileImage(String? photoURL) async {
     _logger.d("Getting profile image. URL: $photoURL");
 
-    // First try provided URL if it exists
     if (photoURL != null && photoURL.isNotEmpty) {
       _logger.d("Validating provided photo URL");
 
-      // Check if URL is valid and accessible
       try {
-        // Try to fetch the image to verify it works
         final response = await imageUrlIsValid(photoURL);
         if (response) {
           _logger.d("Provided URL is valid");
@@ -189,11 +169,9 @@ class _UserProfilePageState extends State<UserProfilePage>
       }
     }
 
-    // If we reach here, we need a random default image
     try {
       _logger.d("Getting random profile image from storage");
 
-      // List all items in the profile_pics folder
       final storageRef = _storage.ref().child('profile_pics');
       final listResult = await storageRef.listAll();
 
@@ -204,7 +182,6 @@ class _UserProfilePageState extends State<UserProfilePage>
 
       _logger.d("Found ${listResult.items.length} profile images in storage");
 
-      // Select random image from the folder
       final randomIndex = math.Random().nextInt(listResult.items.length);
       final randomImageRef = listResult.items[randomIndex];
       _logger.d(
@@ -220,20 +197,16 @@ class _UserProfilePageState extends State<UserProfilePage>
       });
     } catch (e) {
       _logger.e("Error getting random profile image", error: e);
-      // Will use placeholder icon as last resort
     }
   }
 
-  // Check if an image URL is valid
   Future<bool> imageUrlIsValid(String url) async {
     try {
-      // Simple HTTP HEAD request to check if image exists
       final client = HttpClient();
       final request = await client.headUrl(Uri.parse(url));
       final response = await request.close();
       client.close();
 
-      // Check for success status code
       return response.statusCode >= 200 && response.statusCode < 300;
     } catch (e) {
       _logger.w("URL validation error", error: e);
@@ -241,11 +214,9 @@ class _UserProfilePageState extends State<UserProfilePage>
     }
   }
 
-  // Load user tags/interests
   Future<void> _loadUserTags(Map<String, dynamic> userData) async {
     _logger.d("Loading user tags");
 
-    // Extract tag IDs from user data
     final List<dynamic> tagIdsDynamic = userData['favTags'] ?? [];
     final List<String> tagIds = tagIdsDynamic.cast<String>();
     _logger.d("Found ${tagIds.length} tag IDs");
@@ -258,12 +229,10 @@ class _UserProfilePageState extends State<UserProfilePage>
       return;
     }
 
-    // Fetch tag data in batch for efficiency
     try {
       final List<String> tagNames = [];
 
-      // Use batched gets for better performance
-      final chunks = _chunkList(tagIds, 10); // Process 10 at a time
+      final chunks = _chunkList(tagIds, 10);
 
       for (final chunk in chunks) {
         final futures = chunk.map((tagId) async {
@@ -295,7 +264,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     }
   }
 
-  // Helper to chunk lists for batch processing
   List<List<T>> _chunkList<T>(List<T> list, int chunkSize) {
     final chunks = <List<T>>[];
     for (var i = 0; i < list.length; i += chunkSize) {
@@ -304,18 +272,15 @@ class _UserProfilePageState extends State<UserProfilePage>
     return chunks;
   }
 
-  // Check relationship status with viewed user
   Future<void> _checkRelationshipStatus() async {
     _logger.d("Checking relationship status with user ${widget.userId}");
 
     try {
-      // Skip if viewing own profile
       if (_currentUserId == widget.userId) {
         _logger.d("Viewing own profile, skipping relationship check");
         return;
       }
 
-      // Check existing friendship first (most common case)
       final friendDoc =
           await _firestore
               .collection('users')
@@ -329,7 +294,6 @@ class _UserProfilePageState extends State<UserProfilePage>
         if (!mounted) return;
         setState(() {
           _areFriends = true;
-          // Reset other states when users are friends
           _hasAlreadySentRequest = false;
           _userRejectedMyRequest = false;
           _receivedPendingRequest = false;
@@ -338,14 +302,11 @@ class _UserProfilePageState extends State<UserProfilePage>
         return;
       }
 
-      // Important: Reset relationship states before checking
       bool hasSentRequest = false;
       bool wasRejected = false;
       bool hasReceivedRequest = false;
       bool didReject = false;
 
-      // Check for declined requests in relationship history collection if it exists
-      // This would be a collection that permanently stores relationship history
       try {
         final relationHistoryDoc =
             await _firestore
@@ -366,7 +327,6 @@ class _UserProfilePageState extends State<UserProfilePage>
         _logger.w("Error checking relationship history", error: e);
       }
 
-      // Check SENT requests from current user to profile user
       final sentRequestsSnapshot =
           await _firestore
               .collection('users')
@@ -378,7 +338,6 @@ class _UserProfilePageState extends State<UserProfilePage>
 
       _logger.d("Found ${sentRequestsSnapshot.docs.length} sent requests");
 
-      // Process sent requests
       for (final doc in sentRequestsSnapshot.docs) {
         final status = doc.data()['status'] as String?;
 
@@ -391,7 +350,6 @@ class _UserProfilePageState extends State<UserProfilePage>
         }
       }
 
-      // Check RECEIVED requests from profile user to current user
       final receivedRequestsSnapshot =
           await _firestore
               .collection('users')
@@ -405,7 +363,6 @@ class _UserProfilePageState extends State<UserProfilePage>
         "Found ${receivedRequestsSnapshot.docs.length} received requests",
       );
 
-      // Process received requests
       for (final doc in receivedRequestsSnapshot.docs) {
         final status = doc.data()['status'] as String?;
 
@@ -418,7 +375,6 @@ class _UserProfilePageState extends State<UserProfilePage>
         }
       }
 
-      // Additional check: Look for completed (accepted/rejected) requests in user metadata
       try {
         final userMetadataDoc =
             await _firestore
@@ -457,11 +413,9 @@ class _UserProfilePageState extends State<UserProfilePage>
     }
   }
 
-  // Load user groups
   Future<void> _loadUserGroups() async {
     _logger.d("Loading user groups");
     try {
-      // Get user's groups
       final userGroupsSnapshot =
           await _firestore
               .collection('users')
@@ -475,7 +429,6 @@ class _UserProfilePageState extends State<UserProfilePage>
       final List<Map<String, dynamic>> groups = [];
       final List<Future<void>> groupFutures = [];
 
-      // Process each group
       for (final doc in userGroupsSnapshot.docs) {
         final groupData = doc.data();
         final groupId = groupData['groupId'] as String? ?? doc.id;
@@ -490,7 +443,6 @@ class _UserProfilePageState extends State<UserProfilePage>
               final fullGroupData = groupDoc.data();
               if (fullGroupData == null) return;
 
-              // Get member count
               final membersSnapshot =
                   await _firestore
                       .collection('groups')
@@ -524,7 +476,6 @@ class _UserProfilePageState extends State<UserProfilePage>
         if (groups.length >= 3) break;
       }
 
-      // Wait for all group data to load
       await Future.wait(groupFutures);
 
       if (!mounted) return;
@@ -538,11 +489,9 @@ class _UserProfilePageState extends State<UserProfilePage>
     }
   }
 
-  // Handle friend request action
   Future<void> _handleFriendRequest() async {
     _logger.d("Handling friend request action");
 
-    // Critical - prevent any action for rejected requests
     if (_userRejectedMyRequest) {
       _logger.w(
         "BLOCKED: User previously rejected our request, cannot send new one",
@@ -563,7 +512,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     });
 
     try {
-      // Accept request if one exists
       if (_receivedPendingRequest || _iRejectedUserRequest) {
         _logger.d(
           "Has pending/rejected received request, accepting instead of sending new one",
@@ -572,7 +520,6 @@ class _UserProfilePageState extends State<UserProfilePage>
         return;
       }
 
-      // Double-check that we're not in a rejected state
       if (_userRejectedMyRequest) {
         _logger.d("User previously rejected our request, cannot send new one");
         if (!mounted) return;
@@ -582,7 +529,6 @@ class _UserProfilePageState extends State<UserProfilePage>
         return;
       }
 
-      // Send new friend request
       await _sendFriendRequest();
     } catch (e) {
       _logger.e("Error handling friend request", error: e);
@@ -595,12 +541,10 @@ class _UserProfilePageState extends State<UserProfilePage>
     }
   }
 
-  // Send a new friend request
   Future<void> _sendFriendRequest() async {
     _logger.d("Sending friend request to user ${widget.userId}");
 
     try {
-      // Get current user data
       final currentUserDoc =
           await _firestore.collection('users').doc(_currentUserId).get();
       final currentUserData = currentUserDoc.data();
@@ -609,7 +553,6 @@ class _UserProfilePageState extends State<UserProfilePage>
         throw Exception('Current user data not found');
       }
 
-      // Create outgoing request in current user's collection
       await _firestore
           .collection('users')
           .doc(_currentUserId)
@@ -623,7 +566,6 @@ class _UserProfilePageState extends State<UserProfilePage>
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-      // Create incoming request in recipient's collection
       await _firestore
           .collection('users')
           .doc(widget.userId)
@@ -648,19 +590,16 @@ class _UserProfilePageState extends State<UserProfilePage>
       _logger.i("Successfully sent friend request");
     } catch (e) {
       _logger.e("Error sending friend request", error: e);
-      throw e; // Rethrow to handle in parent method
+      throw e;
     }
   }
 
-  // Accept a friend request
   Future<void> _acceptFriendRequest() async {
     _logger.d("Accepting friend request from user ${widget.userId}");
 
     try {
-      // Find and delete all existing requests between users
       await _deleteExistingRequests();
 
-      // Get current user data
       final currentUserDoc =
           await _firestore.collection('users').doc(_currentUserId).get();
       final currentUserData = currentUserDoc.data();
@@ -669,10 +608,8 @@ class _UserProfilePageState extends State<UserProfilePage>
         throw Exception('Current user data not found');
       }
 
-      // Create friendship entries in both users' collections
       final timestamp = FieldValue.serverTimestamp();
 
-      // Add to current user's friends collection
       await _firestore
           .collection('users')
           .doc(_currentUserId)
@@ -685,7 +622,6 @@ class _UserProfilePageState extends State<UserProfilePage>
             'status': 'active',
           });
 
-      // Add to other user's friends collection
       await _firestore
           .collection('users')
           .doc(widget.userId)
@@ -713,16 +649,14 @@ class _UserProfilePageState extends State<UserProfilePage>
       _logger.i("Successfully accepted friend request");
     } catch (e) {
       _logger.e("Error accepting friend request", error: e);
-      throw e; // Rethrow to handle in parent method
+      throw e;
     }
   }
 
-  // Delete all existing friend requests between users
   Future<void> _deleteExistingRequests() async {
     _logger.d("Deleting existing friend requests");
 
     try {
-      // Find requests from viewed user to current user
       final receivedRequestsSnapshot =
           await _firestore
               .collection('users')
@@ -731,7 +665,6 @@ class _UserProfilePageState extends State<UserProfilePage>
               .where('userId', isEqualTo: widget.userId)
               .get();
 
-      // Find requests from current user to viewed user
       final sentRequestsSnapshot =
           await _firestore
               .collection('users')
@@ -740,7 +673,6 @@ class _UserProfilePageState extends State<UserProfilePage>
               .where('userId', isEqualTo: _currentUserId)
               .get();
 
-      // Delete all found requests
       final batch = _firestore.batch();
 
       for (final doc in receivedRequestsSnapshot.docs) {
@@ -759,7 +691,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     }
   }
 
-  // Show snackbar with message
   void _showSnackbar(String message, {bool isError = false}) {
     _logger.d("Showing snackbar: $message, isError: $isError");
 
@@ -783,7 +714,7 @@ class _UserProfilePageState extends State<UserProfilePage>
       onWillPop: () async {
         _logger.d("WillPopScope triggered, navigating back");
         Navigator.of(context).pop();
-        return false; // Prevent default back behavior
+        return false;
       },
       child: Scaffold(
         backgroundColor: colors['background'],
@@ -816,7 +747,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     );
   }
 
-  // Loading view
   Widget _buildLoadingView() {
     return Center(
       child: Column(
@@ -844,23 +774,13 @@ class _UserProfilePageState extends State<UserProfilePage>
     );
   }
 
-  // Main profile content
   Widget _buildProfileContent() {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      child: Column(
-        children: [
-          // Profile header
-          _buildProfileHeader(),
-
-          // Profile body
-          _buildProfileBody(),
-        ],
-      ),
+      child: Column(children: [_buildProfileHeader(), _buildProfileBody()]),
     );
   }
 
-  // Profile header with background and user info
   Widget _buildProfileHeader() {
     final bool isActive = _userData?['isActive'] ?? false;
     final bool isPrivate = _userData?['privacyLevel'] == 'private';
@@ -877,10 +797,8 @@ class _UserProfilePageState extends State<UserProfilePage>
       ),
       child: Stack(
         children: [
-          // Background pattern
           Positioned.fill(child: CustomPaint(painter: WavePainter())),
 
-          // Content container curve
           Positioned(
             bottom: 0,
             left: 0,
@@ -896,7 +814,6 @@ class _UserProfilePageState extends State<UserProfilePage>
             ),
           ),
 
-          // Profile information
           Positioned(
             bottom: 30,
             left: 0,
@@ -904,10 +821,8 @@ class _UserProfilePageState extends State<UserProfilePage>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Profile picture with active indicator
                 Stack(
                   children: [
-                    // Profile image
                     Container(
                       width: 110,
                       height: 110,
@@ -949,7 +864,6 @@ class _UserProfilePageState extends State<UserProfilePage>
                       ),
                     ),
 
-                    // Status indicator (only for non-private accounts)
                     if (!isPrivate)
                       Positioned(
                         bottom: 3,
@@ -982,7 +896,6 @@ class _UserProfilePageState extends State<UserProfilePage>
 
                 const SizedBox(height: 16),
 
-                // User name
                 Text(
                   _userData?['displayName'] ?? 'Unknown User',
                   style: const TextStyle(
@@ -1000,10 +913,8 @@ class _UserProfilePageState extends State<UserProfilePage>
                   textAlign: TextAlign.center,
                 ),
 
-                // Always maintain status space
                 const SizedBox(height: 10),
 
-                // Status (if available)
                 statusText.isNotEmpty
                     ? Container(
                       margin: const EdgeInsets.symmetric(horizontal: 40),
@@ -1046,7 +957,7 @@ class _UserProfilePageState extends State<UserProfilePage>
                         ],
                       ),
                     )
-                    : const SizedBox(height: 24), // Fixed space when no status
+                    : const SizedBox(height: 24),
               ],
             ),
           ),
@@ -1055,7 +966,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     );
   }
 
-  // Profile body content
   Widget _buildProfileBody() {
     final bool isPrivate = _userData?['privacyLevel'] == 'private';
 
@@ -1064,32 +974,25 @@ class _UserProfilePageState extends State<UserProfilePage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Friend request button if not viewing own profile
           if (_currentUserId != widget.userId) _buildFriendRequestButton(),
 
           const SizedBox(height: 24),
 
-          // Bio section if available
           if (_userData?['bio'] != null &&
               _userData!['bio'].toString().isNotEmpty)
             _buildBioSection(),
 
-          // Interests section
           _buildInterestsSection(),
 
-          // Groups section (only if not private)
           if (!isPrivate) _buildGroupsSection(),
         ],
       ),
     );
   }
 
-  // Friend request button
   Widget _buildFriendRequestButton() {
-    // Check if button should be completely disabled
     final bool isCompletelyDisabled = _userRejectedMyRequest || _areFriends;
 
-    // Determine button properties
     final bool isClickable =
         !isCompletelyDisabled &&
         (_canSendFriendRequest() ||
@@ -1126,16 +1029,10 @@ class _UserProfilePageState extends State<UserProfilePage>
           borderRadius: BorderRadius.circular(16),
           onTap:
               isClickable && !_isSendingRequest ? _handleFriendRequest : null,
-          splashColor:
-              isCompletelyDisabled
-                  ? Colors.transparent
-                  : null, // No splash effect when disabled
-          highlightColor:
-              isCompletelyDisabled
-                  ? Colors.transparent
-                  : null, // No highlight when disabled
+          splashColor: isCompletelyDisabled ? Colors.transparent : null,
+          highlightColor: isCompletelyDisabled ? Colors.transparent : null,
           child: Opacity(
-            opacity: isCompletelyDisabled ? 0.7 : 1.0, // Make it look disabled
+            opacity: isCompletelyDisabled ? 0.7 : 1.0,
             child: Center(
               child:
                   _isSendingRequest
@@ -1172,7 +1069,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     );
   }
 
-  // Bio section
   Widget _buildBioSection() {
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -1192,7 +1088,6 @@ class _UserProfilePageState extends State<UserProfilePage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Section header
             Row(
               children: [
                 Icon(
@@ -1214,12 +1109,10 @@ class _UserProfilePageState extends State<UserProfilePage>
 
             const SizedBox(height: 16),
 
-            // Bio content with quote styling
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Stack(
                 children: [
-                  // Opening quote decoration
                   Positioned(
                     left: 0,
                     top: 0,
@@ -1230,7 +1123,6 @@ class _UserProfilePageState extends State<UserProfilePage>
                     ),
                   ),
 
-                  // Bio text
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                     child: Text(
@@ -1245,12 +1137,11 @@ class _UserProfilePageState extends State<UserProfilePage>
                     ),
                   ),
 
-                  // Closing quote decoration
                   Positioned(
                     right: 0,
                     bottom: 0,
                     child: Transform.rotate(
-                      angle: math.pi, // 180 degrees
+                      angle: math.pi,
                       child: Icon(
                         Icons.format_quote,
                         color: colors['accent2']!.withOpacity(0.2),
@@ -1267,7 +1158,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     );
   }
 
-  // Interests section
   Widget _buildInterestsSection() {
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -1287,7 +1177,6 @@ class _UserProfilePageState extends State<UserProfilePage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Section header
             Row(
               children: [
                 Icon(
@@ -1329,7 +1218,6 @@ class _UserProfilePageState extends State<UserProfilePage>
 
             const SizedBox(height: 16),
 
-            // Tags
             _userTags.isEmpty
                 ? _buildEmptySection('No interests added yet')
                 : Wrap(
@@ -1343,9 +1231,7 @@ class _UserProfilePageState extends State<UserProfilePage>
     );
   }
 
-  // Tag item widget
   Widget _buildTagItem(String tag) {
-    // Generate consistent color based on tag content
     final Color tagColor = _getTagColor(tag);
 
     return Container(
@@ -1373,7 +1259,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     );
   }
 
-  // Groups section
   Widget _buildGroupsSection() {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1393,7 +1278,6 @@ class _UserProfilePageState extends State<UserProfilePage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Section header
             Row(
               children: [
                 Icon(
@@ -1435,7 +1319,6 @@ class _UserProfilePageState extends State<UserProfilePage>
 
             const SizedBox(height: 16),
 
-            // Group list
             _userGroups.isEmpty
                 ? _buildEmptySection('No groups joined yet')
                 : Column(
@@ -1450,7 +1333,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     );
   }
 
-  // Group item widget
   Widget _buildGroupItem(Map<String, dynamic> group) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1461,7 +1343,6 @@ class _UserProfilePageState extends State<UserProfilePage>
       ),
       child: Row(
         children: [
-          // Group avatar
           Container(
             width: 50,
             height: 50,
@@ -1494,7 +1375,6 @@ class _UserProfilePageState extends State<UserProfilePage>
 
           const SizedBox(width: 12),
 
-          // Group details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1518,7 +1398,6 @@ class _UserProfilePageState extends State<UserProfilePage>
             ),
           ),
 
-          // Role badge for admins
           if (group['role'] == 'admin')
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1544,7 +1423,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     );
   }
 
-  // Empty section placeholder
   Widget _buildEmptySection(String message) {
     return Container(
       width: double.infinity,
@@ -1571,7 +1449,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     );
   }
 
-  // Helper: Get tag color based on tag content
   Color _getTagColor(String tag) {
     final List<Color> tagColors = [
       colors['primary']!,
@@ -1580,25 +1457,23 @@ class _UserProfilePageState extends State<UserProfilePage>
       colors['accent2']!,
     ];
 
-    // Use hash of tag name to pick consistent color
     final int hash = tag.hashCode.abs();
     final int colorIndex = hash % tagColors.length;
 
     return tagColors[colorIndex];
   }
 
-  // Friend button helpers
   Color _getFriendButtonColor() {
     if (_areFriends) {
-      return colors['accent']!; // Green for friends
+      return colors['accent']!;
     } else if (_hasAlreadySentRequest) {
-      return colors['secondary']!; // Orange for pending
+      return colors['secondary']!;
     } else if (_userRejectedMyRequest) {
-      return Colors.grey; // Grey for rejected
+      return Colors.grey;
     } else if (_receivedPendingRequest || _iRejectedUserRequest) {
-      return colors['primary']!; // Blue for accept
+      return colors['primary']!;
     } else {
-      return colors['primary']!; // Default blue
+      return colors['primary']!;
     }
   }
 
@@ -1648,24 +1523,20 @@ class _UserProfilePageState extends State<UserProfilePage>
     }
   }
 
-  // Check if we can interact with the friend request button
   bool _canSendFriendRequest() {
-    if (_areFriends) return false; // Already friends
-    if (_isSendingRequest) return false; // Request in progress
-    if (_hasAlreadySentRequest) return false; // Already sent a request
-    if (_userRejectedMyRequest) return false; // User rejected our request
+    if (_areFriends) return false;
+    if (_isSendingRequest) return false;
+    if (_hasAlreadySentRequest) return false;
+    if (_userRejectedMyRequest) return false;
 
-    // We can send a new request if none of the above conditions apply
     return true;
   }
 
-  // Helper to determine if the button should show "Not Available"
   bool _isNotAvailable() {
     return _userRejectedMyRequest;
   }
 }
 
-// Wave background painter
 class WavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -1676,7 +1547,6 @@ class WavePainter extends CustomPainter {
 
     final path = Path();
 
-    // First wave
     path.moveTo(0, size.height * 0.7);
     path.quadraticBezierTo(
       size.width * 0.25,
@@ -1696,7 +1566,6 @@ class WavePainter extends CustomPainter {
 
     canvas.drawPath(path, paint);
 
-    // Second wave
     final path2 = Path();
     path2.moveTo(0, size.height * 0.8);
     path2.quadraticBezierTo(

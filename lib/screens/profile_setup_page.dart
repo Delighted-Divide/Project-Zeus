@@ -32,7 +32,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
   bool _isCompleting = false;
   bool _isSearchingTags = false;
 
-  // New controllers and variables for additional fields
   String _selectedPrivacyLevel = 'friends-only';
   bool _notificationsEnabled = true;
   String _selectedTheme = 'light';
@@ -51,15 +50,12 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
   List<String> _filteredTags = [];
   final List<String> _selectedTags = [];
 
-  // Animation controller for transitions
   late AnimationController _animationController;
   late Animation<double> _animation;
 
-  // Firebase instances
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Page controller for setup wizard
   final PageController _pageController = PageController();
   int _currentPage = 0;
   final int _totalPages = 3;
@@ -80,7 +76,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
       if (status == AnimationStatus.completed) {
         Future.delayed(const Duration(milliseconds: 100), () {
           if (mounted && _isCompleting) {
-            // Navigate to home screen
             Navigator.of(context).pushReplacement(
               PageRouteBuilder(
                 pageBuilder:
@@ -102,7 +97,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
       }
     });
 
-    // Set prefilled values if available
     if (widget.prefillName != null && widget.prefillName!.isNotEmpty) {
       _nameController.text = widget.prefillName!;
     }
@@ -145,7 +139,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     super.dispose();
   }
 
-  // Prevent error message spam by checking the time since last error
   void _setErrorWithDebounce(String message) {
     final now = DateTime.now();
     if (_lastErrorTime == null ||
@@ -157,7 +150,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     }
   }
 
-  // Pick image from gallery or camera
   Future<void> _pickImage(ImageSource source) async {
     try {
       final ImagePicker picker = ImagePicker();
@@ -171,8 +163,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
       if (image != null) {
         setState(() {
           _selectedImage = File(image.path);
-          _networkImageURL =
-              null; // Clear network image if local image is selected
+          _networkImageURL = null;
         });
       }
     } catch (e) {
@@ -180,7 +171,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     }
   }
 
-  // Show image source selection dialog
   void _showImageSourceDialog() {
     showModalBottomSheet(
       context: context,
@@ -234,7 +224,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     );
   }
 
-  // Image source option builder
   Widget _buildImageSourceOption({
     required IconData icon,
     required String label,
@@ -268,13 +257,10 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     );
   }
 
-  // Save image to local app directory with the desired structure
   Future<String> _saveProfileImage(File imageFile, String userId) async {
     try {
-      // Get application documents directory
       final Directory appDocDir = await getApplicationDocumentsDirectory();
 
-      // Create the structure: profile_pics/user_id
       final Directory profilePicsDir = Directory(
         '${appDocDir.path}/profile_pics/$userId',
       );
@@ -282,11 +268,9 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
         await profilePicsDir.create(recursive: true);
       }
 
-      // Generate file name with original extension
       final String fileName = 'profile${path.extension(imageFile.path)}';
       final String localPath = '${profilePicsDir.path}/$fileName';
 
-      // Copy the file to the new location
       await imageFile.copy(localPath);
 
       print('Image saved at: $localPath');
@@ -297,7 +281,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     }
   }
 
-  // Toggle tag selection
   void _toggleTag(String tag) {
     setState(() {
       if (_selectedTags.contains(tag)) {
@@ -308,7 +291,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     });
   }
 
-  // Create a new tag from search input
   void _createNewTag() {
     final newTag = _tagSearchController.text.trim();
     if (newTag.isNotEmpty && !_availableTags.contains(newTag)) {
@@ -322,9 +304,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     }
   }
 
-  // Complete profile setup
   Future<void> _completeProfileSetup() async {
-    // If already loading, don't allow another request
     if (_isLoading) {
       return;
     }
@@ -334,7 +314,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
       _isLoading = true;
     });
 
-    // Validate input
     if (_nameController.text.isEmpty) {
       _setErrorWithDebounce('Please enter your name');
       setState(() {
@@ -344,7 +323,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     }
 
     try {
-      // Get current user
       final User? user = _auth.currentUser;
       if (user == null) {
         _setErrorWithDebounce('User not found. Please sign in again.');
@@ -354,10 +332,8 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
         return;
       }
 
-      // Prepare user data
       String? photoURL;
 
-      // Save image if selected (local file takes precedence over network URL)
       if (_selectedImage != null) {
         try {
           photoURL = await _saveProfileImage(_selectedImage!, user.uid);
@@ -372,7 +348,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
         photoURL = _networkImageURL;
       }
 
-      // Set up user data in Firestore with all the fields
       await _firestore.collection('users').doc(user.uid).set({
         'userId': user.uid,
         'displayName': _nameController.text.trim(),
@@ -391,10 +366,8 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
         },
       });
 
-      // Update user profile in Firebase Auth
       await user.updateDisplayName(_nameController.text.trim());
 
-      // Start animation and navigate to home screen
       setState(() {
         _isCompleting = true;
         _isLoading = false;
@@ -408,7 +381,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     }
   }
 
-  // Navigate to next page in setup wizard
   void _nextPage() {
     if (_currentPage < _totalPages - 1) {
       _pageController.nextPage(
@@ -420,7 +392,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     }
   }
 
-  // Navigate to previous page in setup wizard
   void _previousPage() {
     _pageController.previousPage(
       duration: const Duration(milliseconds: 300),
@@ -428,7 +399,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     );
   }
 
-  // Build page indicator dots
   Widget _buildPageIndicator() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -462,7 +432,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Background purple circle in top left
             Positioned(
               top: -50,
               left: -50,
@@ -470,13 +439,11 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 width: 150,
                 height: 150,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFFFB6C1), // Light pink
+                  color: Color(0xFFFFB6C1),
                   shape: BoxShape.circle,
                 ),
               ),
             ),
-
-            // Background purple circle in bottom right
             Positioned(
               bottom: -50,
               right: -50,
@@ -484,17 +451,14 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 width: 150,
                 height: 150,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF0E6FA), // Light purple
+                  color: Color(0xFFF0E6FA),
                   shape: BoxShape.circle,
                 ),
               ),
             ),
-
-            // Main content
             SafeArea(
               child: Column(
                 children: [
-                  // Header
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
                     child: Center(
@@ -509,12 +473,8 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                       ),
                     ),
                   ),
-
-                  // Page indicators
                   _buildPageIndicator(),
                   const SizedBox(height: 16),
-
-                  // Error message
                   if (_errorMessage.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -534,8 +494,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                         ),
                       ),
                     ),
-
-                  // Main content area with PageView
                   Expanded(
                     child: PageView(
                       controller: _pageController,
@@ -547,20 +505,17 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                       },
                       children: [
                         _buildBasicInfoPage(),
-                        _buildBioStatusPage(), // New page for bio and status
+                        _buildBioStatusPage(),
                         _buildPreferencesPage(),
                         _buildFinalSettingsPage(),
                       ],
                     ),
                   ),
-
-                  // Navigation buttons
                   Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Back button
                         if (_currentPage > 0)
                           ElevatedButton(
                             onPressed: _previousPage,
@@ -582,8 +537,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                             child: const Text('BACK'),
                           )
                         else
-                          const SizedBox(width: 80), // Placeholder
-                        // Next/Complete button
+                          const SizedBox(width: 80),
                         ElevatedButton(
                           onPressed: _isLoading ? null : _nextPage,
                           style: ElevatedButton.styleFrom(
@@ -620,8 +574,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                       ],
                     ),
                   ),
-
-                  // Bottom home indicator
                   Container(
                     width: 80,
                     height: 5,
@@ -634,8 +586,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 ],
               ),
             ),
-
-            // Animation circle for transition
             if (_isCompleting)
               AnimatedBuilder(
                 animation: _animation,
@@ -649,7 +599,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                         width: screenWidth,
                         height: screenWidth,
                         decoration: const BoxDecoration(
-                          color: Color(0xFF6A3DE8), // Purple circle
+                          color: Color(0xFF6A3DE8),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -663,7 +613,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     );
   }
 
-  // Page 1: Basic info (name, profile picture)
   Widget _buildBasicInfoPage() {
     return SingleChildScrollView(
       child: Padding(
@@ -671,8 +620,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
         child: Column(
           children: [
             const SizedBox(height: 20),
-
-            // Profile picture selection
             GestureDetector(
               onTap: _showImageSourceDialog,
               child: Stack(
@@ -733,10 +680,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 ],
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // Add photo text
             Text(
               (_selectedImage == null && _networkImageURL == null)
                   ? 'Add Profile Photo'
@@ -747,10 +691,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 fontSize: 14,
               ),
             ),
-
             const SizedBox(height: 40),
-
-            // Name field with animated label
             Container(
               decoration: BoxDecoration(
                 color: const Color(0xFFF0E6FA),
@@ -780,10 +721,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 textCapitalization: TextCapitalization.words,
               ),
             ),
-
             const SizedBox(height: 30),
-
-            // Explanation text
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -821,7 +759,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     );
   }
 
-  // New Page: Bio and Status
   Widget _buildBioStatusPage() {
     return SingleChildScrollView(
       child: Padding(
@@ -830,8 +767,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-
-            // Section title
             const Text(
               'Tell us about yourself',
               style: TextStyle(
@@ -840,10 +775,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 color: Color(0xFF6A5CB5),
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // Bio field
             Container(
               decoration: BoxDecoration(
                 color: const Color(0xFFF0E6FA),
@@ -878,10 +810,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 textCapitalization: TextCapitalization.sentences,
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // Status field
             Container(
               decoration: BoxDecoration(
                 color: const Color(0xFFF0E6FA),
@@ -912,10 +841,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 textCapitalization: TextCapitalization.sentences,
               ),
             ),
-
             const SizedBox(height: 30),
-
-            // Explanation text
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -953,7 +879,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     );
   }
 
-  // Page 2: Preferences (privacy level, favorite tags)
   Widget _buildPreferencesPage() {
     return SingleChildScrollView(
       child: Padding(
@@ -962,8 +887,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-
-            // Section title
             const Text(
               'Privacy Settings',
               style: TextStyle(
@@ -972,10 +895,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 color: Color(0xFF6A5CB5),
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // Privacy level selector
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1023,10 +943,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 ],
               ),
             ),
-
             const SizedBox(height: 30),
-
-            // Favorite tags section
             const Text(
               'Favorite Subjects',
               style: TextStyle(
@@ -1035,17 +952,12 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 color: Color(0xFF6A5CB5),
               ),
             ),
-
             const SizedBox(height: 12),
-
             const Text(
               'Select the subjects you are most interested in',
               style: TextStyle(fontSize: 14, color: Colors.black54),
             ),
-
             const SizedBox(height: 16),
-
-            // Search tags field
             Container(
               decoration: BoxDecoration(
                 color: const Color(0xFFF0E6FA),
@@ -1081,10 +993,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 ),
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // Selected tags
             if (_selectedTags.isNotEmpty) ...[
               const Text(
                 'Selected Tags:',
@@ -1135,8 +1044,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
               ),
               const SizedBox(height: 16),
             ],
-
-            // Filtered tags
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -1171,7 +1078,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                       })
                       .toList(),
             ),
-
             const SizedBox(height: 30),
           ],
         ),
@@ -1179,7 +1085,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     );
   }
 
-  // Privacy option builder
   Widget _buildPrivacyOption({
     required IconData icon,
     required String title,
@@ -1255,7 +1160,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     );
   }
 
-  // Page 3: Final settings (notifications, theme)
   Widget _buildFinalSettingsPage() {
     return SingleChildScrollView(
       child: Padding(
@@ -1264,8 +1168,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-
-            // Section title
             const Text(
               'App Settings',
               style: TextStyle(
@@ -1274,10 +1176,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 color: Color(0xFF6A5CB5),
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // App settings container
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1294,7 +1193,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
               ),
               child: Column(
                 children: [
-                  // Notifications toggle
                   _buildSettingToggle(
                     icon: Icons.notifications_outlined,
                     title: 'Enable Notifications',
@@ -1306,10 +1204,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                       });
                     },
                   ),
-
                   const Divider(height: 32),
-
-                  // Theme selector
                   Row(
                     children: [
                       Container(
@@ -1360,10 +1255,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 ],
               ),
             ),
-
             const SizedBox(height: 30),
-
-            // Final confirmation section
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1396,7 +1288,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
                 ],
               ),
             ),
-
             const SizedBox(height: 30),
           ],
         ),
@@ -1404,7 +1295,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     );
   }
 
-  // Settings toggle builder
   Widget _buildSettingToggle({
     required IconData icon,
     required String title,
@@ -1452,7 +1342,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage>
     );
   }
 
-  // Theme option builder
   Widget _buildThemeOption({
     required String label,
     required String value,

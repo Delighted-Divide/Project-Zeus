@@ -18,18 +18,13 @@ class AssessmentDetailPage extends StatefulWidget {
 
 class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     with SingleTickerProviderStateMixin {
-  // Firebase instances
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Animation controller
   late AnimationController _animationController;
 
-  // State variables
   bool _isLoading = true;
   Map<String, dynamic> _assessmentData = {};
-
-  // Assessment statistics
   int _participantsCount = 0;
   Map<String, int> _questionTypeCount = {};
   int _totalQuestions = 0;
@@ -46,7 +41,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
       duration: const Duration(milliseconds: 1500),
     );
 
-    // Load data first, then animate
     _loadAssessmentData().then((_) {
       if (mounted) {
         _animationController.forward();
@@ -60,7 +54,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     super.dispose();
   }
 
-  // Load assessment data from Firestore
   Future<void> _loadAssessmentData() async {
     if (!mounted) return;
 
@@ -69,10 +62,8 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     });
 
     try {
-      // Get current user ID
       final String? currentUserId = _auth.currentUser?.uid;
 
-      // Get assessment document
       final assessmentDoc =
           await _firestore
               .collection('assessments')
@@ -83,13 +74,10 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
         throw 'Assessment not found';
       }
 
-      // Get assessment data
       final assessmentData = assessmentDoc.data() ?? {};
 
-      // Check if user is the creator
       final bool isCreator = assessmentData['creatorId'] == currentUserId;
 
-      // Get question types count
       final questionsSnapshot =
           await _firestore
               .collection('assessments')
@@ -103,7 +91,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
         questionTypeCount[type] = (questionTypeCount[type] ?? 0) + 1;
       }
 
-      // Get participants count
       final sharedWithUsersSnapshot =
           await _firestore
               .collection('assessments')
@@ -111,7 +98,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
               .collection('sharedWithUsers')
               .get();
 
-      // For testing, hardcode a working URL
       String sourceDocUrl =
           "https://firebasestorage.googleapis.com/v0/b/attempt1-314eb.firebasestorage.app/o/pdfs%2F7ZEp4JqUB8cDIMjE5jTDdmYbXFZ2%2Flech205.pdf?alt=media&token=00fee7b8-901c-47ca-9f6e-19c02962114c";
 
@@ -140,7 +126,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     }
   }
 
-  // Open source document
   Future<void> _openSourceDocument() async {
     setState(() {
       _isSourceButtonPressed = true;
@@ -156,7 +141,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
         throw 'Invalid PDF URL';
       }
 
-      // First try external application mode
       if (await canLaunchUrl(url)) {
         final bool launched = await launchUrl(
           url,
@@ -165,7 +149,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
         );
 
         if (!launched) {
-          // Fallback to platform default mode if external fails
           await launchUrl(url, mode: LaunchMode.platformDefault);
         }
       } else {
@@ -182,14 +165,11 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     }
   }
 
-  // Start assessment
   void _startAssessment() {
     HapticFeedback.mediumImpact();
     _showSnackBar('Starting assessment...');
-    // Implementation for starting the assessment would go here
   }
 
-  // Show a snackbar message
   void _showSnackBar(String message) {
     final primaryColor = _getDifficultyColor(
       _assessmentData['difficulty'] as String?,
@@ -210,30 +190,27 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     );
   }
 
-  // Format date
   String _formatDate(Timestamp? timestamp) {
     if (timestamp == null) return 'Unknown date';
     final date = timestamp.toDate();
     return DateFormat('MMMM d, yyyy').format(date);
   }
 
-  // Helper method to get difficulty color
   Color _getDifficultyColor(String? difficulty) {
     switch (difficulty?.toLowerCase()) {
       case 'easy':
-        return const Color(0xFF43E97B); // Green
+        return const Color(0xFF43E97B);
       case 'medium':
-        return const Color(0xFFFF9E40); // Orange
+        return const Color(0xFFFF9E40);
       case 'hard':
-        return const Color(0xFFFF6584); // Red
+        return const Color(0xFFFF6584);
       case 'expert':
-        return const Color(0xFF6C63FF); // Purple
+        return const Color(0xFF6C63FF);
       default:
-        return const Color(0xFF6C63FF); // Purple
+        return const Color(0xFF6C63FF);
     }
   }
 
-  // Get icon and color for question type
   (IconData, Color) _getQuestionTypeInfo(String type) {
     switch (type.toLowerCase()) {
       case 'multiple-choice':
@@ -257,10 +234,9 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
 
   @override
   Widget build(BuildContext context) {
-    // Main primary color based on difficulty
     final primaryColor =
         _isLoading
-            ? const Color(0xFF6C63FF) // Default purple
+            ? const Color(0xFF6C63FF)
             : _getDifficultyColor(_assessmentData['difficulty'] as String?);
 
     return Scaffold(
@@ -291,13 +267,11 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
           _isLoading
               ? _buildLoadingState(primaryColor)
               : _buildContentState(primaryColor),
-      // Add bottom action bar directly to the Scaffold
       bottomNavigationBar:
           _isLoading ? null : _buildBottomActionBar(primaryColor),
     );
   }
 
-  // Build loading state with animated loader
   Widget _buildLoadingState(Color primaryColor) {
     return Container(
       decoration: BoxDecoration(
@@ -311,7 +285,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Custom animated loader
             TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0.0, end: 1.0),
               duration: const Duration(seconds: 1),
@@ -322,7 +295,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // First rotating circle
                       Transform.rotate(
                         angle: value * 2 * 3.14159,
                         child: CircularProgressIndicator(
@@ -333,8 +305,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                           ),
                         ),
                       ),
-
-                      // Second rotating circle
                       Transform.rotate(
                         angle: -value * 3 * 3.14159,
                         child: CircularProgressIndicator(
@@ -345,8 +315,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                           ),
                         ),
                       ),
-
-                      // Inner circle with assessment icon
                       Container(
                         width: 70,
                         height: 70,
@@ -372,10 +340,7 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                 );
               },
             ),
-
             const SizedBox(height: 30),
-
-            // Loading text
             const Text(
               'Loading Assessment',
               style: TextStyle(
@@ -384,10 +349,7 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                 color: Colors.white,
               ),
             ),
-
             const SizedBox(height: 8),
-
-            // Loading animation dots
             _buildLoadingDots(),
           ],
         ),
@@ -395,15 +357,12 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     );
   }
 
-  // Build animated loading dots
   Widget _buildLoadingDots() {
     return StatefulBuilder(
       builder: (context, setState) {
-        // Calculate dot count
         final now = DateTime.now();
         final dotCount = (now.millisecondsSinceEpoch / 500).round() % 4;
 
-        // Rebuild after delay to animate
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) setState(() {});
         });
@@ -429,7 +388,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     );
   }
 
-  // Build main content state
   Widget _buildContentState(Color primaryColor) {
     final title = _assessmentData['title'] ?? 'Untitled Assessment';
     final description =
@@ -438,7 +396,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
 
     return Stack(
       children: [
-        // Background gradient with pattern
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
@@ -459,8 +416,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
             ),
           ),
         ),
-
-        // Main content
         SafeArea(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
@@ -468,27 +423,16 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header with title and description
                 _buildHeader(
                   title: title,
                   description: description,
                   isAI: isAI,
                   primaryColor: primaryColor,
                 ),
-
-                // Quick stats cards
                 _buildStatsRow(primaryColor),
-
-                // Assessment info card
                 _buildAssessmentInfoCard(primaryColor),
-
-                // Question distribution
                 _buildQuestionDistributionCard(primaryColor),
-
-                // Rating card
                 _buildRatingCard(primaryColor),
-
-                // Bottom spacing for action bar
                 const SizedBox(height: 80),
               ],
             ),
@@ -498,14 +442,12 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     );
   }
 
-  // Handle missing description gracefully
   Widget _buildHeader({
     required String title,
     required String description,
     required bool isAI,
     required Color primaryColor,
   }) {
-    // Format description text, handle empty or null cases
     final String formattedDescription =
         description.trim().isEmpty ? 'No description available' : description;
 
@@ -514,7 +456,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title with AI badge
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -604,10 +545,7 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                 ),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          // Description with improved error handling
           AnimatedBuilder(
             animation: _animationController,
             builder: (context, child) {
@@ -662,7 +600,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     );
   }
 
-  // Build stats row
   Widget _buildStatsRow(Color primaryColor) {
     final totalPoints = _assessmentData['totalPoints'] ?? 0;
 
@@ -712,7 +649,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     );
   }
 
-  // Build stat card
   Widget _buildStatCard({
     required IconData icon,
     required String title,
@@ -770,7 +706,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     );
   }
 
-  // Build assessment info card
   Widget _buildAssessmentInfoCard(Color primaryColor) {
     final difficulty = _assessmentData['difficulty'] ?? 'Medium';
     final createdAt = _formatDate(_assessmentData['createdAt']);
@@ -807,7 +742,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -851,33 +785,24 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                   ],
                 ),
               ),
-
-              // Content
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    // Difficulty
                     _buildInfoRow(
                       icon: Icons.signal_cellular_alt_outlined,
                       color: _getDifficultyColor(difficulty),
                       title: 'Difficulty Level',
                       value: difficulty,
                     ),
-
                     const SizedBox(height: 24),
-
-                    // Created by
                     _buildInfoRow(
                       icon: Icons.person_outline,
                       color: Colors.blue,
                       title: 'Created by',
                       value: creatorName,
                     ),
-
                     const SizedBox(height: 24),
-
-                    // Creation date
                     _buildInfoRow(
                       icon: Icons.event_outlined,
                       color: Colors.purple,
@@ -894,7 +819,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     );
   }
 
-  // Build info row
   Widget _buildInfoRow({
     required IconData icon,
     required Color color,
@@ -937,7 +861,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     );
   }
 
-  // Build question distribution card with radar chart
   Widget _buildQuestionDistributionCard(Color primaryColor) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
@@ -969,7 +892,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -1012,8 +934,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                   ],
                 ),
               ),
-
-              // Content
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -1031,16 +951,12 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                     else
                       Column(
                         children: [
-                          // Radar chart for question distribution
                           SizedBox(
                             height: 300,
                             width: double.infinity,
                             child: _buildRadarChart(),
                           ),
-
                           const SizedBox(height: 24),
-
-                          // Question type list
                           ..._buildQuestionTypeList(),
                         ],
                       ),
@@ -1054,39 +970,32 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     );
   }
 
-  // Build radar chart using fl_chart
   Widget _buildRadarChart() {
     final Color primaryColor = _getDifficultyColor(
       _assessmentData['difficulty'] as String?,
     );
 
     if (_questionTypeCount.isEmpty) {
-      return Container(); // Return empty container if no data
+      return Container();
     }
 
-    // Calculate max count for normalization
     final int maxCount = _questionTypeCount.values.fold(
       0,
       (a, b) => a > b ? a : b,
     );
 
-    // Sort question types for consistent ordering
     final sortedTypes = _questionTypeCount.keys.toList()..sort();
 
-    // Create data points for radar chart
     final List<List<RadarEntry>> allDataSets = [[]];
 
     for (String type in sortedTypes) {
       final count = _questionTypeCount[type] ?? 0;
-      // Normalize the value between 0 and 1 for the radar chart
       final double normalizedValue = maxCount > 0 ? count / maxCount : 0;
       allDataSets[0].add(RadarEntry(value: normalizedValue));
     }
 
-    // Get formatted question type names for labels
     final List<String> titles =
         sortedTypes.map((type) {
-          // Format the type name
           final words = type.split('-');
           return words
               .map(
@@ -1142,13 +1051,11 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     );
   }
 
-  // Build question type list
   List<Widget> _buildQuestionTypeList() {
     if (_questionTypeCount.isEmpty) {
       return [];
     }
 
-    // Sort question types by count (descending)
     final sortedTypes =
         _questionTypeCount.entries.toList()
           ..sort((a, b) => b.value.compareTo(a.value));
@@ -1159,12 +1066,10 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
       final percent =
           (_totalQuestions > 0) ? (count / _totalQuestions * 100).round() : 0;
 
-      // Get icon and color for this question type
       final typeInfo = _getQuestionTypeInfo(type);
       final IconData icon = typeInfo.$1;
       final Color color = typeInfo.$2;
 
-      // Format type name
       final formattedType = type
           .split('-')
           .map(
@@ -1179,7 +1084,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
         padding: const EdgeInsets.only(bottom: 12),
         child: Row(
           children: [
-            // Icon
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -1188,10 +1092,7 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
               ),
               child: Icon(icon, color: color, size: 16),
             ),
-
             const SizedBox(width: 12),
-
-            // Type name
             Expanded(
               child: Text(
                 formattedType,
@@ -1202,8 +1103,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                 ),
               ),
             ),
-
-            // Count and percentage
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -1225,7 +1124,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     }).toList();
   }
 
-  // Build rating card
   Widget _buildRatingCard(Color primaryColor) {
     final rating = (_assessmentData['rating'] as num?)?.toDouble() ?? 0.0;
 
@@ -1259,7 +1157,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: const BoxDecoration(
@@ -1299,13 +1196,10 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                   ],
                 ),
               ),
-
-              // Content
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    // Star ratings with animation
                     TweenAnimationBuilder<double>(
                       tween: Tween<double>(begin: 0.0, end: rating),
                       duration: const Duration(milliseconds: 1500),
@@ -1328,10 +1222,7 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                         );
                       },
                     ),
-
                     const SizedBox(height: 16),
-
-                    // Rating value
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -1353,10 +1244,7 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 8),
-
-                    // Participants count
                     Text(
                       'Based on $_participantsCount ${_participantsCount == 1 ? 'rating' : 'ratings'}',
                       style: TextStyle(
@@ -1374,7 +1262,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
     );
   }
 
-  // Build bottom action bar
   Widget _buildBottomActionBar(Color primaryColor) {
     return Container(
       decoration: BoxDecoration(
@@ -1397,7 +1284,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Row(
             children: [
-              // View Source button
               Expanded(
                 flex: 4,
                 child: AnimatedContainer(
@@ -1452,10 +1338,7 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
                   ),
                 ),
               ),
-
               const SizedBox(width: 16),
-
-              // Start Assessment button
               Expanded(
                 flex: 6,
                 child: Container(
@@ -1505,7 +1388,6 @@ class _AssessmentDetailPageState extends State<AssessmentDetailPage>
   }
 }
 
-// Custom painter for background pattern
 class PatternPainter extends CustomPainter {
   final Color color;
 
@@ -1516,17 +1398,13 @@ class PatternPainter extends CustomPainter {
     final paint =
         Paint()
           ..color = color
-          ..strokeWidth =
-              0.5 // Make lines thinner
+          ..strokeWidth = 0.5
           ..style = PaintingStyle.stroke;
 
-    const double spacing = 35; // Increase spacing between dots
+    const double spacing = 35;
 
-    // Draw grid of dots only in visible area
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height / 2; y += spacing) {
-        // Only draw in top half
-        // Make dots smaller and more subtle
         if ((x ~/ spacing + y ~/ spacing) % 2 == 0) {
           canvas.drawCircle(Offset(x, y), 0.5, paint);
         } else {

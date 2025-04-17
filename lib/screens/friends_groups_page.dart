@@ -22,29 +22,23 @@ class FriendsGroupsPage extends StatefulWidget {
 }
 
 class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
-  int _selectedTabIndex = 0; // 0: Friends, 1: Groups, 2: Requests
-  bool _showGroupInvites =
-      false; // Toggle between friend requests and group invites
+  int _selectedTabIndex = 0;
+  bool _showGroupInvites = false;
 
-  // Firebase instances
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // Current user ID
   String? _currentUserId;
 
-  // Stream data
   Stream<QuerySnapshot>? _friendsStream;
   Stream<QuerySnapshot>? _groupsStream;
   Stream<QuerySnapshot>? _friendRequestsStream;
   Stream<QuerySnapshot>? _groupInvitesStream;
 
-  // Cache for profile images to avoid excessive storage calls
   final Map<String, String> _profileImageCache = {};
   bool _isLoadingRandomImage = false;
 
-  // Default profile image URLs from cloud storage
   List<String> _defaultProfileImageUrls = [];
 
   @override
@@ -56,11 +50,9 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
 
   @override
   void dispose() {
-    // Make sure to clean up any resources when the widget is removed
     super.dispose();
   }
 
-  // Initialize current user and setup streams
   Future<void> _initializeCurrentUser() async {
     _currentUserId = _auth.currentUser?.uid;
     if (_currentUserId != null) {
@@ -68,11 +60,9 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     }
   }
 
-  // Setup all data streams based on the Firestore schema
   void _setupStreams() {
     if (_currentUserId == null) return;
 
-    // Friends collection - users who are friends with the current user
     _friendsStream =
         _firestore
             .collection('users')
@@ -80,7 +70,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             .collection('friends')
             .snapshots();
 
-    // Groups the user is a member of - from user's groups subcollection
     _groupsStream =
         _firestore
             .collection('users')
@@ -88,7 +77,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             .collection('groups')
             .snapshots();
 
-    // Received friend requests - using friendRequests subcollection
     _friendRequestsStream =
         _firestore
             .collection('users')
@@ -98,7 +86,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             .where('status', isEqualTo: 'pending')
             .snapshots();
 
-    // Group invites - using groupInvites subcollection
     _groupInvitesStream =
         _firestore
             .collection('users')
@@ -107,16 +94,13 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             .where('status', isEqualTo: 'pending')
             .snapshots();
 
-    // Force UI refresh after streams are set up
     if (mounted) {
       setState(() {});
     }
   }
 
-  // Preload default profile images from Firebase Storage
   Future<void> _preloadDefaultProfileImages() async {
     try {
-      // List all items in the profile_pics folder
       final storageRef = _storage.ref().child('profile_pics');
       final listResult = await storageRef.listAll();
 
@@ -125,7 +109,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
         return;
       }
 
-      // Load URLs for all images (or up to 5 to avoid excessive downloads)
       final maxImages = math.min(5, listResult.items.length);
       for (int i = 0; i < maxImages; i++) {
         try {
@@ -140,7 +123,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
         'Preloaded ${_defaultProfileImageUrls.length} default profile images',
       );
 
-      // Force refresh if widget is still mounted
       if (mounted) {
         setState(() {});
       }
@@ -149,11 +131,9 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     }
   }
 
-  // Get a random profile picture from Firebase Storage
   Future<String?> _getRandomProfilePicture() async {
     if (_isLoadingRandomImage) return null;
 
-    // Use preloaded images if available
     if (_defaultProfileImageUrls.isNotEmpty) {
       final randomIndex = math.Random().nextInt(
         _defaultProfileImageUrls.length,
@@ -166,7 +146,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
         _isLoadingRandomImage = true;
       });
 
-      // List all items in the profile_pics folder
       final storageRef = _storage.ref().child('profile_pics');
       final listResult = await storageRef.listAll();
 
@@ -175,11 +154,9 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
         return null;
       }
 
-      // Select random image from the folder
       final randomIndex = math.Random().nextInt(listResult.items.length);
       final randomImageRef = listResult.items[randomIndex];
 
-      // Get the download URL
       final downloadURL = await randomImageRef.getDownloadURL();
       return downloadURL;
     } catch (e) {
@@ -200,18 +177,14 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Salmon colored top section
           Container(
-            color: const Color(
-              0xFFFFA07A,
-            ), // Salmon background to match journal page
+            color: const Color(0xFFFFA07A),
             child: SafeArea(
               bottom: false,
               child: Column(
                 children: [
                   _buildHeader(),
                   _buildTabSelector(),
-                  // Curved bottom edge
                   Container(
                     height: 30,
                     decoration: const BoxDecoration(
@@ -226,8 +199,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
               ),
             ),
           ),
-
-          // Main content area (white background)
           Expanded(
             child: Container(
               color: Colors.white,
@@ -236,12 +207,10 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
           ),
         ],
       ),
-      // Bottom navigation bar
       bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
-  // Header with page title
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -257,7 +226,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Tab selector for Friends, Groups, and Requests
   Widget _buildTabSelector() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -278,7 +246,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Individual tab button
   Widget _buildTabButton(int index, String label) {
     final isSelected = _selectedTabIndex == index;
     return Expanded(
@@ -309,7 +276,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Content for the selected tab
   Widget _buildSelectedTabContent() {
     switch (_selectedTabIndex) {
       case 0:
@@ -323,7 +289,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     }
   }
 
-  // Friends tab content
   Widget _buildFriendsTab() {
     if (_currentUserId == null) {
       return Center(
@@ -345,7 +310,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     return StreamBuilder<QuerySnapshot>(
       stream: _friendsStream,
       builder: (context, snapshot) {
-        // Always show content inside a SingleChildScrollView for consistency
         return SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
           child: Column(
@@ -358,8 +322,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
-
-              // Show loading, error, or content as appropriate
               if (snapshot.connectionState == ConnectionState.waiting)
                 _buildLoadingIndicator()
               else if (snapshot.hasError)
@@ -368,11 +330,9 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                 _buildEmptyFriendsMessage()
               else
                 ...snapshot.data!.docs.map((doc) {
-                  // Build individual friend cards
                   final friendData = doc.data() as Map<String, dynamic>;
                   final friendId = doc.id;
 
-                  // Get friend's display name and photo from the friends subcollection
                   final displayName =
                       friendData['displayName'] ?? 'Unknown User';
                   final photoURL =
@@ -381,7 +341,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                   final isActive = friendData['isActive'] ?? false;
                   final privacyLevel = friendData['privacyLevel'] ?? 'public';
 
-                  // Get befriended timestamp
                   final becameFriendsAt = friendData['becameFriendsAt'];
                   final lastActive =
                       becameFriendsAt != null
@@ -397,8 +356,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                     'privacyLevel': privacyLevel,
                   });
                 }).toList(),
-
-              // Always show the Find Friends button (crucial for new users!)
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -433,7 +390,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Helper widgets for the friends tab
   Widget _buildLoadingIndicator() {
     return Container(
       height: 200,
@@ -492,7 +448,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Groups tab content
   Widget _buildGroupsTab() {
     if (_currentUserId == null) {
       return Center(
@@ -514,7 +469,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     return StreamBuilder<QuerySnapshot>(
       stream: _groupsStream,
       builder: (context, snapshot) {
-        // Always show content inside a SingleChildScrollView for consistency
         return SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
           child: Column(
@@ -527,8 +481,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
-
-              // Show loading, error, or content as appropriate
               if (snapshot.connectionState == ConnectionState.waiting)
                 _buildLoadingIndicator()
               else if (snapshot.hasError)
@@ -539,10 +491,8 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                 Column(
                   children:
                       snapshot.data!.docs.map((doc) {
-                        // Build individual group cards
                         final groupData = doc.data() as Map<String, dynamic>;
 
-                        // Use the document ID directly as the group ID
                         final groupId = doc.id;
                         final groupName = groupData['name'] ?? 'Unnamed Group';
                         final photoURL =
@@ -555,8 +505,7 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                           'id': groupId,
                           'name': groupName,
                           'avatar': photoURL,
-                          'members':
-                              0, // Default to 0, we'll fetch this separately
+                          'members': 0,
                           'role': role,
                           'lastActive':
                               joinedAt != null
@@ -565,8 +514,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                         });
                       }).toList(),
                 ),
-
-              // Always show the Groups action buttons (crucial for new users!)
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -630,7 +577,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Helper widget for the groups tab
   Widget _buildEmptyGroupsMessage() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 30),
@@ -662,7 +608,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Show a coming soon snackbar for features not yet implemented
   void _showComingSoonSnackBar(String feature) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -672,7 +617,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Requests tab content
   Widget _buildRequestsTab() {
     if (_currentUserId == null) {
       return Center(
@@ -696,7 +640,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Request type toggle button
           Container(
             margin: const EdgeInsets.symmetric(vertical: 16),
             width: double.infinity,
@@ -779,8 +722,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
               ],
             ),
           ),
-
-          // Use IndexedStack to maintain both list states
           IndexedStack(
             index: _showGroupInvites ? 1 : 0,
             children: [_buildFriendRequestsList(), _buildGroupInvitesList()],
@@ -790,7 +731,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Build the list of friend requests
   Widget _buildFriendRequestsList() {
     return StreamBuilder<QuerySnapshot>(
       stream: _friendRequestsStream,
@@ -839,7 +779,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                 final requestData = doc.data() as Map<String, dynamic>;
                 final requestId = doc.id;
 
-                // Get sender information with safer type handling
                 String userId = '';
                 try {
                   userId = requestData['userId'] as String? ?? '';
@@ -870,7 +809,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Build the list of group invites
   Widget _buildGroupInvitesList() {
     return StreamBuilder<QuerySnapshot>(
       stream: _groupInvitesStream,
@@ -915,7 +853,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                 final inviteData = doc.data() as Map<String, dynamic>;
                 final inviteId = doc.id;
 
-                // Get group information with null safety
                 final groupId = inviteData['groupId'] as String? ?? '';
                 final groupName = inviteData['groupName'] ?? 'Unknown Group';
                 final inviterName = inviteData['inviterName'] ?? 'Unknown User';
@@ -926,8 +863,7 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                   'groupId': groupId,
                   'name': groupName,
                   'inviterName': inviterName,
-                  'avatar':
-                      'assets/images/default_group.jpg', // Default group image
+                  'avatar': 'assets/images/default_group.jpg',
                   'sentAt':
                       createdAt != null
                           ? _formatLastActive(createdAt)
@@ -939,12 +875,10 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Friend card UI with chat navigation
   Widget _buildFriendCard(Map<String, dynamic> friend) {
     final bool isActive = friend['isActive'] ?? false;
     final String privacyLevel = friend['privacyLevel'] ?? 'public';
 
-    // Determine if we should show the active status
     final bool showActiveStatus = privacyLevel != 'private';
 
     return Container(
@@ -957,10 +891,8 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
       ),
       child: Row(
         children: [
-          // Stack for avatar with active status indicator
           Stack(
             children: [
-              // Avatar - wrapped with GestureDetector for profile navigation
               GestureDetector(
                 onTap: () {
                   Navigator.of(context).push(
@@ -983,8 +915,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                   ),
                 ),
               ),
-
-              // Active status indicator
               if (showActiveStatus)
                 Positioned(
                   bottom: 0,
@@ -1015,8 +945,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             ],
           ),
           const SizedBox(width: 12),
-
-          // Name and status - also navigates to profile
           Expanded(
             child: GestureDetector(
               onTap: () {
@@ -1044,8 +972,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
               ),
             ),
           ),
-
-          // Message button with navigation to ChatPage
           GestureDetector(
             onTap: () {
               Navigator.of(context).push(
@@ -1062,7 +988,7 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFF4A9A8), // Light coral from dashboard
+                color: const Color(0xFFF4A9A8),
               ),
               padding: const EdgeInsets.all(8),
               child: const Icon(Icons.message, color: Colors.white, size: 20),
@@ -1073,7 +999,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Group card UI
   Widget _buildGroupCard(Map<String, dynamic> group) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1085,7 +1010,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
       ),
       child: Row(
         children: [
-          // Group avatar
           Container(
             width: 60,
             height: 60,
@@ -1099,7 +1023,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             ),
           ),
           const SizedBox(width: 12),
-          // Group details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1127,10 +1050,8 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
               ],
             ),
           ),
-          // Enter group button
           GestureDetector(
             onTap: () {
-              // Navigate to the group detail page
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => GroupPage(groupId: group['id']),
@@ -1140,7 +1061,7 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF98D8C8), // Light teal from dashboard
+                color: const Color(0xFF98D8C8),
               ),
               padding: const EdgeInsets.all(8),
               child: const Icon(
@@ -1155,7 +1076,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Received friend request card
   Widget _buildReceivedRequestCard(Map<String, dynamic> request) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1169,7 +1089,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
         children: [
           Row(
             children: [
-              // Avatar with profile navigation
               GestureDetector(
                 onTap: () {
                   Navigator.of(context).push(
@@ -1194,7 +1113,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                 ),
               ),
               const SizedBox(width: 12),
-              // Name and status with profile navigation
               Expanded(
                 child: GestureDetector(
                   onTap: () {
@@ -1227,7 +1145,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             ],
           ),
           const SizedBox(height: 12),
-          // Action buttons
           Row(
             children: [
               Expanded(
@@ -1286,7 +1203,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Group invite card
   Widget _buildGroupInviteCard(Map<String, dynamic> invite) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1300,14 +1216,11 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
         children: [
           Row(
             children: [
-              // Group avatar
               Container(
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(
-                    12,
-                  ), // Square with rounded corners for groups
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.black, width: 1),
                   image: DecorationImage(
                     image: _getImageProvider(invite['avatar']),
@@ -1316,7 +1229,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
                 ),
               ),
               const SizedBox(width: 12),
-              // Group name and info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1342,7 +1254,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             ],
           ),
           const SizedBox(height: 12),
-          // Action buttons
           Row(
             children: [
               Expanded(
@@ -1401,7 +1312,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Empty state widget (for places where we need a simpler empty state)
   Widget _buildEmptyState(String message) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 30),
@@ -1421,15 +1331,13 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Bottom navigation bar
-  // Update to _buildBottomNavBar in friends_groups_page.dart
   Widget _buildBottomNavBar() {
     return Container(
       height: 55,
       margin: const EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 25.0),
       decoration: BoxDecoration(
         color: const Color(0xFFFFA07A),
-        border: Border.all(color: Colors.black, width: 1.5), // Black border
+        border: Border.all(color: Colors.black, width: 1.5),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -1442,7 +1350,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Bar chart icon - Navigate to AssessmentPage
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -1451,7 +1358,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             },
             child: _buildNavItem(Icons.bar_chart, false),
           ),
-          // AI Learning page navigation
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -1460,7 +1366,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             },
             child: _buildNavItem(Icons.access_time, false),
           ),
-          // Home icon with navigation back to Dashboard
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -1469,7 +1374,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             },
             child: _buildNavItem(Icons.home, false),
           ),
-          // Journal icon with navigation to Journal page
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -1478,13 +1382,12 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             },
             child: _buildNavItem(Icons.assessment, false),
           ),
-          _buildNavItem(Icons.person_outline, true), // Person icon is selected
+          _buildNavItem(Icons.person_outline, true),
         ],
       ),
     );
   }
 
-  // Individual navigation item
   Widget _buildNavItem(IconData icon, bool isSelected) {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -1500,8 +1403,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     );
   }
 
-  // Helper methods
-  // Format last active timestamp to a readable format
   String _formatLastActive(dynamic timestamp) {
     if (timestamp == null) return 'Unknown';
 
@@ -1531,18 +1432,14 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     }
   }
 
-  // Get image provider with fallback for errors and random profile pic selection
   ImageProvider _getImageProvider(String? path) {
-    // If path is null or empty, get a random image from cloud storage
     if (path == null || path.isEmpty) {
-      // Try to use a cached random image if we have one for empty paths
       if (_profileImageCache.containsKey('empty_path') &&
           _profileImageCache['empty_path'] != null &&
           _profileImageCache['empty_path']!.isNotEmpty) {
         return NetworkImage(_profileImageCache['empty_path']!);
       }
 
-      // Get a random image and update the UI when it's ready
       _getRandomProfilePicture().then((randomPic) {
         if (randomPic != null && mounted) {
           _profileImageCache['empty_path'] = randomPic;
@@ -1550,11 +1447,9 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
         }
       });
 
-      // In the meantime, use a placeholder
       return const AssetImage('assets/images/default_avatar.jpg');
     }
 
-    // Check if we have a cached random image for this path
     if (_profileImageCache.containsKey(path)) {
       final cachedPath = _profileImageCache[path];
       if (cachedPath != null && cachedPath.isNotEmpty) {
@@ -1562,31 +1457,23 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
       }
     }
 
-    // Handle network images
     if (path.startsWith('http')) {
       return NetworkImage(path)
         ..resolve(const ImageConfiguration()).addListener(
           ImageStreamListener(
-            (info, _) {
-              // Image loaded successfully
-            },
+            (info, _) {},
             onError: (error, stackTrace) async {
               print('Error loading network image $path: $error');
               _handleImageLoadError(path);
             },
           ),
         );
-    }
-    // Handle asset images
-    else {
+    } else {
       try {
-        // For asset images, we need to handle errors differently
         return AssetImage(path)
           ..resolve(const ImageConfiguration()).addListener(
             ImageStreamListener(
-              (info, _) {
-                // Image loaded successfully
-              },
+              (info, _) {},
               onError: (error, stackTrace) async {
                 print('Error loading asset image $path: $error');
                 _handleImageLoadError(path);
@@ -1595,35 +1482,27 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
           );
       } catch (e) {
         print('Exception with asset image $path: $e');
-        // Handle immediate exceptions with asset images
         _handleImageLoadError(path);
         return const AssetImage('assets/images/default_avatar.jpg');
       }
     }
   }
 
-  // Helper method to handle image load errors
   void _handleImageLoadError(String path) async {
-    // Only proceed if not already loading an image for this path
     if (_profileImageCache.containsKey(path) &&
         _profileImageCache[path] == 'loading') {
       return;
     }
 
-    // Mark this path as currently loading
     _profileImageCache[path] = 'loading';
 
-    // Get a random profile picture
     final randomPic = await _getRandomProfilePicture();
     if (randomPic != null && mounted) {
-      // Cache the random image for this path
       _profileImageCache[path] = randomPic;
-      // Force a rebuild to show the new image
       setState(() {});
     }
   }
 
-  // Friend request handling methods
   Future<void> _handleFriendRequest(
     String requestId,
     String userId,
@@ -1632,10 +1511,8 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     if (_currentUserId == null) return;
 
     try {
-      // Start a batch to ensure all operations are atomic
       final batch = _firestore.batch();
 
-      // Get the request document to have access to all its data
       final requestDoc =
           await _firestore
               .collection('users')
@@ -1651,19 +1528,16 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
       final requestData = requestDoc.data();
 
       if (action == 'accept') {
-        // Get the user data for the friend
         final userSnapshot =
             await _firestore.collection('users').doc(userId).get();
         final userData = userSnapshot.data();
 
         if (userData != null) {
-          // Get current user's data
           final currentUserSnapshot =
               await _firestore.collection('users').doc(_currentUserId).get();
           final currentUserData = currentUserSnapshot.data();
 
           if (currentUserData != null) {
-            // Add to current user's friends collection
             batch.set(
               _firestore
                   .collection('users')
@@ -1680,7 +1554,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
               },
             );
 
-            // Add current user to friend's friends collection
             batch.set(
               _firestore
                   .collection('users')
@@ -1697,8 +1570,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
               },
             );
 
-            // Find and delete the corresponding request in the other user's collection
-            // (the request that the friend sent to the current user)
             final otherRequestsQuery =
                 await _firestore
                     .collection('users')
@@ -1712,15 +1583,12 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
               batch.delete(doc.reference);
             }
 
-            // Delete the current request
             batch.delete(requestDoc.reference);
           }
         }
       } else if (action == 'decline') {
-        // Update status to declined in current user's request
         batch.update(requestDoc.reference, {'status': 'declined'});
 
-        // Find and update the corresponding request in the other user's collection
         final otherRequestsQuery =
             await _firestore
                 .collection('users')
@@ -1735,11 +1603,9 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
         }
       }
 
-      // Execute all operations as a batch
       await batch.commit();
 
       if (action == 'accept' && mounted) {
-        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -1751,7 +1617,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
       }
     } catch (error) {
       print('Error handling friend request: $error');
-      // Show error message to user
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1763,7 +1628,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     }
   }
 
-  // Handle group invite (accept or decline)
   Future<void> _handleGroupInvite(
     String inviteId,
     String groupId,
@@ -1772,10 +1636,8 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
     if (_currentUserId == null) return;
 
     try {
-      // Start a batch to ensure all operations are atomic
       final batch = _firestore.batch();
 
-      // Get the invite document
       final inviteDoc =
           await _firestore
               .collection('users')
@@ -1792,13 +1654,11 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
       final invitedBy = inviteData?['invitedBy'] as String?;
 
       if (action == 'accept') {
-        // Get group details
         final groupSnapshot =
             await _firestore.collection('groups').doc(groupId).get();
         final groupData = groupSnapshot.data();
 
         if (groupData != null) {
-          // Add user to group's members subcollection
           batch.set(
             _firestore
                 .collection('groups')
@@ -1808,12 +1668,11 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             {
               'displayName': _auth.currentUser?.displayName ?? 'Unknown User',
               'photoURL': _auth.currentUser?.photoURL,
-              'role': 'member', // Default role for invited members
+              'role': 'member',
               'joinedAt': FieldValue.serverTimestamp(),
             },
           );
 
-          // Add group to user's groups subcollection
           batch.set(
             _firestore
                 .collection('users')
@@ -1828,10 +1687,8 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
             },
           );
 
-          // Delete the invite from the user's invites
           batch.delete(inviteDoc.reference);
 
-          // Delete from the group's pendingInvites if it exists
           batch.delete(
             _firestore
                 .collection('groups')
@@ -1841,10 +1698,8 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
           );
         }
       } else if (action == 'decline') {
-        // Update status to declined in current user's invite
         batch.update(inviteDoc.reference, {'status': 'declined'});
 
-        // Update status in the group's pendingInvites if it exists
         if (groupId.isNotEmpty) {
           batch.update(
             _firestore
@@ -1857,11 +1712,9 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
         }
       }
 
-      // Execute all operations as a batch
       await batch.commit();
 
       if (action == 'accept' && mounted) {
-        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -1873,7 +1726,6 @@ class _FriendsGroupsPageState extends State<FriendsGroupsPage> {
       }
     } catch (error) {
       print('Error handling group invite: $error');
-      // Show error message to user
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

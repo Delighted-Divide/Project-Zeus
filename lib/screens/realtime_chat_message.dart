@@ -21,9 +21,7 @@ class ChatMessage {
     this.documentName,
   });
 
-  // Factory method to create a ChatMessage from a Realtime Database entry
   factory ChatMessage.fromRealtime(Map<dynamic, dynamic> data, String id) {
-    // Handle timestamp which is stored as milliseconds since epoch
     int timestampValue =
         data['timestamp'] is int
             ? data['timestamp']
@@ -43,7 +41,6 @@ class ChatMessage {
     );
   }
 
-  // Get formatted time for display
   String get formattedTime {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -54,18 +51,14 @@ class ChatMessage {
     );
 
     if (messageDate == today) {
-      // Today - show only time
       return DateFormat('HH:mm').format(timestamp);
     } else if (messageDate == today.subtract(const Duration(days: 1))) {
-      // Yesterday
       return 'Yesterday ${DateFormat('HH:mm').format(timestamp)}';
     } else {
-      // Other days - show date and time
       return DateFormat('dd/MM HH:mm').format(timestamp);
     }
   }
 
-  // Convert to Map for database operations
   Map<String, dynamic> toMap() {
     return {
       'sender': sender,

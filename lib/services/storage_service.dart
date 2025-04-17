@@ -10,16 +10,14 @@ import 'package:flutter/material.dart';
 import '../models/assessment.dart';
 import '../utils/constants.dart';
 
-/// Service for handling storage operations (Firebase and local)
 class StorageService {
   final Logger _logger = Logger();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
-  final Uuid _uuid = Uuid();
+  final Uuid _uuid = const Uuid();
 
-  /// Load API key from secure storage
   Future<String?> loadApiKey() async {
     try {
       final apiKey = await _secureStorage.read(
@@ -28,17 +26,15 @@ class StorageService {
       if (apiKey != null && apiKey.isNotEmpty) {
         _logger.i('API key loaded from secure storage');
         return apiKey;
-      } else {
-        _logger.i('No API key found in secure storage');
-        return null;
       }
+      _logger.i('No API key found in secure storage');
+      return null;
     } catch (e) {
-      _logger.e('Error loading API key', error: e);
+      _logger.e('Error loading API key from secure storage', error: e);
       return null;
     }
   }
 
-  /// Save API key to secure storage
   Future<bool> saveApiKey(String apiKey) async {
     try {
       await _secureStorage.write(
@@ -48,75 +44,74 @@ class StorageService {
       _logger.i('API key saved to secure storage');
       return true;
     } catch (e) {
-      _logger.e('Error saving API key', error: e);
+      _logger.e('Error saving API key to secure storage', error: e);
       return false;
     }
   }
 
-  /// Check if this is the first time the user is opening the AI assistant
   Future<bool> checkFirstTimeUser() async {
     try {
       final currentUser = _auth.currentUser;
-      if (currentUser != null) {
-        final userDoc =
-            await _firestore
-                .collection(AppConstants.usersCollection)
-                .doc(currentUser.uid)
-                .get();
-
-        if (userDoc.exists) {
-          final userData = userDoc.data();
-          final isFirstTime = userData?['hasUsedAIAssistant'] != true;
-
-          // If this is the first time, mark that user has used AI assistant
-          if (isFirstTime) {
-            await _firestore
-                .collection(AppConstants.usersCollection)
-                .doc(currentUser.uid)
-                .update({'hasUsedAIAssistant': true});
-          }
-
-          return isFirstTime;
-        }
+      if (currentUser == null) {
+        _logger.w('No authenticated user found');
+        return true;
       }
-      return true; // Default to true if can't determine
+
+      final userData =
+          await _firestore
+              .collection(AppConstants.usersCollection)
+              .doc(currentUser.uid)
+              .get();
+
+      if (!userData.exists || userData.data() == null) {
+        _logger.w('User document is empty');
+        return true;
+      }
+
+      final isFirstTime = userData['hasUsedAIAssistant'] != true;
+
+      if (isFirstTime) {
+        await _firestore
+            .collection(AppConstants.usersCollection)
+            .doc(currentUser.uid)
+            .update({'hasUsedAIAssistant': true});
+      }
+
+      return isFirstTime;
     } catch (e) {
       _logger.e('Error checking first time user', error: e);
-      return false;
+      return true;
     }
   }
 
-  /// Upload PDF to Firebase Storage
   Future<String?> uploadPdfToStorage(File pdfFile, String fileName) async {
     try {
+      if (!pdfFile.existsSync()) {
+        throw FileSystemException('PDF file does not exist');
+      }
+
       _logger.i('Uploading PDF to Firebase Storage');
 
       final currentUser = _auth.currentUser;
       if (currentUser == null) {
-        throw Exception('User not authenticated');
+        throw StateError('User not authenticated');
       }
 
-      // Create a storage reference
       final storageRef = _storage.ref().child(
         'pdfs/${currentUser.uid}/$fileName',
       );
 
-      // Upload the file
       final uploadTask = storageRef.putFile(pdfFile);
 
-      // Show upload progress
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
         final progress = snapshot.bytesTransferred / snapshot.totalBytes;
         _logger.d('Upload progress: ${(progress * 100).toStringAsFixed(2)}%');
       });
 
-      // Wait for the upload to complete
       final snapshot = await uploadTask.whenComplete(() => null);
-
-      // Get the download URL
       final downloadUrl = await snapshot.ref.getDownloadURL();
 
-      _logger.i('PDF uploaded successfully, URL: $downloadUrl');
+      _logger.i('PDF uploaded successfully');
       return downloadUrl;
     } catch (e) {
       _logger.e('Error uploading PDF to storage', error: e);
@@ -124,7 +119,6 @@ class StorageService {
     }
   }
 
-  /// Save generated assessment to Firestore
   Future<bool> saveAssessmentToFirestore(
     Map<String, dynamic> generatedQuestions, {
     required String pdfName,
@@ -141,13 +135,11 @@ class StorageService {
         throw Exception('User not logged in');
       }
 
-      // Create assessment document
       final assessmentId = _uuid.v4();
       final assessmentRef = _firestore
           .collection(AppConstants.assessmentsCollection)
           .doc(assessmentId);
 
-      // Basic assessment data
       await assessmentRef.set({
         'title': 'Assessment on $pdfName',
         'creatorId': currentUser.uid,
@@ -166,7 +158,6 @@ class StorageService {
         'madeByAI': true,
       });
 
-      // Add questions
       final questions = generatedQuestions['questions'] as List<dynamic>;
       for (final question in questions) {
         await assessmentRef
@@ -180,7 +171,6 @@ class StorageService {
             });
       }
 
-      // Add answers
       final answers = generatedQuestions['answers'] as List<dynamic>;
       for (final answer in answers) {
         await assessmentRef
@@ -194,7 +184,6 @@ class StorageService {
             });
       }
 
-      // Save tags to tags collection if they don't exist
       if (generatedQuestions['tags'] != null) {
         final tags = generatedQuestions['tags'] as List<dynamic>;
         for (final tag in tags) {
@@ -213,7 +202,6 @@ class StorageService {
         }
       }
 
-      // Add assessment to user's assessments
       await _firestore
           .collection(AppConstants.usersCollection)
           .doc(currentUser.uid)

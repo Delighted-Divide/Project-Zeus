@@ -5,14 +5,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// Import our custom files
 import 'realtime_chat_service.dart';
 import 'pdf_viewer_screen.dart';
 
 class ChatPage extends StatefulWidget {
   final String friendName;
   final String friendAvatar;
-  final String friendId; // Friend's ID for database
+  final String friendId;
 
   const ChatPage({
     super.key,
@@ -26,39 +25,31 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  // Controllers
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
 
-  // Services
   final RealtimeChatService _chatService = RealtimeChatService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Chat state
   String _chatId = '';
   bool _isLoading = true;
   Stream<List<Map<String, dynamic>>>? _messagesStream;
 
-  // Media state
   File? _selectedImage;
   File? _selectedDocument;
   String? _documentName;
 
-  // UI state
-  bool _isOnline = true; // Friend online status (could be dynamic in future)
+  bool _isOnline = true;
   bool _isScrolling = false;
 
-  // Debug flags
   bool _databaseConnectionTested = false;
 
   @override
   void initState() {
     super.initState();
 
-    // Verify authentication first
     if (_auth.currentUser == null) {
-      // Show error and return to previous screen if not authenticated
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("You must be logged in to use chat")),
@@ -68,19 +59,16 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
 
-    // Test database, then initialize chat
     _testDatabaseAndInitialize();
   }
 
   @override
   void dispose() {
-    // Clean up controllers to prevent memory leaks
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  // Test database connection before initializing chat
   Future<void> _testDatabaseAndInitialize() async {
     setState(() => _isLoading = true);
 
@@ -103,22 +91,18 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // Initialize chat after successful database connection
   Future<void> _initializeChat() async {
     try {
       print("Initializing chat with friend ID: ${widget.friendId}");
 
-      // Get or create chat ID based on participants
       _chatId = await _chatService.getOrCreateChat(widget.friendId);
       print("Chat ID created/retrieved: $_chatId");
 
-      // Set up messages stream
       setState(() {
         _messagesStream = _chatService.getMessages(_chatId);
         _isLoading = false;
       });
 
-      // Scroll to bottom when messages load
       _scrollToBottomOnLoad();
     } catch (e) {
       print("Error initializing chat: $e");
@@ -126,7 +110,6 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // Handle connection or initialization errors
   void _handleConnectionError(String message) {
     setState(() => _isLoading = false);
 
@@ -137,7 +120,6 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // Show attachment options menu (image or document)
   void _showAttachmentOptions() {
     showModalBottomSheet(
       context: context,
@@ -157,7 +139,6 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
               const Divider(),
-              // Image option
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
@@ -173,7 +154,6 @@ class _ChatPageState extends State<ChatPage> {
                   _pickImage();
                 },
               ),
-              // Document option
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
@@ -199,12 +179,11 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  // Pick an image from gallery
   Future<void> _pickImage() async {
     try {
       final XFile? pickedImage = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 80, // Reduce image size while keeping decent quality
+        imageQuality: 80,
       );
 
       if (pickedImage != null) {
@@ -212,7 +191,6 @@ class _ChatPageState extends State<ChatPage> {
           _selectedImage = File(pickedImage.path);
         });
 
-        // Send the image message right away
         await _sendImageMessage();
       }
     } catch (e) {
@@ -220,7 +198,6 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // Pick a document file
   Future<void> _pickDocument() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -234,7 +211,6 @@ class _ChatPageState extends State<ChatPage> {
           _documentName = result.files.single.name;
         });
 
-        // Send the document message right away
         await _sendDocumentMessage();
       }
     } catch (e) {
@@ -242,90 +218,72 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // Send selected image as a message
   Future<void> _sendImageMessage() async {
     if (_selectedImage == null || _chatId.isEmpty) return;
 
     try {
-      // Show loading indicator
       _showLoadingSnackBar("Uploading image...");
 
-      // Send image with chat service
       await _chatService.sendImageMessage(_chatId, _selectedImage!);
 
-      // Clear selected image after sending
       setState(() {
         _selectedImage = null;
       });
 
-      // Dismiss loading indicator
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
       }
 
-      // Scroll to bottom after sending message
       _scrollToBottom();
     } catch (e) {
       _showErrorSnackBar("Error sending image: $e");
     }
   }
 
-  // Send selected document as a message
   Future<void> _sendDocumentMessage() async {
     if (_selectedDocument == null || _documentName == null || _chatId.isEmpty) {
       return;
     }
 
     try {
-      // Show loading indicator
       _showLoadingSnackBar("Uploading document...");
 
-      // Send document with chat service
       await _chatService.sendDocumentMessage(
         _chatId,
         _selectedDocument!,
         _documentName!,
       );
 
-      // Clear selected document after sending
       setState(() {
         _selectedDocument = null;
         _documentName = null;
       });
 
-      // Dismiss loading indicator
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
       }
 
-      // Scroll to bottom after sending message
       _scrollToBottom();
     } catch (e) {
       _showErrorSnackBar("Error sending document: $e");
     }
   }
 
-  // Send text message
   Future<void> _sendMessage() async {
-    // Don't send empty messages
     final text = _messageController.text.trim();
     if (text.isEmpty || _chatId.isEmpty) return;
 
     try {
-      // Send the message
       await _chatService.sendMessage(_chatId, text);
 
-      // Clear input field after sending
       _messageController.clear();
 
-      // Scroll to bottom after sending message
       _scrollToBottom();
     } catch (e) {
       _showErrorSnackBar("Error sending message: $e");
     }
   }
 
-  // Helper - Show loading snackbar
   void _showLoadingSnackBar(String message) {
     if (mounted) {
       ScaffoldMessenger.of(
@@ -334,7 +292,6 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // Helper - Show error snackbar
   void _showErrorSnackBar(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -343,16 +300,13 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // Scroll to bottom when messages load initially
   void _scrollToBottomOnLoad() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
     });
   }
 
-  // Scroll to bottom of message list
   void _scrollToBottom() {
-    // Prevent multiple scroll animations
     if (_isScrolling) return;
 
     _isScrolling = true;
@@ -373,7 +327,6 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  // Open PDF viewer for document messages
   void _openPdfViewer(String url, String documentName) {
     Navigator.push(
       context,
@@ -383,7 +336,6 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  // Format timestamp for message display
   String _formatMessageTime(dynamic timestamp) {
     if (timestamp == null) return '';
 
@@ -394,7 +346,6 @@ class _ChatPageState extends State<ChatPage> {
       return '';
     }
 
-    // Format time based on whether it's today, yesterday, or earlier
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final messageDate = DateTime(
@@ -418,7 +369,6 @@ class _ChatPageState extends State<ChatPage> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Salmon colored top section with chat header
           Container(
             color: const Color(0xFFFFA07A),
             child: SafeArea(
@@ -426,7 +376,6 @@ class _ChatPageState extends State<ChatPage> {
               child: Column(
                 children: [
                   _buildChatHeader(),
-                  // Curved bottom edge - smooth transition to chat area
                   Container(
                     height: 25,
                     decoration: const BoxDecoration(
@@ -441,30 +390,23 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
           ),
-
-          // Chat messages section (white background)
           Expanded(
             child:
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _buildMessagesList(),
           ),
-
-          // Message input section at bottom
           _buildMessageInput(),
         ],
       ),
-      // Debug button that tests database connection
     );
   }
 
-  // Chat header with friend info
   Widget _buildChatHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: Row(
         children: [
-          // Back button
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
             child: Container(
@@ -477,8 +419,6 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
           const SizedBox(width: 12),
-
-          // Friend profile picture
           Container(
             width: 45,
             height: 45,
@@ -493,8 +433,6 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
           const SizedBox(width: 12),
-
-          // Friend name and status
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -531,8 +469,6 @@ class _ChatPageState extends State<ChatPage> {
               ],
             ),
           ),
-
-          // Extra action buttons
           IconButton(
             icon: const Icon(
               Icons.auto_awesome,
@@ -550,18 +486,14 @@ class _ChatPageState extends State<ChatPage> {
           ),
           IconButton(
             icon: const Icon(Icons.more_vert, color: Colors.black),
-            onPressed: () {
-              // Could show chat options menu
-            },
+            onPressed: () {},
           ),
         ],
       ),
     );
   }
 
-  // Build the messages list with StreamBuilder
   Widget _buildMessagesList() {
-    // Handle case where stream is not initialized
     if (_messagesStream == null) {
       return Center(
         child: Column(
@@ -588,13 +520,11 @@ class _ChatPageState extends State<ChatPage> {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _messagesStream,
       builder: (context, snapshot) {
-        // Handle loading state
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        // Handle error state
         if (snapshot.hasError) {
           return Center(
             child: Column(
@@ -613,10 +543,8 @@ class _ChatPageState extends State<ChatPage> {
           );
         }
 
-        // Get messages from snapshot
         final messages = snapshot.data ?? [];
 
-        // Show empty state if no messages
         if (messages.isEmpty) {
           return const Center(
             child: Text(
@@ -626,11 +554,8 @@ class _ChatPageState extends State<ChatPage> {
           );
         }
 
-        // Build message list
         return ListView.builder(
-          key: ValueKey<int>(
-            messages.length,
-          ), // Helps Flutter identify when list changes
+          key: ValueKey<int>(messages.length),
           controller: _scrollController,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           itemCount: messages.length,
@@ -644,7 +569,6 @@ class _ChatPageState extends State<ChatPage> {
             final String? mediaUrl = message['mediaUrl'];
             final String? documentName = message['documentName'];
 
-            // Format time
             final String time = _formatMessageTime(timestamp);
 
             return _buildMessageBubble(
@@ -662,7 +586,6 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  // Single message bubble
   Widget _buildMessageBubble({
     required String message,
     required String time,
@@ -672,18 +595,15 @@ class _ChatPageState extends State<ChatPage> {
     String? mediaUrl,
     String? documentName,
   }) {
-    // Message bubble colors - green for user, red for friend
-    final Color userBubbleColor = const Color(0xFF4CAF50); // Green
-    final Color friendBubbleColor = const Color(0xFFE57373); // Light red
+    final Color userBubbleColor = const Color(0xFF4CAF50);
+    final Color friendBubbleColor = const Color(0xFFE57373);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
-        // User messages on right, friend messages on left
         mainAxisAlignment:
             isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          // Friend message - left aligned with red bubble
           if (!isUser)
             Flexible(
               child: Container(
@@ -701,9 +621,7 @@ class _ChatPageState extends State<ChatPage> {
                   children: [
                     if (isImage && mediaUrl != null)
                       GestureDetector(
-                        onTap: () {
-                          // Show image in full screen if needed
-                        },
+                        onTap: () {},
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: Image.network(
@@ -796,8 +714,6 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
             ),
-
-          // User message - right aligned with green bubble
           if (isUser)
             Flexible(
               child: Container(
@@ -815,9 +731,7 @@ class _ChatPageState extends State<ChatPage> {
                   children: [
                     if (isImage && mediaUrl != null)
                       GestureDetector(
-                        onTap: () {
-                          // Show image in full screen if needed
-                        },
+                        onTap: () {},
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: Image.network(
@@ -910,7 +824,6 @@ class _ChatPageState extends State<ChatPage> {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        // Read indicator
                         const Icon(
                           Icons.done_all,
                           size: 12,
@@ -927,11 +840,10 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  // Message input area
   Widget _buildMessageInput() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      margin: const EdgeInsets.only(bottom: 5), // Push up from bottom
+      margin: const EdgeInsets.only(bottom: 5),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -944,13 +856,12 @@ class _ChatPageState extends State<ChatPage> {
       ),
       child: Row(
         children: [
-          // Attachment button (smaller)
           GestureDetector(
             onTap: _showAttachmentOptions,
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0E6FA), // Light purple
+                color: const Color(0xFFF0E6FA),
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.black, width: 1),
               ),
@@ -962,8 +873,6 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
           const SizedBox(width: 12),
-
-          // Text input field
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -981,20 +890,17 @@ class _ChatPageState extends State<ChatPage> {
                   contentPadding: EdgeInsets.symmetric(vertical: 10),
                 ),
                 textCapitalization: TextCapitalization.sentences,
-                // Send on Enter key
                 onSubmitted: (_) => _sendMessage(),
               ),
             ),
           ),
           const SizedBox(width: 12),
-
-          // Send button (smaller)
           GestureDetector(
             onTap: _sendMessage,
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50), // Green to match user messages
+                color: const Color(0xFF4CAF50),
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.black, width: 1),
               ),

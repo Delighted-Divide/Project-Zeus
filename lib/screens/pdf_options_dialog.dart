@@ -3,39 +3,18 @@ import 'package:flutter/services.dart';
 import '../utils/constants.dart';
 import '../utils/text_formatter.dart';
 
-/// Dialog to configure PDF options and question generation settings
 class PdfOptionsDialog extends StatefulWidget {
-  /// Name of the PDF document
   final String pdfName;
-
-  /// Total number of pages in the PDF
   final int pdfPageCount;
-
-  /// Current page range selection
   final RangeValues pageRange;
-
-  /// Current difficulty level
   final String difficulty;
-
-  /// Selected question types
   final List<String> selectedQuestionTypes;
-
-  /// Question type counts
   final Map<String, TextEditingController> questionTypeCounts;
-
-  /// Callback for when page range changes
   final Function(RangeValues) onPageRangeChanged;
-
-  /// Callback for when difficulty changes
   final Function(String) onDifficultyChanged;
-
-  /// Callback for when selected question types change
   final Function(List<String>) onSelectedQuestionTypesChanged;
-
-  /// Callback for when question is generated
   final VoidCallback onGenerateQuestions;
 
-  /// Constructor
   const PdfOptionsDialog({
     Key? key,
     required this.pdfName,
@@ -57,8 +36,6 @@ class PdfOptionsDialog extends StatefulWidget {
 class _PdfOptionsDialogState extends State<PdfOptionsDialog>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  // Local state to ensure immediate UI updates
   late RangeValues _localPageRange;
   late String _localDifficulty;
   late List<String> _localSelectedTypes;
@@ -67,8 +44,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-
-    // Initialize local state
     _localPageRange = widget.pageRange;
     _localDifficulty = widget.difficulty;
     _localSelectedTypes = List.from(widget.selectedQuestionTypes);
@@ -80,7 +55,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
     super.dispose();
   }
 
-  /// Calculate total points based on selected question types and counts
   int _calculateTotalPoints() {
     int total = 0;
     for (final type in _localSelectedTypes) {
@@ -106,7 +80,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with document info
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -139,12 +112,9 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
               ],
             ),
           ),
-
-          // Main content - tabbed interface
           Expanded(
             child: Column(
               children: [
-                // Tab bar
                 Container(
                   color: Colors.white,
                   child: TabBar(
@@ -161,16 +131,11 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                     ],
                   ),
                 ),
-
-                // Tab content
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      // Content Selection Tab
                       _buildContentSelectionTab(),
-
-                      // Question Types Tab
                       _buildQuestionTypesTab(),
                     ],
                   ),
@@ -178,8 +143,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
               ],
             ),
           ),
-
-          // Action buttons - Generate or Cancel
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -194,7 +157,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
             ),
             child: Row(
               children: [
-                // Cancel button
                 Expanded(
                   flex: 1,
                   child: OutlinedButton(
@@ -212,22 +174,16 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                     ),
                   ),
                 ),
-
                 const SizedBox(width: 16),
-
-                // Generate button
                 Expanded(
                   flex: 2,
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      // Ensure we pass the updated values back to parent
                       widget.onPageRangeChanged(_localPageRange);
                       widget.onDifficultyChanged(_localDifficulty);
                       widget.onSelectedQuestionTypesChanged(
                         _localSelectedTypes,
                       );
-
-                      // Close dialog and generate questions
                       Navigator.pop(context);
                       widget.onGenerateQuestions();
                     },
@@ -259,7 +215,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
     );
   }
 
-  /// Build the content selection tab
   Widget _buildContentSelectionTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -275,8 +230,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
             ),
           ),
           const SizedBox(height: 16),
-
-          // Page range display
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -298,7 +251,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                   ),
                 ),
               ),
-
               const Text(
                 'to',
                 style: TextStyle(
@@ -306,7 +258,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                   fontFamily: 'Inter',
                 ),
               ),
-
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -328,8 +279,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
             ],
           ),
           const SizedBox(height: 16),
-
-          // Slider - Updated to use local state and propagate changes immediately
           RangeSlider(
             values: _localPageRange,
             min: 1,
@@ -347,10 +296,7 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
               });
             },
           ),
-
           const SizedBox(height: 24),
-
-          // Difficulty Selection
           const Text(
             'Difficulty Level',
             style: TextStyle(
@@ -360,8 +306,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
             ),
           ),
           const SizedBox(height: 16),
-
-          // Difficulty buttons - completely revised implementation
           SizedBox(
             height: 48,
             child: ListView.builder(
@@ -413,11 +357,9 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
     );
   }
 
-  /// Build the question types tab
   Widget _buildQuestionTypesTab() {
     return Column(
       children: [
-        // Points Summary Card
         Container(
           width: double.infinity,
           margin: const EdgeInsets.all(16),
@@ -469,8 +411,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
             ],
           ),
         ),
-
-        // Question Types List - Uses local state for immediate updates
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -497,10 +437,8 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header Row
                     InkWell(
                       onTap: () {
-                        // Toggle selection when tapping the header
                         setState(() {
                           if (isSelected) {
                             if (_localSelectedTypes.length > 1) {
@@ -518,7 +456,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                         padding: const EdgeInsets.all(16),
                         child: Row(
                           children: [
-                            // Checkbox
                             Checkbox(
                               value: isSelected,
                               activeColor: AppConstants.primaryColor,
@@ -539,8 +476,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                                 });
                               },
                             ),
-
-                            // Type Name
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -564,8 +499,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                                 ],
                               ),
                             ),
-
-                            // Example Icon
                             if (isSelected)
                               IconButton(
                                 icon: const Icon(
@@ -573,7 +506,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                                   color: Colors.grey,
                                 ),
                                 onPressed: () {
-                                  // Show example of question type
                                   showDialog(
                                     context: context,
                                     builder:
@@ -599,14 +531,11 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                         ),
                       ),
                     ),
-
-                    // Counter section (if selected)
                     if (isSelected)
                       Container(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                         child: Row(
                           children: [
-                            // Counter with + and - buttons
                             Container(
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey[300]!),
@@ -614,7 +543,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                               ),
                               child: Row(
                                 children: [
-                                  // Minus button - Using Material button for better touch response
                                   Material(
                                     color: Colors.transparent,
                                     child: InkWell(
@@ -643,8 +571,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                                       ),
                                     ),
                                   ),
-
-                                  // Count input
                                   SizedBox(
                                     width: 40,
                                     child: TextField(
@@ -668,8 +594,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                                       ),
                                     ),
                                   ),
-
-                                  // Plus button - Using Material button for better touch response
                                   Material(
                                     color: Colors.transparent,
                                     child: InkWell(
@@ -699,10 +623,7 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
                                 ],
                               ),
                             ),
-
                             const SizedBox(width: 16),
-
-                            // Subtotal
                             Expanded(
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -750,7 +671,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
     );
   }
 
-  /// Build an example of a specific question type
   Widget _buildQuestionTypeExample(String type) {
     switch (type) {
       case 'multiple-choice':
@@ -870,7 +790,6 @@ class _PdfOptionsDialogState extends State<PdfOptionsDialog>
     }
   }
 
-  /// Helper for building example options
   Widget _buildExampleOption(String text, bool isCorrect) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),

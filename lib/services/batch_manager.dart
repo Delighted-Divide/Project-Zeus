@@ -1,38 +1,40 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:logger/logger.dart';
 
-/// A class to manage Firestore batch operations safely with automatic commits when approaching limits
 class BatchManager {
   final FirebaseFirestore _firestore;
-  WriteBatch _currentBatch;
+  late WriteBatch _currentBatch;
   int _operationCount = 0;
   final int _maxBatchSize;
   final bool _verbose;
+  final Logger _logger = Logger();
 
-  // Performance metrics
   int _totalOperations = 0;
   int _totalCommits = 0;
-  Stopwatch _batchStopwatch = Stopwatch()..start();
+  final Stopwatch _batchStopwatch = Stopwatch()..start();
 
-  // Constructor initializes a new batch
   BatchManager(this._firestore, {int maxBatchSize = 450, bool verbose = false})
     : _maxBatchSize = maxBatchSize,
-      _verbose = verbose,
-      _currentBatch = _firestore.batch();
+      _verbose = verbose {
+    _currentBatch = _firestore.batch();
+  }
 
-  // Get the current operation count
   int get operationCount => _operationCount;
+
   int get totalOperations => _totalOperations;
+
   int get totalCommits => _totalCommits;
 
-  // Set document data
   Future<void> set(DocumentReference docRef, Map<String, dynamic> data) async {
     await _checkBatchSize();
     _currentBatch.set(docRef, data);
     _operationCount++;
     _totalOperations++;
+    if (_verbose) {
+      _logger.d('Set operation added for ${docRef.path}');
+    }
   }
 
-  // Set document data with options
   Future<void> setWithOptions(
     DocumentReference docRef,
     Map<String, dynamic> data,
@@ -42,9 +44,11 @@ class BatchManager {
     _currentBatch.set(docRef, data, options);
     _operationCount++;
     _totalOperations++;
+    if (_verbose) {
+      _logger.d('Set operation with options added for ${docRef.path}');
+    }
   }
 
-  // Update document data
   Future<void> update(
     DocumentReference docRef,
     Map<String, dynamic> data,
@@ -53,28 +57,31 @@ class BatchManager {
     _currentBatch.update(docRef, data);
     _operationCount++;
     _totalOperations++;
+    if (_verbose) {
+      _logger.d('Update operation added for ${docRef.path}');
+    }
   }
 
-  // Delete document
   Future<void> delete(DocumentReference docRef) async {
     await _checkBatchSize();
     _currentBatch.delete(docRef);
     _operationCount++;
     _totalOperations++;
+    if (_verbose) {
+      _logger.d('Delete operation added for ${docRef.path}');
+    }
   }
 
-  // Check if batch needs to be committed and create a new one if needed
   Future<void> _checkBatchSize() async {
     if (_operationCount >= _maxBatchSize) {
       await commitBatch();
     }
   }
 
-  // Commit the current batch and create a new one
   Future<void> commitBatch() async {
     if (_operationCount > 0) {
       if (_verbose) {
-        print('Committing batch with $_operationCount operations');
+        _logger.i('Committing batch with $_operationCount operations');
       }
 
       final stopwatch = Stopwatch()..start();
@@ -83,7 +90,7 @@ class BatchManager {
 
       _totalCommits++;
       if (_verbose) {
-        print('Batch committed in ${elapsed}ms');
+        _logger.i('Batch committed in ${elapsed}ms');
       }
 
       _currentBatch = _firestore.batch();
@@ -91,19 +98,18 @@ class BatchManager {
     }
   }
 
-  // Final commit at the end of operations
   Future<void> commit() async {
     await commitBatch();
     final totalTime = _batchStopwatch.elapsedMilliseconds;
 
     if (_verbose) {
-      print('BatchManager stats:');
-      print('- Total operations: $_totalOperations');
-      print('- Total commits: $_totalCommits');
-      print('- Total time: ${totalTime}ms');
-      print(
-        '- Avg operations per second: ${(_totalOperations * 1000 / totalTime).toStringAsFixed(1)}',
-      );
+      _logger.i('''
+BatchManager stats:
+- Total operations: $_totalOperations
+- Total commits: $_totalCommits
+- Total time: ${totalTime}ms
+- Avg operations per second: ${(_totalOperations * 1000 / totalTime).toStringAsFixed(1)}
+''');
     }
   }
 }

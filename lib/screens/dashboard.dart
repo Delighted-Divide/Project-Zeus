@@ -13,13 +13,12 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-  int _selectedDayIndex = 3; // Thursday (index 3) is selected by default
+  int _selectedDayIndex = 3;
   int _currentAssignmentIndex = 0;
   late PageController _assignmentPageController;
   Timer? _assignmentTimer;
   final ScrollController _scrollController = ScrollController();
 
-  // Days of the week
   final List<String> _daysOfWeek = [
     'MON',
     'TUE',
@@ -30,7 +29,6 @@ class _DashboardState extends State<Dashboard> {
     'SUN',
   ];
 
-  // Sample list of assignments
   final List<Map<String, dynamic>> _assignments = [
     {
       'name': 'Math Assignment: Calculus I',
@@ -66,7 +64,6 @@ class _DashboardState extends State<Dashboard> {
     },
   ];
 
-  // AI feedback entries
   final List<Map<String, dynamic>> _feedbackList = [
     {
       'subject': 'Calculus',
@@ -105,7 +102,6 @@ class _DashboardState extends State<Dashboard> {
     },
   ];
 
-  // Get the current date and calculate the dates for the week
   final DateTime _now = DateTime.now();
   late final List<int> _datesOfWeek;
 
@@ -113,17 +109,14 @@ class _DashboardState extends State<Dashboard> {
   void initState() {
     super.initState();
 
-    // Calculate dates for the week
     final monday = _now.subtract(Duration(days: _now.weekday - 1));
     _datesOfWeek = List.generate(7, (index) {
       final date = monday.add(Duration(days: index));
       return date.day;
     });
 
-    // Initialize page controller for assignment carousel
     _assignmentPageController = PageController(initialPage: 0);
 
-    // Set up timer for auto-cycling assignments
     _assignmentTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (_currentAssignmentIndex < _assignments.length - 1) {
         _currentAssignmentIndex++;
@@ -152,32 +145,27 @@ class _DashboardState extends State<Dashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // White background for the entire screen
+      backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Fixed top section with header and days/dates (non-scrollable)
           Container(
-            color: const Color(0xFFFFC857), // Yellow background
+            color: const Color(0xFFFFC857),
             child: SafeArea(
-              bottom: false, // Don't add bottom padding
+              bottom: false,
               child: Column(children: [_buildTopBar(), _buildDaySelector()]),
             ),
           ),
-
-          // Scrollable content section
           Expanded(
             child: SingleChildScrollView(
               controller: _scrollController,
               child: Column(
                 children: [
-                  // Yellow background section for assignments and stats
                   Container(
                     color: const Color(0xFFFFC857),
                     child: Column(
                       children: [
-                        // Assignment carousel with larger size
                         SizedBox(
-                          height: 160, // Taller height
+                          height: 160,
                           child: PageView.builder(
                             controller: _assignmentPageController,
                             itemCount: _assignments.length,
@@ -187,7 +175,6 @@ class _DashboardState extends State<Dashboard> {
                               });
                             },
                             itemBuilder: (context, index) {
-                              // Make it circular
                               final assignmentIndex =
                                   index % _assignments.length;
                               return _buildCurrentAssignmentCard(
@@ -196,13 +183,10 @@ class _DashboardState extends State<Dashboard> {
                             },
                           ),
                         ),
-
                         _buildStatsGrid(),
                         const SizedBox(height: 20),
                         _buildLearningActivities(),
                         const SizedBox(height: 25),
-
-                        // Curved bottom edge for the yellow section
                         Container(
                           height: 30,
                           decoration: const BoxDecoration(
@@ -216,14 +200,11 @@ class _DashboardState extends State<Dashboard> {
                       ],
                     ),
                   ),
-
-                  // White section with AI feedback
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // AI FEEDBACK header row with notification count
                         Padding(
                           padding: const EdgeInsets.only(
                             bottom: 16.0,
@@ -274,13 +255,9 @@ class _DashboardState extends State<Dashboard> {
                             ],
                           ),
                         ),
-
-                        // Multiple feedback cards
                         ..._feedbackList.map(
                           (feedback) => _buildFeedbackCard(feedback),
                         ),
-
-                        // Add extra space at the bottom for the nav bar
                         const SizedBox(height: 80),
                       ],
                     ),
@@ -291,12 +268,10 @@ class _DashboardState extends State<Dashboard> {
           ),
         ],
       ),
-      // Bottom navigation bar as a separate element
       bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
-  // Top bar with "THIS WEEK" text
   Widget _buildTopBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -313,7 +288,6 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // Day selector with oval outline and black circle covering only the date
   Widget _buildDaySelector() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
@@ -330,7 +304,6 @@ class _DashboardState extends State<Dashboard> {
             child: Container(
               width: 40,
               height: 65,
-              // Add oval outline for selected day
               decoration:
                   isSelected
                       ? BoxDecoration(
@@ -341,7 +314,6 @@ class _DashboardState extends State<Dashboard> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Day label (outside the circle)
                   Text(
                     _daysOfWeek[index],
                     style: TextStyle(
@@ -351,7 +323,6 @@ class _DashboardState extends State<Dashboard> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  // Date with black circle background for selected day
                   isSelected
                       ? Container(
                         width: 32,
@@ -388,9 +359,7 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // Current assignment card
   Widget _buildCurrentAssignmentCard(Map<String, dynamic> assignment) {
-    // Icons for different progress statuses
     final Map<String, IconData> progressIcons = {
       'incomplete': Icons.pending_actions,
       'in_review': Icons.rate_review,
@@ -412,16 +381,15 @@ class _DashboardState extends State<Dashboard> {
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16.0), // Increased padding
+          padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
-              // Assignment icon
               Container(
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  color: const Color(0xFF80AB82), // Green background
+                  color: const Color(0xFF80AB82),
                 ),
                 child: const Icon(
                   Icons.assignment,
@@ -430,7 +398,6 @@ class _DashboardState extends State<Dashboard> {
                 ),
               ),
               const SizedBox(width: 16),
-              // Assignment details
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,7 +412,7 @@ class _DashboardState extends State<Dashboard> {
                               size: 16,
                               color: Colors.black.withOpacity(0.7),
                             ),
-                            const SizedBox(width: 8), // Increased spacing
+                            const SizedBox(width: 8),
                             Text(
                               assignment['dueDate'].toUpperCase(),
                               style: TextStyle(
@@ -456,11 +423,8 @@ class _DashboardState extends State<Dashboard> {
                             ),
                           ],
                         ),
-                        // Just the star icon
                         Padding(
-                          padding: const EdgeInsets.only(
-                            right: 8.0,
-                          ), // Added padding
+                          padding: const EdgeInsets.only(right: 8.0),
                           child: Icon(
                             Icons.auto_awesome,
                             size: 16,
@@ -477,7 +441,7 @@ class _DashboardState extends State<Dashboard> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 16), // Increased spacing
+                    const SizedBox(height: 16),
                     Row(
                       children: [
                         Container(
@@ -534,7 +498,6 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // Grid of educational progress stats
   Widget _buildStatsGrid() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -546,7 +509,7 @@ class _DashboardState extends State<Dashboard> {
                 child: _buildStatCard(
                   'Assignment Completion',
                   75,
-                  const Color(0xFFFF9800), // Orange color
+                  const Color(0xFFFF9800),
                 ),
               ),
               const SizedBox(width: 16),
@@ -554,7 +517,7 @@ class _DashboardState extends State<Dashboard> {
                 child: _buildStatCard(
                   'Study Time Goal',
                   62,
-                  const Color(0xFF98D8C8), // Light teal
+                  const Color(0xFF98D8C8),
                 ),
               ),
             ],
@@ -566,7 +529,7 @@ class _DashboardState extends State<Dashboard> {
                 child: _buildStatCard(
                   'Comprehension Score',
                   87,
-                  const Color(0xFFD8BFD8), // Light purple
+                  const Color(0xFFD8BFD8),
                 ),
               ),
               const SizedBox(width: 16),
@@ -574,7 +537,7 @@ class _DashboardState extends State<Dashboard> {
                 child: _buildStatCard(
                   'Performance Index',
                   76,
-                  const Color(0xFFF4A9A8), // Light coral
+                  const Color(0xFFF4A9A8),
                 ),
               ),
             ],
@@ -584,7 +547,6 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // Individual stat card with 8-division circular progress
   Widget _buildStatCard(String title, int percentage, Color backgroundColor) {
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -608,20 +570,20 @@ class _DashboardState extends State<Dashboard> {
               Text(
                 '$percentage%',
                 style: const TextStyle(
-                  fontSize: 26, // Slightly reduced
+                  fontSize: 26,
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
                 ),
               ),
               SizedBox(
-                width: 55, // Larger size
-                height: 55, // Larger size
+                width: 55,
+                height: 55,
                 child: CustomProgressIndicator(
                   value: percentage / 100,
                   backgroundColor: Colors.white.withOpacity(0.3),
                   color: Colors.white,
-                  strokeWidth: 8, // Thicker
-                  divisions: 8, // 8 divisions
+                  strokeWidth: 8,
+                  divisions: 8,
                   centerBackgroundColor: backgroundColor,
                 ),
               ),
@@ -631,7 +593,7 @@ class _DashboardState extends State<Dashboard> {
           Text(
             title,
             style: TextStyle(
-              fontSize: 15, // Slightly reduced
+              fontSize: 15,
               fontWeight: FontWeight.w500,
               color: Colors.black.withOpacity(0.8),
             ),
@@ -641,7 +603,6 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // Learning activities row
   Widget _buildLearningActivities() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
@@ -651,24 +612,23 @@ class _DashboardState extends State<Dashboard> {
           _buildActivityTag(
             icon: Icons.menu_book,
             label: 'Reading',
-            color: const Color(0xFFF4A9A8), // Light coral
+            color: const Color(0xFFF4A9A8),
           ),
           _buildActivityTag(
             icon: Icons.calculate,
             label: 'Problem Solving',
-            color: const Color(0xFF98D8C8), // Light teal
+            color: const Color(0xFF98D8C8),
           ),
           _buildActivityTag(
             icon: Icons.edit_note,
             label: 'Writing',
-            color: const Color(0xFF80AB82), // Green
+            color: const Color(0xFF80AB82),
           ),
         ],
       ),
     );
   }
 
-  // Individual activity tag
   Widget _buildActivityTag({
     required IconData icon,
     required String label,
@@ -677,18 +637,18 @@ class _DashboardState extends State<Dashboard> {
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(8), // Larger padding
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, size: 18, color: Colors.white), // Larger icon
+          child: Icon(icon, size: 18, color: Colors.white),
         ),
         const SizedBox(width: 8),
         Text(
           label,
           style: TextStyle(
-            fontSize: 16, // Larger text
+            fontSize: 16,
             fontWeight: FontWeight.w500,
             color: Colors.black.withOpacity(0.8),
           ),
@@ -697,7 +657,6 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // Individual feedback card
   Widget _buildFeedbackCard(Map<String, dynamic> feedback) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14.0),
@@ -718,11 +677,10 @@ class _DashboardState extends State<Dashboard> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Subject label with rounded background
             Container(
               padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF4A9A8), // Light coral
+                color: const Color(0xFFF4A9A8),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -735,7 +693,6 @@ class _DashboardState extends State<Dashboard> {
               ),
             ),
             const SizedBox(width: 12),
-            // Feedback text
             Expanded(
               child: Text(
                 feedback['feedback'],
@@ -751,18 +708,13 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // Bottom navigation bar - using the journal_page style
-  // Modified section from dashboard.dart to update the navigation for the bar chart icon
-
-  // Bottom navigation bar - using the journal_page style
-  // Update to _buildBottomNavBar in dashboard.dart
   Widget _buildBottomNavBar() {
     return Container(
-      height: 55, // Match journal page height
+      height: 55,
       margin: const EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 25.0),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFC857), // Yellow color
-        border: Border.all(color: Colors.black, width: 1.5), // Black border
+        color: const Color(0xFFFFC857),
+        border: Border.all(color: Colors.black, width: 1.5),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -775,7 +727,6 @@ class _DashboardState extends State<Dashboard> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Bar chart icon - Navigate to AssessmentPage
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -784,7 +735,6 @@ class _DashboardState extends State<Dashboard> {
             },
             child: _buildNavItem(Icons.bar_chart, false),
           ),
-          // AI Learning page navigation
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -793,8 +743,7 @@ class _DashboardState extends State<Dashboard> {
             },
             child: _buildNavItem(Icons.access_time, false),
           ),
-          _buildNavItem(Icons.home, true), // Home is selected
-          // Journal navigation - using route replacement
+          _buildNavItem(Icons.home, true),
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -803,7 +752,6 @@ class _DashboardState extends State<Dashboard> {
             },
             child: _buildNavItem(Icons.assessment, false),
           ),
-          // Person icon with navigation to FriendsGroupsPage
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -819,7 +767,6 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // Individual navigation item
   Widget _buildNavItem(IconData icon, bool isSelected) {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -830,13 +777,12 @@ class _DashboardState extends State<Dashboard> {
       child: Icon(
         icon,
         color: isSelected ? Colors.black : Colors.black.withOpacity(0.7),
-        size: 24, // Smaller size to match journal page
+        size: 24,
       ),
     );
   }
 }
 
-// Custom circular progress indicator with 8 divisions
 class CustomProgressIndicator extends StatelessWidget {
   final double value;
   final Color color;
@@ -867,12 +813,12 @@ class CustomProgressIndicator extends StatelessWidget {
       ),
       child: Center(
         child: Container(
-          width: 34, // Adjust based on parent size
-          height: 34, // Adjust based on parent size
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(
             color: centerBackgroundColor,
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.black, width: 1), // Black outline
+            border: Border.all(color: Colors.black, width: 1),
           ),
         ),
       ),
@@ -880,7 +826,6 @@ class CustomProgressIndicator extends StatelessWidget {
   }
 }
 
-// Custom painter for the 8-division progress indicator
 class _DivisionProgressPainter extends CustomPainter {
   final double value;
   final Color color;
@@ -901,7 +846,6 @@ class _DivisionProgressPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - strokeWidth / 2;
 
-    // Paint for the background arcs
     final backgroundPaint =
         Paint()
           ..color = backgroundColor
@@ -909,7 +853,6 @@ class _DivisionProgressPainter extends CustomPainter {
           ..strokeWidth = strokeWidth
           ..strokeCap = StrokeCap.round;
 
-    // Paint for the progress arcs
     final progressPaint =
         Paint()
           ..color = color
@@ -917,34 +860,29 @@ class _DivisionProgressPainter extends CustomPainter {
           ..strokeWidth = strokeWidth
           ..strokeCap = StrokeCap.round;
 
-    // Paint for the outline
     final outlinePaint =
         Paint()
           ..color = Colors.black
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.0; // Thicker black outline
+          ..strokeWidth = 2.0;
 
-    // Calculate how many divisions should be filled
     final filledDivisions = (value * divisions).floor();
     final arcAngle = 2 * 3.14159 / divisions;
 
-    // Draw outer circle outline first
     canvas.drawCircle(center, radius, outlinePaint);
 
     for (int i = 0; i < divisions; i++) {
       final startAngle = -3.14159 / 2 + i * arcAngle;
 
-      // Draw each division (filled or background)
       final paint = i < filledDivisions ? progressPaint : backgroundPaint;
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
         startAngle,
-        arcAngle * 0.85, // Make the arc slightly shorter than a full division
+        arcAngle * 0.85,
         false,
         paint,
       );
 
-      // Draw outline for each segment
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
         startAngle,

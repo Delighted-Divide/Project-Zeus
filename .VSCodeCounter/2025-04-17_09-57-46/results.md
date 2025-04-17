@@ -1,23 +1,23 @@
 # Summary
 
-Date : 2025-04-05 17:12:42
+Date : 2025-04-17 09:57:46
 
 Directory c:\\Users\\Ivy\\Downloads\\Fultter\\attempt1
 
-Total : 94 files,  30229 codes, 2491 comments, 3129 blanks, all 35849 lines
+Total : 122 files,  47330 codes, 1228 comments, 4241 blanks, all 52799 lines
 
 Summary / [Details](details.md) / [Diff Summary](diff.md) / [Diff Details](diff-details.md)
 
 ## Languages
 | language | files | code | comment | blank | total |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| Dart | 39 | 28,197 | 2,202 | 2,763 | 33,162 |
+| Dart | 67 | 45,293 | 939 | 3,869 | 50,101 |
 | C++ | 16 | 576 | 131 | 189 | 896 |
 | CMake | 8 | 472 | 0 | 92 | 564 |
 | XML | 10 | 470 | 53 | 12 | 535 |
 | JSON | 8 | 325 | 0 | 7 | 332 |
-| Swift | 6 | 79 | 7 | 21 | 107 |
-| YAML | 2 | 58 | 83 | 24 | 165 |
+| Swift | 6 | 81 | 7 | 21 | 109 |
+| YAML | 2 | 61 | 83 | 30 | 174 |
 | Markdown | 2 | 25 | 0 | 14 | 39 |
 | HTML | 1 | 19 | 15 | 5 | 39 |
 | Java Properties | 2 | 8 | 0 | 2 | 10 |
@@ -25,8 +25,8 @@ Summary / [Details](details.md) / [Diff Summary](diff.md) / [Diff Details](diff-
 ## Directories
 | path | files | code | comment | blank | total |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| . | 94 | 30,229 | 2,491 | 3,129 | 35,849 |
-| . (Files) | 6 | 128 | 83 | 39 | 250 |
+| . | 122 | 47,330 | 1,228 | 4,241 | 52,799 |
+| . (Files) | 6 | 131 | 83 | 45 | 259 |
 | android | 10 | 103 | 51 | 11 | 165 |
 | android (Files) | 1 | 3 | 0 | 1 | 4 |
 | android\\app | 8 | 95 | 51 | 9 | 155 |
@@ -51,20 +51,21 @@ Summary / [Details](details.md) / [Diff Summary](diff.md) / [Diff Details](diff-
 | ios\\Runner\\Assets.xcassets\\AppIcon.appiconset | 1 | 122 | 0 | 1 | 123 |
 | ios\\Runner\\Assets.xcassets\\LaunchImage.imageset | 2 | 26 | 0 | 3 | 29 |
 | ios\\Runner\\Base.lproj | 2 | 61 | 2 | 2 | 65 |
-| lib | 38 | 28,183 | 2,192 | 2,756 | 33,131 |
-| lib (Files) | 2 | 124 | 20 | 16 | 160 |
-| lib\\generators | 7 | 2,283 | 231 | 379 | 2,893 |
-| lib\\models | 2 | 279 | 24 | 19 | 322 |
-| lib\\screens | 23 | 25,269 | 1,888 | 2,293 | 29,450 |
-| lib\\services | 1 | 83 | 11 | 16 | 110 |
-| lib\\utils | 2 | 95 | 18 | 29 | 142 |
+| lib | 66 | 45,279 | 929 | 3,862 | 50,070 |
+| lib (Files) | 2 | 127 | 12 | 16 | 155 |
+| lib\\channels | 4 | 4,875 | 0 | 261 | 5,136 |
+| lib\\generators | 7 | 2,275 | 0 | 377 | 2,652 |
+| lib\\models | 7 | 721 | 0 | 79 | 800 |
+| lib\\screens | 37 | 35,964 | 917 | 2,879 | 39,760 |
+| lib\\services | 4 | 942 | 0 | 186 | 1,128 |
+| lib\\utils | 4 | 325 | 0 | 60 | 385 |
 | lib\\widgets | 1 | 50 | 0 | 4 | 54 |
 | linux | 9 | 340 | 37 | 92 | 469 |
 | linux (Files) | 1 | 104 | 0 | 25 | 129 |
 | linux\\flutter | 4 | 120 | 9 | 27 | 156 |
 | linux\\runner | 4 | 116 | 28 | 40 | 184 |
-| macos | 6 | 471 | 5 | 17 | 493 |
-| macos\\Flutter | 1 | 30 | 3 | 4 | 37 |
+| macos | 6 | 473 | 5 | 17 | 495 |
+| macos\\Flutter | 1 | 32 | 3 | 4 | 39 |
 | macos\\Runner | 4 | 434 | 0 | 9 | 443 |
 | macos\\Runner (Files) | 2 | 23 | 0 | 7 | 30 |
 | macos\\RunnerTests | 1 | 7 | 2 | 4 | 13 |

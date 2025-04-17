@@ -204,7 +204,6 @@ class _AssessmentChannelPageState extends State<AssessmentChannelPage> {
     final isUpcoming = now.isBefore(startDate);
     final isExpired = now.isAfter(endDate);
 
-    // Get status text and color
     String statusText;
     Color statusColor;
 
@@ -392,7 +391,6 @@ class _AssessmentChannelPageState extends State<AssessmentChannelPage> {
               ),
               child: Row(
                 children: [
-                  // Get assigned by user name
                   FutureBuilder<DocumentSnapshot>(
                     future:
                         FirebaseFirestore.instance
@@ -422,7 +420,6 @@ class _AssessmentChannelPageState extends State<AssessmentChannelPage> {
                       );
                     },
                   ),
-                  // Show submission status for current user
                   FutureBuilder<QuerySnapshot>(
                     future:
                         FirebaseFirestore.instance
@@ -559,9 +556,7 @@ class _AssessmentChannelPageState extends State<AssessmentChannelPage> {
     );
   }
 
-  void _editChannel() {
-    // Navigate to channel edit page
-  }
+  void _editChannel() {}
 
   void _confirmDeleteChannel() {
     showDialog(
@@ -595,7 +590,6 @@ class _AssessmentChannelPageState extends State<AssessmentChannelPage> {
 
   void _deleteChannel() async {
     try {
-      // First, get all assessments
       final assessmentsSnapshot =
           await FirebaseFirestore.instance
               .collection('groups')
@@ -607,7 +601,6 @@ class _AssessmentChannelPageState extends State<AssessmentChannelPage> {
 
       final batch = FirebaseFirestore.instance.batch();
 
-      // For each assessment, get and delete submissions
       for (final assessmentDoc in assessmentsSnapshot.docs) {
         final submissionsSnapshot =
             await FirebaseFirestore.instance
@@ -627,7 +620,6 @@ class _AssessmentChannelPageState extends State<AssessmentChannelPage> {
         batch.delete(assessmentDoc.reference);
       }
 
-      // Delete the channel document
       batch.delete(
         FirebaseFirestore.instance
             .collection('groups')
@@ -650,7 +642,6 @@ class _AssessmentChannelPageState extends State<AssessmentChannelPage> {
   }
 
   void _addAssessment() {
-    // Navigate to add assessment page
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -667,17 +658,11 @@ class _AssessmentChannelPageState extends State<AssessmentChannelPage> {
     });
   }
 
-  void _viewAssessment(AssessmentInfo assessment) {
-    // Navigate to view assessment page
-  }
+  void _viewAssessment(AssessmentInfo assessment) {}
 
-  void _takeAssessment(AssessmentInfo assessment) {
-    // Navigate to take assessment page
-  }
+  void _takeAssessment(AssessmentInfo assessment) {}
 
-  void _viewSubmission(AssessmentInfo assessment, String status) {
-    // Navigate to view submission page
-  }
+  void _viewSubmission(AssessmentInfo assessment, String status) {}
 }
 
 class AddAssessmentPage extends StatelessWidget {
@@ -692,7 +677,6 @@ class AddAssessmentPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Placeholder for assessment creation interface
     return Scaffold(
       appBar: AppBar(title: const Text('Add Assessment')),
       body: Center(

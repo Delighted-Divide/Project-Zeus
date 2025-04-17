@@ -1,0 +1,49 @@
+Date : 2025-04-17 09:57:46
+Directory : c:\Users\Ivy\Downloads\Fultter\attempt1
+Total : 20 files,  -42 codes, -735 comments, -93 blanks, all -870 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| Dart     |         20 |        -42 |       -735 |        -93 |       -870 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++-------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                | files      | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                   |         20 |        -42 |       -735 |        -93 |       -870 |
+| lib                                                                                 |         20 |        -42 |       -735 |        -93 |       -870 |
+| lib\channels                                                                        |          4 |         -6 |       -146 |        -56 |       -208 |
+| lib\generators                                                                      |          7 |         -8 |       -231 |         -2 |       -241 |
+| lib\screens                                                                         |          8 |        -28 |       -274 |        -35 |       -337 |
+| lib\services                                                                        |          1 |          0 |        -84 |          0 |        -84 |
++-------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                                            | language | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\channels\assessment_channel.dart        | Dart     |         -4 |        -12 |          0 |        -16 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\channels\channel_creation.dart          | Dart     |          0 |         -1 |         -2 |         -3 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\channels\discussion_channel.dart        | Dart     |         -2 |        -50 |        -21 |        -73 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\channels\resource_channel.dart          | Dart     |          0 |        -83 |        -33 |       -116 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\generators\assessment_generator.dart    | Dart     |         -6 |        -60 |          0 |        -66 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\generators\dummy_data_generator.dart    | Dart     |          0 |        -34 |         -2 |        -36 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\generators\group_generator.dart         | Dart     |          0 |        -38 |          0 |        -38 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\generators\social_generator.dart        | Dart     |          0 |        -17 |          0 |        -17 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\generators\submission_generator.dart    | Dart     |         -1 |        -40 |          0 |        -41 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\generators\tag_generator.dart           | Dart     |          0 |        -11 |          0 |        -11 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\generators\user_generator.dart          | Dart     |         -1 |        -31 |          0 |        -32 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\ai_learning_page.dart           | Dart     |         -5 |          0 |          0 |         -5 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\assessment_conditions_page.dart | Dart     |          0 |        -66 |          0 |        -66 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\assessment_detail_page.dart     | Dart     |         -1 |        -88 |        -33 |       -122 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\group_page.dart                 | Dart     |          0 |         -1 |          0 |         -1 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\home_screen.dart                | Dart     |         -2 |          0 |         -1 |         -3 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\journal_page.dart               | Dart     |         -6 |          0 |          0 |         -6 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\login_page.dart                 | Dart     |        -14 |          0 |          0 |        -14 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\user_profile_page.dart          | Dart     |          0 |       -119 |         -1 |       -120 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\services\api_service.dart               | Dart     |          0 |        -84 |          0 |        -84 |
+| Total                                                                               |          |        -42 |       -735 |        -93 |       -870 |
++-------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+

@@ -26,7 +26,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
   bool _isLoading = true;
   bool _isSearching = false;
 
-  // For animations
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -34,7 +33,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
   void initState() {
     super.initState();
 
-    // Set up animations
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -73,7 +71,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
               .map((doc) => GroupMember.fromFirestore(doc))
               .toList();
 
-      // Sort: mentors first, then alphabetically by name
       _allMembers.sort((a, b) {
         if (a.ismentor && !b.ismentor) return -1;
         if (!a.ismentor && b.ismentor) return 1;
@@ -82,7 +79,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
 
       _filteredMembers = List.from(_allMembers);
 
-      // Start animation
       _animationController.forward();
     } catch (e) {
       ScaffoldMessenger.of(
@@ -117,7 +113,7 @@ class _GroupMembersPageState extends State<GroupMembersPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF36393f), // Discord dark theme
+      backgroundColor: const Color(0xFF36393f),
       body: Column(
         children: [
           _buildSearchBar(),
@@ -216,7 +212,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
   }
 
   Widget _buildMembersList() {
-    // Group members by role
     final mentors =
         _filteredMembers.where((member) => member.ismentor).toList();
     final regularMembers =
@@ -274,11 +269,9 @@ class _GroupMembersPageState extends State<GroupMembersPage>
     final currentUserId = FirebaseAuth.instance.currentUser!.uid;
     final isCurrentUser = member.userId == currentUserId;
 
-    // Staggered animation delay based on index
     final delay = Duration(milliseconds: 50 * index);
 
     return FutureBuilder(
-      // This allows us to delay the animation for each item
       future: Future.delayed(delay),
       builder: (context, snapshot) {
         return AnimatedOpacity(
@@ -310,7 +303,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
                   padding: const EdgeInsets.all(12.0),
                   child: Row(
                     children: [
-                      // Avatar with status indicator
                       Stack(
                         children: [
                           CircleAvatar(
@@ -356,7 +348,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
                         ],
                       ),
                       const SizedBox(width: 12),
-                      // Member info
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -407,7 +398,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
                           ],
                         ),
                       ),
-                      // Action menu for mentors
                       if (widget.userRole == UserRole.mentor && !isCurrentUser)
                         PopupMenuButton(
                           icon: const Icon(
@@ -623,7 +613,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
                 ),
                 child: Column(
                   children: [
-                    // Handle bar
                     Container(
                       width: 40,
                       height: 4,
@@ -633,12 +622,10 @@ class _GroupMembersPageState extends State<GroupMembersPage>
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    // User profile content
                     Expanded(
                       child: ListView(
                         padding: const EdgeInsets.all(20),
                         children: [
-                          // User avatar and basic info
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -723,7 +710,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
                           ),
                           const SizedBox(height: 24),
 
-                          // Status
                           if (user.status.isNotEmpty) ...[
                             _buildSectionHeader('Status', Icons.mood),
                             Container(
@@ -764,7 +750,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
                             ),
                           ],
 
-                          // Bio
                           if (user.bio.isNotEmpty) ...[
                             _buildSectionHeader('About', Icons.info_outline),
                             Container(
@@ -781,7 +766,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
                             ),
                           ],
 
-                          // Favorite tags
                           if (user.favTags.isNotEmpty) ...[
                             _buildSectionHeader('Interests', Icons.local_offer),
                             Container(
@@ -828,7 +812,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
                             ),
                           ],
 
-                          // Actions
                           if (widget.userRole == UserRole.mentor &&
                               member.userId !=
                                   FirebaseAuth.instance.currentUser!.uid) ...[
@@ -957,7 +940,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
         .collection('members')
         .doc(member.userId);
 
-    // Close the bottom sheet if it's open
     if (Navigator.canPop(context)) {
       Navigator.pop(context);
     }
@@ -1002,7 +984,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
         break;
 
       case 'remove':
-        // Show confirmation dialog
         final confirm = await showDialog<bool>(
           context: context,
           builder:
@@ -1039,7 +1020,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
           try {
             await memberRef.delete();
 
-            // Also remove from user's groups subcollection
             await FirebaseFirestore.instance
                 .collection('users')
                 .doc(member.userId)
@@ -1065,7 +1045,6 @@ class _GroupMembersPageState extends State<GroupMembersPage>
         break;
     }
 
-    // Refresh the list
     _loadMembers();
   }
 
@@ -1075,7 +1054,7 @@ class _GroupMembersPageState extends State<GroupMembersPage>
       MaterialPageRoute(
         builder: (context) => PendingRequestsPage(groupId: widget.groupId),
       ),
-    ).then((_) => _loadMembers()); // Refresh when returning
+    ).then((_) => _loadMembers());
   }
 }
 
@@ -1343,7 +1322,6 @@ class PendingRequestsPage extends StatelessWidget {
 
     try {
       if (action == 'approve') {
-        // Get group details
         final groupDoc =
             await FirebaseFirestore.instance
                 .collection('groups')
@@ -1353,7 +1331,6 @@ class PendingRequestsPage extends StatelessWidget {
         final groupName = groupData?['name'] as String? ?? 'Group';
         final groupPhotoURL = groupData?['photoURL'] as String?;
 
-        // Add user to group members
         await FirebaseFirestore.instance
             .collection('groups')
             .doc(groupId)
@@ -1361,12 +1338,11 @@ class PendingRequestsPage extends StatelessWidget {
             .doc(userId)
             .set({
               'displayName': userName,
-              'photoURL': null, // We don't have this in the request
+              'photoURL': null,
               'role': 'member',
               'joinedAt': FieldValue.serverTimestamp(),
             });
 
-        // Add group to user's groups
         await FirebaseFirestore.instance
             .collection('users')
             .doc(userId)
@@ -1379,7 +1355,6 @@ class PendingRequestsPage extends StatelessWidget {
               'joinedAt': FieldValue.serverTimestamp(),
             });
 
-        // Update request status
         await requestRef.update({'status': 'approved'});
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1389,7 +1364,6 @@ class PendingRequestsPage extends StatelessWidget {
           ),
         );
       } else {
-        // Update request status
         await requestRef.update({'status': 'rejected'});
 
         ScaffoldMessenger.of(context).showSnackBar(

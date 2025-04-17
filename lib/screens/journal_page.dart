@@ -12,9 +12,8 @@ class JournalPage extends StatefulWidget {
 }
 
 class _JournalPageState extends State<JournalPage> {
-  int _selectedDayIndex = 3; // Thursday (index 3) is selected by default
+  int _selectedDayIndex = 3;
 
-  // Days of the week
   final List<String> _daysOfWeek = [
     'MON',
     'TUE',
@@ -25,25 +24,22 @@ class _JournalPageState extends State<JournalPage> {
     'SUN',
   ];
 
-  // Sample dates for the week (hardcoded to match the image)
   final List<int> _datesOfWeek = [24, 25, 26, 27, 28, 29, 30];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // White background for the entire screen
+      backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Salmon colored container for the top section
           Container(
-            color: const Color(0xFFFFA07A), // Salmon background
+            color: const Color(0xFFFFA07A),
             child: SafeArea(
-              bottom: false, // Don't add bottom padding
+              bottom: false,
               child: Column(
                 children: [
                   _buildHeader(),
                   _buildDaySelector(),
-                  // Curved bottom edge for the salmon section
                   Container(
                     height: 30,
                     decoration: const BoxDecoration(
@@ -58,8 +54,6 @@ class _JournalPageState extends State<JournalPage> {
               ),
             ),
           ),
-
-          // Main content area (white background)
           Expanded(
             child: Container(
               color: Colors.white,
@@ -78,31 +72,30 @@ class _JournalPageState extends State<JournalPage> {
                             icon: Icons.assignment,
                             title: 'Question Creation',
                             duration: '15min',
-                            indicatorPosition: 0.5, // 50% (middle bar)
+                            indicatorPosition: 0.5,
                             showUpArrow: true,
                           ),
                           _buildActivityCard(
                             icon: Icons.question_answer,
                             title: 'Student Responses',
                             duration: '12min',
-                            indicatorPosition: 0.3, // 30% (first bar)
+                            indicatorPosition: 0.3,
                             showHeartIcon: true,
                           ),
                           _buildActivityCard(
                             icon: Icons.analytics,
                             title: 'AI Evaluation',
                             duration: '36min',
-                            indicatorPosition: 0.9, // 90% (third bar)
+                            indicatorPosition: 0.9,
                             showUpArrow: true,
                           ),
                           _buildActivityCard(
                             icon: Icons.psychology,
                             title: 'Learning Assessment',
                             duration: '72min',
-                            indicatorPosition: 0.7, // 70% (third bar)
+                            indicatorPosition: 0.7,
                             showSquareIcon: true,
                           ),
-                          // Add extra space at the bottom for scrolling past the nav bar
                           const SizedBox(height: 80),
                         ],
                       ),
@@ -114,12 +107,10 @@ class _JournalPageState extends State<JournalPage> {
           ),
         ],
       ),
-      // Bottom navigation bar as a separate element
       bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
-  // Header with JOURNAL text
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -135,7 +126,6 @@ class _JournalPageState extends State<JournalPage> {
     );
   }
 
-  // Day selector with days of the week
   Widget _buildDaySelector() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
@@ -152,7 +142,6 @@ class _JournalPageState extends State<JournalPage> {
             child: Container(
               width: 40,
               height: 65,
-              // Add oval outline for selected day
               decoration:
                   isSelected
                       ? BoxDecoration(
@@ -163,7 +152,6 @@ class _JournalPageState extends State<JournalPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Day label (outside the circle)
                   Text(
                     _daysOfWeek[index],
                     style: TextStyle(
@@ -173,7 +161,6 @@ class _JournalPageState extends State<JournalPage> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  // Date with black circle background for selected day
                   isSelected
                       ? Container(
                         width: 32,
@@ -210,9 +197,8 @@ class _JournalPageState extends State<JournalPage> {
     );
   }
 
-  // Needs satisfaction meter
   Widget _buildNeedsSatisfactionMeter() {
-    const double percentage = 0.38; // 38%
+    const double percentage = 0.38;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
@@ -229,7 +215,7 @@ class _JournalPageState extends State<JournalPage> {
                   const Text(
                     '38%',
                     style: TextStyle(
-                      fontSize: 36, // Larger font size
+                      fontSize: 36,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
                     ),
@@ -241,7 +227,7 @@ class _JournalPageState extends State<JournalPage> {
                       Text(
                         'NEEDS',
                         style: TextStyle(
-                          fontSize: 14, // Larger font size
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: Colors.black,
                         ),
@@ -249,7 +235,7 @@ class _JournalPageState extends State<JournalPage> {
                       Text(
                         'SATISFACTION',
                         style: TextStyle(
-                          fontSize: 14, // Larger font size
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: Colors.black,
                         ),
@@ -279,19 +265,14 @@ class _JournalPageState extends State<JournalPage> {
             ],
           ),
           const SizedBox(height: 12),
-          // Progress meter
           Container(
-            height: 16, // Thicker bar
+            height: 16,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: Colors.black,
-                width: 2,
-              ), // Thicker black border
+              border: Border.all(color: Colors.black, width: 2),
             ),
             child: Row(
               children: [
-                // Filled part (38%)
                 Expanded(
                   flex: (percentage * 100).toInt(),
                   child: Container(
@@ -312,7 +293,6 @@ class _JournalPageState extends State<JournalPage> {
                     ),
                   ),
                 ),
-                // Unfilled part (62%)
                 Expanded(
                   flex: 100 - (percentage * 100).toInt(),
                   child: Container(
@@ -341,17 +321,15 @@ class _JournalPageState extends State<JournalPage> {
     );
   }
 
-  // Activity card with three separate progress bars
   Widget _buildActivityCard({
     required IconData icon,
     required String title,
     required String duration,
-    required double indicatorPosition, // 0.0 to 1.0
+    required double indicatorPosition,
     bool showUpArrow = false,
     bool showHeartIcon = false,
     bool showSquareIcon = false,
   }) {
-    // Determine which segment is active based on the indicator position
     bool isFirstActive = indicatorPosition < 0.33;
     bool isSecondActive = indicatorPosition >= 0.33 && indicatorPosition < 0.66;
     bool isThirdActive = indicatorPosition >= 0.66;
@@ -362,10 +340,7 @@ class _JournalPageState extends State<JournalPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: Colors.black,
-          width: 2,
-        ), // Thicker black border
+        border: Border.all(color: Colors.black, width: 2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -377,11 +352,9 @@ class _JournalPageState extends State<JournalPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top row with title and duration
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Title with icon
               Row(
                 children: [
                   Icon(icon, size: 20, color: Colors.black),
@@ -396,7 +369,6 @@ class _JournalPageState extends State<JournalPage> {
                   ),
                 ],
               ),
-              // Duration with indicator
               Row(
                 children: [
                   Text(
@@ -423,17 +395,14 @@ class _JournalPageState extends State<JournalPage> {
             ],
           ),
           const SizedBox(height: 16),
-
-          // Progress bars with indicator
           Stack(
             clipBehavior: Clip.none,
             children: [
-              // Three separate bar meters
               Row(
                 children: [
                   Expanded(
                     child: Container(
-                      height: 12, // Thicker bar
+                      height: 12,
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       decoration: BoxDecoration(
                         color:
@@ -445,7 +414,7 @@ class _JournalPageState extends State<JournalPage> {
                   ),
                   Expanded(
                     child: Container(
-                      height: 12, // Thicker bar
+                      height: 12,
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       decoration: BoxDecoration(
                         color:
@@ -459,7 +428,7 @@ class _JournalPageState extends State<JournalPage> {
                   ),
                   Expanded(
                     child: Container(
-                      height: 12, // Thicker bar
+                      height: 12,
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       decoration: BoxDecoration(
                         color:
@@ -473,14 +442,12 @@ class _JournalPageState extends State<JournalPage> {
                   ),
                 ],
               ),
-
-              // Pointer indicator (black triangle pointing down to the bars)
               Positioned(
                 left:
                     (MediaQuery.of(context).size.width - 80) *
                         indicatorPosition -
                     20,
-                top: -20, // Position further above the bars
+                top: -20,
                 child: const Icon(
                   Icons.arrow_drop_down,
                   color: Colors.black,
@@ -489,10 +456,7 @@ class _JournalPageState extends State<JournalPage> {
               ),
             ],
           ),
-
           const SizedBox(height: 8),
-
-          // Labels for the three segments
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: const [
@@ -524,18 +488,13 @@ class _JournalPageState extends State<JournalPage> {
     );
   }
 
-  // Bottom navigation bar
-  // Modified section from journal_page.dart to update the navigation for the bar chart icon
-
-  // Bottom navigation bar
-  // Update to _buildBottomNavBar in journal_page.dart
   Widget _buildBottomNavBar() {
     return Container(
       height: 55,
       margin: const EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 25.0),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFA07A), // Salmon background color
-        border: Border.all(color: Colors.black, width: 1.5), // Black border
+        color: const Color(0xFFFFA07A),
+        border: Border.all(color: Colors.black, width: 1.5),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -548,7 +507,6 @@ class _JournalPageState extends State<JournalPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Bar chart icon with navigation to AssessmentPage
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -557,7 +515,6 @@ class _JournalPageState extends State<JournalPage> {
             },
             child: _buildNavItem(Icons.bar_chart, false),
           ),
-          // AI Learning page navigation
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -566,7 +523,6 @@ class _JournalPageState extends State<JournalPage> {
             },
             child: _buildNavItem(Icons.access_time, false),
           ),
-          // Home icon with navigation to Dashboard
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -575,8 +531,7 @@ class _JournalPageState extends State<JournalPage> {
             },
             child: _buildNavItem(Icons.home, false),
           ),
-          _buildNavItem(Icons.assessment, true), // Assessment icon is selected
-          // Person icon with navigation to FriendsGroupsPage
+          _buildNavItem(Icons.assessment, true),
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -592,7 +547,6 @@ class _JournalPageState extends State<JournalPage> {
     );
   }
 
-  // Individual navigation item
   Widget _buildNavItem(IconData icon, bool isSelected) {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -603,7 +557,7 @@ class _JournalPageState extends State<JournalPage> {
       child: Icon(
         icon,
         color: isSelected ? Colors.black : Colors.black.withOpacity(0.7),
-        size: 24, // Smaller icon size
+        size: 24,
       ),
     );
   }

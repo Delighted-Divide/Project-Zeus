@@ -17,7 +17,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Enhanced AI Assistant page with PDF processing capabilities
 class AIAssistantPage extends StatefulWidget {
   const AIAssistantPage({super.key});
 
@@ -27,7 +26,6 @@ class AIAssistantPage extends StatefulWidget {
 
 class _AIAssistantPageState extends State<AIAssistantPage>
     with SingleTickerProviderStateMixin {
-  // Logger instance for better debugging
   final Logger _logger = Logger(
     printer: PrettyPrinter(
       methodCount: 2,
@@ -39,24 +37,19 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     ),
   );
 
-  // Firebase instances
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final Uuid _uuid = Uuid();
 
-  // Secure storage for API key
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
-  // Gemini API constants
   static const String _geminiApiBaseUrl =
       'https://generativelanguage.googleapis.com/v1/models/';
   String _apiKey = '';
 
-  // Animation controller for UI animations
   late AnimationController _animationController;
 
-  // Controllers
   final TextEditingController _promptController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final PageController _onboardingController = PageController();
@@ -69,7 +62,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
   final TextEditingController _customPromptController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
 
-  // UI state variables
   bool _isLoading = false;
   bool _isPdfLoading = false;
   bool _isPdfProcessing = false;
@@ -82,7 +74,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
   bool _showInstructions = false;
   bool _isApiKeySet = false;
 
-  // PDF handling variables
   File? _pdfFile;
   String? _pdfName;
   String? _pdfUrl;
@@ -91,7 +82,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
   String _extractedTextPreview = '';
   String? _extractedFullText;
 
-  // Question generation options
   final List<String> _difficultyLevels = ['easy', 'medium', 'hard', 'expert'];
   final List<String> _questionTypes = [
     'multiple-choice',
@@ -108,7 +98,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     'short-answer',
   ];
 
-  // Assessment configuration
   final Map<String, int> _questionTypePoints = {
     'multiple-choice': 1,
     'multiple-answer': 2,
@@ -117,7 +106,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     'short-answer': 3,
   };
 
-  // Question type counts
   final Map<String, TextEditingController> _questionTypeCounts = {
     'multiple-choice': TextEditingController(text: '5'),
     'multiple-answer': TextEditingController(text: '3'),
@@ -126,45 +114,35 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     'short-answer': TextEditingController(text: '2'),
   };
 
-  // Total points (calculated dynamically)
   int _totalPoints = 0;
 
-  // Generated content
   Map<String, dynamic>? _generatedQuestions;
 
   @override
   void initState() {
     super.initState();
 
-    // Initialize animation controller
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
 
-    // Check if this is the first time opening the AI assistant
     _checkFirstTimeUser();
 
-    // Check for stored API key
     _loadApiKey();
 
-    // Calculate initial total points
     _calculateTotalPoints();
   }
 
-  /// Calculate total assessment points based on question type counts
   void _calculateTotalPoints() {
     int total = 0;
 
     for (final type in _selectedQuestionTypes) {
-      // Get the number of questions for this type
       final countText = _questionTypeCounts[type]?.text ?? '0';
       final count = int.tryParse(countText) ?? 0;
 
-      // Get points per question for this type
       final pointsPerQuestion = _questionTypePoints[type] ?? 1;
 
-      // Add to total
       total += count * pointsPerQuestion;
     }
 
@@ -184,13 +162,11 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     _apiKeyController.dispose();
     _animationController.dispose();
 
-    // Dispose all question type count controllers
     _questionTypeCounts.forEach((_, controller) => controller.dispose());
 
     super.dispose();
   }
 
-  /// Load Gemini API key from secure storage
   Future<void> _loadApiKey() async {
     try {
       final apiKey = await _secureStorage.read(key: 'gemini_api_key');
@@ -214,7 +190,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     }
   }
 
-  /// Save Gemini API key to secure storage
   Future<void> _saveApiKey(String apiKey) async {
     try {
       await _secureStorage.write(key: 'gemini_api_key', value: apiKey);
@@ -231,7 +206,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     }
   }
 
-  /// Show dialog to set or update API key
   void _showApiKeyDialog() {
     showDialog(
       context: context,
@@ -270,7 +244,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
                     _saveApiKey(apiKey);
                     Navigator.pop(context);
 
-                    // Show success message
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('API key saved successfully'),
@@ -289,7 +262,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     );
   }
 
-  /// Check if this is the first time the user is opening the AI assistant
   Future<void> _checkFirstTimeUser() async {
     try {
       final currentUser = _auth.currentUser;
@@ -303,9 +275,7 @@ class _AIAssistantPageState extends State<AIAssistantPage>
             _isFirstTime = userData?['hasUsedAIAssistant'] != true;
           });
 
-          // If this is the first time, show onboarding
           if (_isFirstTime) {
-            // Mark that user has used AI assistant
             await _firestore.collection('users').doc(currentUser.uid).update({
               'hasUsedAIAssistant': true,
             });
@@ -321,7 +291,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     }
   }
 
-  /// Send a prompt directly to the Gemini API
   Future<void> _sendPrompt() async {
     final prompt = _promptController.text.trim();
     if (prompt.isEmpty) {
@@ -344,18 +313,15 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     try {
       _logger.i('Sending prompt directly to Gemini API');
 
-      // Add user message to chat history
       _chatHistory.add({
         'role': 'user',
         'content': prompt,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
 
-      // Build the API URL
       final modelName = _selectedModel;
       final url = '${_geminiApiBaseUrl}$modelName:generateContent?key=$_apiKey';
 
-      // Prepare the request payload
       final payload = {
         'contents': [
           {
@@ -372,7 +338,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
         },
       };
 
-      // Make the HTTP request
       final response = await http.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
@@ -387,7 +352,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
               data['candidates'][0]['content']['parts'][0]['text'] ??
               'No response received';
 
-          // Add assistant response to chat history
           _chatHistory.add({
             'role': 'assistant',
             'content': responseText,
@@ -409,10 +373,8 @@ class _AIAssistantPageState extends State<AIAssistantPage>
         );
       }
 
-      // Clear the prompt field
       _promptController.clear();
 
-      // Scroll to bottom of chat
       _scrollToBottom();
 
       _logger.i('Received response from Gemini API');
@@ -429,9 +391,8 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     }
   }
 
-  /// Select and load a PDF file
   Future<void> _pickPdfFile() async {
-    if (!mounted) return; // Guard against widget being disposed
+    if (!mounted) return;
 
     setState(() {
       _isPdfLoading = true;
@@ -441,7 +402,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     try {
       _logger.i('Opening file picker for PDF selection');
 
-      // Open file picker
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
@@ -455,7 +415,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
 
           final pdfFile = File(file.path!);
 
-          // Load the PDF document to get page count
           final pdfBytes = await pdfFile.readAsBytes();
           final document = PdfDocument(inputBytes: pdfBytes);
           final pageCount = document.pages.count;
@@ -469,21 +428,17 @@ class _AIAssistantPageState extends State<AIAssistantPage>
               _pageRange = RangeValues(1, pageCount.toDouble());
             });
 
-            // Upload PDF to Firebase Storage
             await _uploadPdfToStorage(pdfFile, file.name);
           }
 
           _logger.i('PDF loaded successfully with $pageCount pages');
         } else if (file.bytes != null && mounted) {
-          // Handle in-memory file for web platform
           _logger.i('PDF selected (web): ${file.name}');
 
-          // Save bytes to temporary file for processing
           final tempDir = await getTemporaryDirectory();
           final tempFile = File('${tempDir.path}/${file.name}');
           await tempFile.writeAsBytes(file.bytes!);
 
-          // Load the PDF document to get page count
           final document = PdfDocument(inputBytes: file.bytes!);
           final pageCount = document.pages.count;
           document.dispose();
@@ -496,7 +451,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
               _pageRange = RangeValues(1, pageCount.toDouble());
             });
 
-            // Upload PDF to Firebase Storage
             await _uploadPdfToStorage(tempFile, file.name);
           }
 
@@ -521,9 +475,8 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     }
   }
 
-  /// Upload PDF to Firebase Storage
   Future<void> _uploadPdfToStorage(File pdfFile, String fileName) async {
-    if (!mounted) return; // Guard against widget being disposed
+    if (!mounted) return;
 
     try {
       _logger.i('Uploading PDF to Firebase Storage');
@@ -533,24 +486,19 @@ class _AIAssistantPageState extends State<AIAssistantPage>
         throw Exception('User not authenticated');
       }
 
-      // Create a storage reference
       final storageRef = _storage.ref().child(
         'pdfs/${currentUser.uid}/$fileName',
       );
 
-      // Upload the file
       final uploadTask = storageRef.putFile(pdfFile);
 
-      // Show upload progress
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
         final progress = snapshot.bytesTransferred / snapshot.totalBytes;
         _logger.d('Upload progress: ${(progress * 100).toStringAsFixed(2)}%');
       });
 
-      // Wait for the upload to complete
       final snapshot = await uploadTask.whenComplete(() => null);
 
-      // Get the download URL
       final downloadUrl = await snapshot.ref.getDownloadURL();
 
       if (mounted) {
@@ -558,7 +506,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
           _pdfUrl = downloadUrl;
         });
 
-        // Add message to chat history
         _chatHistory.add({
           'role': 'user',
           'content': 'I\'ve uploaded a PDF: $_pdfName',
@@ -572,7 +519,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
           'timestamp': DateTime.now().millisecondsSinceEpoch,
         });
 
-        // Scroll to bottom of chat
         _scrollToBottom();
       }
 
@@ -591,7 +537,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     }
   }
 
-  /// Extract text from PDF using SyncFusion library
   Future<String> _extractTextFromPdf() async {
     if (_pdfFile == null) {
       throw Exception('No PDF file selected');
@@ -604,21 +549,16 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     try {
       _logger.i('Extracting text from PDF using SyncFusion');
 
-      // Load the PDF document
       final bytes = await _pdfFile!.readAsBytes();
       final document = PdfDocument(inputBytes: bytes);
 
-      // Extract text from selected pages
       final startPage = _pageRange.start.toInt();
       final endPage = _pageRange.end.toInt();
 
-      // Create PDF text extractor
       final extractor = PdfTextExtractor(document);
 
-      // Extract text from specific pages
       String extractedText = '';
       for (int i = startPage; i <= endPage; i++) {
-        // Page numbers in SyncFusion are 0-based
         final pageText = extractor.extractText(
           startPageIndex: i - 1,
           endPageIndex: i - 1,
@@ -626,10 +566,8 @@ class _AIAssistantPageState extends State<AIAssistantPage>
         extractedText += 'Page $i:\n$pageText\n\n';
       }
 
-      // Dispose the document
       document.dispose();
 
-      // Set preview text
       setState(() {
         _extractedTextPreview =
             extractedText.length > 500
@@ -656,7 +594,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     }
   }
 
-  /// Generate assessment questions based on the extracted PDF text using Gemini API
   Future<void> _generateAssessmentQuestions() async {
     if (_pdfFile == null) {
       setState(() {
@@ -673,10 +610,8 @@ class _AIAssistantPageState extends State<AIAssistantPage>
       return;
     }
 
-    // Calculate total points one more time to ensure it's up-to-date
     _calculateTotalPoints();
 
-    // Check if user has selected at least one question type with count > 0
     bool hasQuestions = false;
     for (final type in _selectedQuestionTypes) {
       final count = int.tryParse(_questionTypeCounts[type]?.text ?? '0') ?? 0;
@@ -703,10 +638,8 @@ class _AIAssistantPageState extends State<AIAssistantPage>
     try {
       _logger.i('Starting assessment question generation');
 
-      // Get parameters
       final difficulty = _difficultyController.text.trim().toLowerCase();
 
-      // Create question distribution information
       final questionDistribution = <String, int>{};
       for (final type in _selectedQuestionTypes) {
         final countText = _questionTypeCounts[type]?.text ?? '0';
@@ -714,7 +647,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
         questionDistribution[type] = count;
       }
 
-      // Create distribution description for prompt
       final distributionInfo = questionDistribution.entries
           .map(
             (entry) =>
@@ -722,7 +654,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
           )
           .join(', ');
 
-      // Extract text from PDF locally if not already done
       if (_extractedFullText == null || _extractedFullText!.isEmpty) {
         await _extractTextFromPdf();
       }
@@ -731,7 +662,6 @@ class _AIAssistantPageState extends State<AIAssistantPage>
         throw Exception('No text could be extracted from the selected pages');
       }
 
-      // Create the prompt for question generation
       final prompt = '''
 You are an expert education assessment creator. Create assessment questions based on the following text.
 
@@ -787,11 +717,9 @@ Make sure all strings in the JSON are properly escaped, avoiding unnecessary esc
 Only respond with valid, well-formed JSON. Do not include any other text.
 ''';
 
-      // Call Gemini API directly
       final modelName = _selectedModel;
       final url = '${_geminiApiBaseUrl}$modelName:generateContent?key=$_apiKey';
 
-      // Prepare the request payload with high max output tokens
       final payload = {
         'contents': [
           {
@@ -801,15 +729,13 @@ Only respond with valid, well-formed JSON. Do not include any other text.
           },
         ],
         'generationConfig': {
-          'temperature':
-              0.2, // Lower temperature for more deterministic responses
-          'maxOutputTokens': 32768, // Very high token limit to avoid truncation
+          'temperature': 0.2,
+          'maxOutputTokens': 32768,
           'topP': 0.95,
           'topK': 40,
         },
       };
 
-      // Make the HTTP request
       final response = await http.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
@@ -823,10 +749,8 @@ Only respond with valid, well-formed JSON. Do not include any other text.
           final responseText =
               data['candidates'][0]['content']['parts'][0]['text'] ?? '';
 
-          // Extract the JSON from the response
           String jsonStr = responseText.trim();
 
-          // Remove any markdown code block indicators if present
           if (jsonStr.startsWith('```json')) {
             jsonStr = jsonStr.substring(7);
           } else if (jsonStr.startsWith('```')) {
@@ -836,11 +760,9 @@ Only respond with valid, well-formed JSON. Do not include any other text.
             jsonStr = jsonStr.substring(0, jsonStr.length - 3);
           }
 
-          // Fix common JSON issues - this is critical for preventing parsing errors
           jsonStr = _sanitizeJsonString(jsonStr);
 
           try {
-            // Try to parse the JSON
             final generatedQuestions = jsonDecode(jsonStr);
 
             setState(() {
@@ -849,7 +771,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
 
             _logger.i('Assessment questions generated successfully');
 
-            // Add to chat history
             _chatHistory.add({
               'role': 'user',
               'content':
@@ -866,7 +787,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
               'attachmentType': 'assessment',
             });
 
-            // Scroll to bottom of chat
             _scrollToBottom();
           } catch (jsonError) {
             _logger.e('JSON parsing error', error: jsonError);
@@ -900,42 +820,31 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     }
   }
 
-  /// Sanitize JSON string to fix common issues that cause parsing errors
-  /// Sanitize JSON string to fix common issues that cause parsing errors
   String _sanitizeJsonString(String input) {
     try {
-      // First handle LaTeX expressions
-      // Find all instances of LaTeX expressions
       final RegExp latexPattern = RegExp(r'\\\\?\$(.*?)\\\\?\$');
       final matches = latexPattern.allMatches(input);
 
       var output = input;
 
-      // For each LaTeX expression, ensure backslashes are properly escaped for JSON
       for (final match in matches) {
         final originalText = match.group(0) ?? '';
-        // Replace single backslashes with double backslashes
         final correctedText = originalText.replaceAll(r'\', r'\\');
         output = output.replaceAll(originalText, correctedText);
       }
 
-      // Fix raw newlines in strings
       output = output.replaceAll(r'\n', '\\n');
       output = output.replaceAll(RegExp(r'(?<!\\)\n'), ' ');
 
-      // Fix raw carriage returns
       output = output.replaceAll(r'\r', '\\r');
       output = output.replaceAll(RegExp(r'(?<!\\)\r'), ' ');
 
-      // Fix raw tabs
       output = output.replaceAll(r'\t', '\\t');
       output = output.replaceAll(RegExp(r'(?<!\\)\t'), ' ');
 
-      // Fix trailing commas
       output = output.replaceAll(RegExp(r',\s*}'), '}');
       output = output.replaceAll(RegExp(r',\s*]'), ']');
 
-      // Fix missing quotes around property names
       output = output.replaceAll(
         RegExp(r'([{,]\s*)([a-zA-Z0-9_]+)(\s*:)'),
         r'$1"$2"$3',
@@ -944,11 +853,10 @@ Only respond with valid, well-formed JSON. Do not include any other text.
       return output;
     } catch (e) {
       print('Error sanitizing JSON: $e');
-      return input; // Return original if sanitation fails
+      return input;
     }
   }
 
-  /// Save generated questions and answers to Firestore
   Future<void> _saveAssessmentToFirestore() async {
     if (_generatedQuestions == null || _pdfName == null) {
       setState(() {
@@ -970,13 +878,11 @@ Only respond with valid, well-formed JSON. Do not include any other text.
         throw Exception('User not logged in');
       }
 
-      // Create assessment document
       final assessmentId = _uuid.v4();
       final assessmentRef = _firestore
           .collection('assessments')
           .doc(assessmentId);
 
-      // Basic assessment data
       await assessmentRef.set({
         'title': 'Assessment on $_pdfName',
         'creatorId': currentUser.uid,
@@ -997,7 +903,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
         'madeByAI': true,
       });
 
-      // Add questions
       final questions = _generatedQuestions!['questions'] as List<dynamic>;
       for (final question in questions) {
         await assessmentRef
@@ -1011,7 +916,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
             });
       }
 
-      // Add answers
       final answers = _generatedQuestions!['answers'] as List<dynamic>;
       for (final answer in answers) {
         await assessmentRef.collection('answers').doc(answer['answerId']).set({
@@ -1022,7 +926,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
         });
       }
 
-      // Save tags to tags collection if they don't exist
       if (_generatedQuestions!['tags'] != null) {
         final tags = _generatedQuestions!['tags'] as List<dynamic>;
         for (final tag in tags) {
@@ -1039,7 +942,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
         }
       }
 
-      // Add assessment to user's assessments
       await _firestore
           .collection('users')
           .doc(currentUser.uid)
@@ -1061,7 +963,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
 
       _logger.i('Assessment saved successfully with ID: $assessmentId');
 
-      // Add success message to chat history
       _chatHistory.add({
         'role': 'assistant',
         'content':
@@ -1069,10 +970,8 @@ Only respond with valid, well-formed JSON. Do not include any other text.
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
 
-      // Scroll to bottom of chat
       _scrollToBottom();
 
-      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Assessment saved successfully!'),
@@ -1081,7 +980,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
         ),
       );
 
-      // Reset generated questions
       setState(() {
         _generatedQuestions = null;
       });
@@ -1101,7 +999,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     }
   }
 
-  /// Scroll to the bottom of the chat history
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -1114,7 +1011,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     });
   }
 
-  /// Copy text to clipboard
   void _copyToClipboard(String text) {
     Clipboard.setData(ClipboardData(text: text)).then((_) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1127,7 +1023,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     });
   }
 
-  /// Show the PDF options dialog with improved UI
   void _showPdfOptionsDialog() {
     if (_pdfFile == null) {
       return;
@@ -1140,7 +1035,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
       builder:
           (context) => StatefulBuilder(
             builder: (context, setModalState) {
-              // Calculate total points
               int calculateTotalPoints() {
                 int total = 0;
                 for (final type in _selectedQuestionTypes) {
@@ -1164,7 +1058,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header with document info
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -1201,13 +1094,11 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                       ),
                     ),
 
-                    // Main content - tabbed interface
                     Expanded(
                       child: DefaultTabController(
                         length: 2,
                         child: Column(
                           children: [
-                            // Tab bar
                             Container(
                               color: Colors.white,
                               child: TabBar(
@@ -1227,11 +1118,9 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                               ),
                             ),
 
-                            // Tab content
                             Expanded(
                               child: TabBarView(
                                 children: [
-                                  // Content Selection Tab
                                   SingleChildScrollView(
                                     padding: const EdgeInsets.all(16),
                                     child: Column(
@@ -1248,7 +1137,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                         ),
                                         const SizedBox(height: 16),
 
-                                        // Page range display
                                         Row(
                                           mainAxisAlignment:
                                               MainAxisAlignment.spaceBetween,
@@ -1310,7 +1198,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                         ),
                                         const SizedBox(height: 16),
 
-                                        // Slider
                                         RangeSlider(
                                           values: _pageRange,
                                           min: 1,
@@ -1336,7 +1223,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
 
                                         const SizedBox(height: 24),
 
-                                        // Difficulty Selection
                                         const Text(
                                           'Difficulty Level',
                                           style: TextStyle(
@@ -1347,7 +1233,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                         ),
                                         const SizedBox(height: 16),
 
-                                        // Difficulty slider cards
                                         Row(
                                           children:
                                               _difficultyLevels.map((level) {
@@ -1445,10 +1330,8 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                     ),
                                   ),
 
-                                  // Question Types Tab
                                   Column(
                                     children: [
-                                      // Points Summary Card
                                       Container(
                                         width: double.infinity,
                                         margin: const EdgeInsets.all(16),
@@ -1508,7 +1391,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                         ),
                                       ),
 
-                                      // Question Types List
                                       Expanded(
                                         child: ListView.builder(
                                           padding: const EdgeInsets.symmetric(
@@ -1557,7 +1439,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 children: [
-                                                  // Header Row
                                                   Padding(
                                                     padding:
                                                         const EdgeInsets.all(
@@ -1565,7 +1446,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                                         ),
                                                     child: Row(
                                                       children: [
-                                                        // Checkbox
                                                         Theme(
                                                           data: ThemeData(
                                                             checkboxTheme:
@@ -1616,7 +1496,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                                           ),
                                                         ),
 
-                                                        // Type Name
                                                         Expanded(
                                                           child: Column(
                                                             crossAxisAlignment:
@@ -1651,7 +1530,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                                           ),
                                                         ),
 
-                                                        // Example Icon
                                                         if (isSelected)
                                                           IconButton(
                                                             icon: const Icon(
@@ -1661,7 +1539,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                                                   Colors.grey,
                                                             ),
                                                             onPressed: () {
-                                                              // Show example of question type
                                                               showDialog(
                                                                 context:
                                                                     context,
@@ -1695,7 +1572,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                                     ),
                                                   ),
 
-                                                  // Counter section (if selected)
                                                   if (isSelected)
                                                     Container(
                                                       padding:
@@ -1707,7 +1583,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                                           ),
                                                       child: Row(
                                                         children: [
-                                                          // Counter with + and - buttons
                                                           Container(
                                                             decoration: BoxDecoration(
                                                               border: Border.all(
@@ -1722,7 +1597,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                                             ),
                                                             child: Row(
                                                               children: [
-                                                                // Minus button
                                                                 IconButton(
                                                                   icon: const Icon(
                                                                     Icons
@@ -1758,7 +1632,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                                                           .zero,
                                                                 ),
 
-                                                                // Count input
                                                                 SizedBox(
                                                                   width: 40,
                                                                   child: TextField(
@@ -1799,7 +1672,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                                                   ),
                                                                 ),
 
-                                                                // Plus button
                                                                 IconButton(
                                                                   icon:
                                                                       const Icon(
@@ -1842,7 +1714,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                                                             width: 16,
                                                           ),
 
-                                                          // Subtotal
                                                           Expanded(
                                                             child: Container(
                                                               padding:
@@ -1913,7 +1784,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                       ),
                     ),
 
-                    // Action buttons - Generate or Cancel
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -1928,7 +1798,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                       ),
                       child: Row(
                         children: [
-                          // Cancel button
                           Expanded(
                             flex: 1,
                             child: OutlinedButton(
@@ -1954,7 +1823,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
 
                           const SizedBox(width: 16),
 
-                          // Generate button
                           Expanded(
                             flex: 2,
                             child: ElevatedButton.icon(
@@ -1995,7 +1863,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     );
   }
 
-  /// Build an example of a specific question type
   Widget _buildQuestionTypeExample(String type) {
     switch (type) {
       case 'multiple-choice':
@@ -2115,7 +1982,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     }
   }
 
-  /// Helper for building example options
   Widget _buildExampleOption(String text, bool isCorrect) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
@@ -2169,10 +2035,8 @@ Only respond with valid, well-formed JSON. Do not include any other text.
       body: SafeArea(
         child: Column(
           children: [
-            // Custom AppBar
             _buildCustomAppBar(),
 
-            // Chat messages area
             Expanded(
               child:
                   _chatHistory.isEmpty
@@ -2180,7 +2044,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                       : _buildChatMessages(),
             ),
 
-            // Error message display
             if (_errorMessage != null)
               Container(
                 padding: const EdgeInsets.all(12),
@@ -2212,7 +2075,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                 ),
               ),
 
-            // Input area
             _buildChatInputArea(),
           ],
         ),
@@ -2228,7 +2090,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     );
   }
 
-  /// Build the custom app bar
   Widget _buildCustomAppBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -2245,14 +2106,12 @@ Only respond with valid, well-formed JSON. Do not include any other text.
       ),
       child: Row(
         children: [
-          // Back button
           IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context),
             splashRadius: 24,
           ),
 
-          // Title
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2275,7 +2134,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
             ),
           ),
 
-          // Model selection
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
@@ -2317,7 +2175,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
 
           const SizedBox(width: 8),
 
-          // API key button
           IconButton(
             icon: Icon(
               Icons.vpn_key,
@@ -2328,7 +2185,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
             splashRadius: 24,
           ),
 
-          // Help button
           IconButton(
             icon: const Icon(Icons.help_outline),
             onPressed: () {
@@ -2343,11 +2199,9 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     );
   }
 
-  /// Build the welcome screen
   Widget _buildWelcomeScreen() {
     return Stack(
       children: [
-        // Main welcome content
         SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -2356,7 +2210,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
               children: [
                 const SizedBox(height: 32),
 
-                // AI Assistant logo/icon
                 Container(
                   width: 120,
                   height: 120,
@@ -2374,7 +2227,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                 ),
                 const SizedBox(height: 32),
 
-                // Welcome text
                 const Text(
                   'Welcome to your AI Assistant',
                   style: TextStyle(
@@ -2386,7 +2238,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                 ),
                 const SizedBox(height: 16),
 
-                // Description
                 Text(
                   'I can help you create assessments, analyze documents, and assist with your educational content.',
                   style: TextStyle(
@@ -2398,7 +2249,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                 ),
                 const SizedBox(height: 24),
 
-                // API Key setup card (if not set)
                 if (!_isApiKeySet)
                   Card(
                     elevation: 4,
@@ -2474,7 +2324,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
 
                 const SizedBox(height: 24),
 
-                // PDF upload card
                 Card(
                   elevation: 4,
                   shadowColor: Colors.black.withOpacity(0.1),
@@ -2567,7 +2416,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                 ),
                 const SizedBox(height: 32),
 
-                // Or divider
                 Row(
                   children: [
                     Expanded(
@@ -2591,7 +2439,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                 ),
                 const SizedBox(height: 32),
 
-                // Ask directly card
                 Card(
                   elevation: 4,
                   shadowColor: Colors.black.withOpacity(0.1),
@@ -2640,14 +2487,12 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                             onPressed:
                                 _isApiKeySet
                                     ? () {
-                                      // Set focus to chat input
                                       FocusScope.of(
                                         context,
                                       ).requestFocus(FocusNode());
                                       WidgetsBinding.instance.addPostFrameCallback((
                                         _,
                                       ) {
-                                        // Add delay to ensure the UI update has completed
                                         Future.delayed(
                                           const Duration(milliseconds: 100),
                                           () {
@@ -2699,7 +2544,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
           ),
         ),
 
-        // Instructions overlay
         if (_showInstructions)
           GestureDetector(
             onTap: () {
@@ -2789,7 +2633,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     );
   }
 
-  /// Build the chat messages list
   Widget _buildChatMessages() {
     return ListView.builder(
       controller: _scrollController,
@@ -2799,7 +2642,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
         final message = _chatHistory[index];
         final isUser = message['role'] == 'user';
 
-        // Handle special assistant messages with attachments
         if (!isUser && message['hasAttachment'] == true) {
           return _buildAssistantSpecialMessage(message);
         }
@@ -2813,7 +2655,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     );
   }
 
-  /// Build a chat message bubble
   Widget _buildChatMessageBubble(
     String message,
     bool isUser, {
@@ -2844,7 +2685,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Message content
                 isUser
                     ? Text(
                       message,
@@ -2864,7 +2704,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                       ),
                     ),
 
-                // Timestamp and actions
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment:
@@ -2905,7 +2744,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     );
   }
 
-  /// Build a special assistant message with assessment attachment
   Widget _buildAssistantSpecialMessage(Map<String, dynamic> message) {
     if (message['attachmentType'] == 'assessment' &&
         _generatedQuestions != null) {
@@ -2916,7 +2754,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -2944,7 +2781,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
               ),
             ),
 
-            // Content
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -2956,22 +2792,18 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                   ),
                   const SizedBox(height: 16),
 
-                  // Statistics
                   _buildAssessmentStatistics(),
                   const SizedBox(height: 24),
 
-                  // All questions and answers
                   const Text(
                     'All Questions & Answers:',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
 
-                  // All questions
                   ..._buildAllQuestions(),
                   const SizedBox(height: 16),
 
-                  // Save button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -3012,7 +2844,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
       );
     }
 
-    // Fallback for other types
     return _buildChatMessageBubble(
       message['content'],
       false,
@@ -3020,7 +2851,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     );
   }
 
-  /// Build the assessment statistics
   Widget _buildAssessmentStatistics() {
     if (_generatedQuestions == null) {
       return const SizedBox.shrink();
@@ -3030,7 +2860,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     final questionTypes = <String, int>{};
     int totalPoints = 0;
 
-    // Calculate statistics
     for (final question in questions) {
       final type = question['questionType'] as String;
       questionTypes[type] = (questionTypes[type] ?? 0) + 1;
@@ -3046,7 +2875,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Summary statistics
           Row(
             children: [
               _buildStatItem(
@@ -3069,7 +2897,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
           ),
           const SizedBox(height: 16),
 
-          // Question types breakdown
           const Text(
             'Question Types:',
             style: TextStyle(
@@ -3119,7 +2946,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     );
   }
 
-  /// Format question type for display
   String _formatQuestionType(String type) {
     switch (type) {
       case 'multiple-choice':
@@ -3152,7 +2978,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     }
   }
 
-  /// Build a stat item
   Widget _buildStatItem(String label, String value, IconData icon) {
     return Expanded(
       child: Column(
@@ -3181,7 +3006,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     );
   }
 
-  /// Build all questions and answers for display
   List<Widget> _buildAllQuestions() {
     if (_generatedQuestions == null) {
       return [];
@@ -3191,12 +3015,10 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     final answers = _generatedQuestions!['answers'] as List<dynamic>;
     final allQuestions = <Widget>[];
 
-    // Iterate through all questions
     for (int i = 0; i < questions.length; i++) {
       final question = questions[i];
       final questionId = question['questionId'];
 
-      // Find matching answer
       final answer = answers.firstWhere(
         (a) => a['questionId'] == questionId,
         orElse: () => {'answerText': 'No answer available', 'reasoning': ''},
@@ -3221,7 +3043,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Question number and type
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -3257,7 +3078,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
               ),
               const SizedBox(height: 4),
 
-              // Points
               Row(
                 children: [
                   Icon(Icons.star, size: 14, color: Colors.amber[700]),
@@ -3275,7 +3095,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
               ),
               const SizedBox(height: 12),
 
-              // Question text (with LaTeX support)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
@@ -3288,7 +3107,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
               ),
               const SizedBox(height: 16),
 
-              // Options if applicable
               if (question['options'] != null &&
                   (question['options'] as List).isNotEmpty)
                 Column(
@@ -3384,7 +3202,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                   ],
                 ),
 
-              // Answer
               const SizedBox(height: 16),
               const Text(
                 'Answer:',
@@ -3509,10 +3326,7 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     return allQuestions;
   }
 
-  /// Build formatted text with math equation support
-  /// Build formatted text with support for LaTeX math expressions and other formatting
   Widget _buildFormattedText(String text, {TextStyle? textStyle}) {
-    // Default text style if none provided
     final defaultStyle =
         textStyle ??
         const TextStyle(
@@ -3521,21 +3335,17 @@ Only respond with valid, well-formed JSON. Do not include any other text.
           fontFamily: 'Inter',
         );
 
-    // Pattern to match LaTeX expressions between $ symbols
     final RegExp latexPattern = RegExp(r'\$(.*?)\$');
     final matches = latexPattern.allMatches(text);
 
-    // If no LaTeX expressions found, return simple text
     if (matches.isEmpty) {
       return Text(text, style: defaultStyle);
     }
 
-    // Build rich text with LaTeX rendering
     final List<InlineSpan> spans = [];
     int lastEnd = 0;
 
     for (final match in matches) {
-      // Add text before the LaTeX expression
       if (match.start > lastEnd) {
         spans.add(
           TextSpan(
@@ -3545,10 +3355,8 @@ Only respond with valid, well-formed JSON. Do not include any other text.
         );
       }
 
-      // Get the LaTeX content without the dollar signs
       final latexContent = match.group(1) ?? '';
 
-      // Add LaTeX math widget
       spans.add(
         WidgetSpan(
           alignment: PlaceholderAlignment.middle,
@@ -3571,7 +3379,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
       lastEnd = match.end;
     }
 
-    // Add any remaining text
     if (lastEnd < text.length) {
       spans.add(TextSpan(text: text.substring(lastEnd), style: defaultStyle));
     }
@@ -3582,7 +3389,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     );
   }
 
-  /// Build the chat input area
   Widget _buildChatInputArea() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -3600,7 +3406,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
       child: SafeArea(
         child: Row(
           children: [
-            // PDF upload button
             IconButton(
               icon: const Icon(Icons.attach_file),
               onPressed:
@@ -3617,7 +3422,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
               splashRadius: 24,
             ),
 
-            // Prompt input field
             Expanded(
               child: TextField(
                 controller: _promptController,
@@ -3643,7 +3447,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
             ),
             const SizedBox(width: 8),
 
-            // Send button
             Container(
               decoration: BoxDecoration(
                 color: const Color(0xFF6A3DE8),
@@ -3671,13 +3474,11 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     );
   }
 
-  /// Build the onboarding screen for first-time users
   Widget _buildOnboardingScreen() {
     return Scaffold(
       body: PageView(
         controller: _onboardingController,
         children: [
-          // Introduction page
           _buildOnboardingPage(
             title: 'Welcome to Your AI Assistant',
             description:
@@ -3687,7 +3488,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
             isFirstPage: true,
           ),
 
-          // API Key page
           _buildOnboardingPage(
             title: 'Set Up Your API Key',
             description:
@@ -3696,7 +3496,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
             backgroundColor: Colors.orange,
           ),
 
-          // PDF Processing page
           _buildOnboardingPage(
             title: 'Upload PDFs for Analysis',
             description:
@@ -3705,7 +3504,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
             backgroundColor: const Color(0xFF4CAF50),
           ),
 
-          // Assessment Generation page
           _buildOnboardingPage(
             title: 'Generate Assessments',
             description:
@@ -3714,7 +3512,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
             backgroundColor: const Color(0xFFFFC107),
           ),
 
-          // Chat Interface page
           _buildOnboardingPage(
             title: 'Intelligent Chat',
             description:
@@ -3728,7 +3525,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
     );
   }
 
-  /// Build a single onboarding page
   Widget _buildOnboardingPage({
     required String title,
     required String description,
@@ -3742,7 +3538,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
       child: SafeArea(
         child: Column(
           children: [
-            // Skip button for first page
             if (isFirstPage)
               Align(
                 alignment: Alignment.topRight,
@@ -3763,16 +3558,13 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                 ),
               ),
 
-            // Content
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Icon
                   Icon(icon, size: 120, color: Colors.white.withOpacity(0.9)),
                   const SizedBox(height: 48),
 
-                  // Title
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
                     child: Text(
@@ -3787,7 +3579,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                   ),
                   const SizedBox(height: 24),
 
-                  // Description
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 48),
                     child: Text(
@@ -3804,13 +3595,11 @@ Only respond with valid, well-formed JSON. Do not include any other text.
               ),
             ),
 
-            // Navigation buttons
             Padding(
               padding: const EdgeInsets.all(32),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Back button (except for first page)
                   if (!isFirstPage)
                     TextButton(
                       onPressed: () {
@@ -3836,7 +3625,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                   else
                     const SizedBox(width: 80),
 
-                  // Page indicator
                   Row(
                     children: List.generate(5, (index) {
                       final isActive =
@@ -3857,7 +3645,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
                     }),
                   ),
 
-                  // Next/Done button
                   TextButton(
                     onPressed: () {
                       if (isLastPage) {
@@ -3898,7 +3685,6 @@ Only respond with valid, well-formed JSON. Do not include any other text.
   }
 }
 
-/// Instruction item for the instruction overlay
 class InstructionItem extends StatelessWidget {
   final IconData icon;
   final String title;

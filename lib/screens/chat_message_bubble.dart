@@ -4,15 +4,10 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/chat_message.dart';
 import '../utils/constants.dart';
 
-/// A chat message bubble component
 class ChatMessageBubble extends StatelessWidget {
-  /// The chat message to display
   final ChatMessage message;
-
-  /// Function to copy text to clipboard
   final Function(String) onCopy;
 
-  /// Constructor
   const ChatMessageBubble({
     Key? key,
     required this.message,
@@ -43,7 +38,6 @@ class ChatMessageBubble extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Message content
                 isUser
                     ? Text(
                       message.content,
@@ -63,7 +57,6 @@ class ChatMessageBubble extends StatelessWidget {
                       ),
                     ),
 
-                // Timestamp and actions
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment:
@@ -75,7 +68,7 @@ class ChatMessageBubble extends StatelessWidget {
                         fontSize: 11,
                         color:
                             isUser
-                                ? Colors.white.withOpacity(0.7)
+                                ? Colors.white.withValues(alpha: 0.7)
                                 : Colors.grey,
                       ),
                     ),

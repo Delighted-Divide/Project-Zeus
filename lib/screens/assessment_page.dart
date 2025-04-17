@@ -14,7 +14,6 @@ import 'ai_learning_page.dart';
 import 'friends_groups_page.dart';
 import 'assessment_conditions_page.dart';
 
-// Extension for string capitalization
 extension StringExtension on String {
   String capitalize() {
     return "${this[0].toUpperCase()}${substring(1)}";
@@ -30,63 +29,56 @@ class AssessmentPage extends StatefulWidget {
 
 class _AssessmentPageState extends State<AssessmentPage>
     with TickerProviderStateMixin {
-  // Firebase instances
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   String? _currentUserId;
 
-  // PageView controller
   late final PageController _pageController;
 
-  // Animation controllers
   late final AnimationController _fabAnimationController;
   late final AnimationController _cardsAnimationController;
   late final AnimationController _categoryAnimationController;
 
-  // Category information
   final List<Map<String, dynamic>> _categories = [
     {
       'name': 'My Assessments',
       'icon': Icons.edit_document,
-      'color': const Color(0xFF6C63FF), // Blue-purple
+      'color': const Color(0xFF6C63FF),
       'secondaryColor': const Color(0xFF8B81FF),
       'illustration': Icons.assignment_outlined,
     },
     {
       'name': 'Shared',
       'icon': Icons.share,
-      'color': const Color(0xFFFF6584), // Pink
+      'color': const Color(0xFFFF6584),
       'secondaryColor': const Color(0xFFFF8FAA),
       'illustration': Icons.share_outlined,
     },
     {
       'name': 'Group',
       'icon': Icons.groups,
-      'color': const Color(0xFF43E97B), // Green
+      'color': const Color(0xFF43E97B),
       'secondaryColor': const Color(0xFF7DEEA2),
       'illustration': Icons.group_outlined,
     },
     {
       'name': 'Public',
       'icon': Icons.public,
-      'color': const Color(0xFFFF9E40), // Orange
+      'color': const Color(0xFFFF9E40),
       'secondaryColor': const Color(0xFFFFBC7D),
       'illustration': Icons.public_outlined,
     },
   ];
 
-  // State variables
   int _selectedCategoryIndex = 0;
   double _categoryIndicatorPosition = 0.0;
   bool _isFabExpanded = false;
   bool _isLoading = true;
 
-  // Data caching
   Map<int, List<Map<String, dynamic>>> _cachedAssessments = {};
   Map<int, bool> _categoryLoaded = {};
 
-  // Sort and filter state
-  String _sortOption = 'newest'; // Default sort option
+  String _sortOption = 'newest';
   final List<String> _sortOptions = [
     'newest',
     'oldest',
@@ -95,8 +87,7 @@ class _AssessmentPageState extends State<AssessmentPage>
     'rating',
   ];
 
-  // NEW: Filter state
-  String _filterOption = 'all'; // Default filter option
+  String _filterOption = 'all';
   final List<String> _filterOptions = [
     'all',
     'in-progress',
@@ -104,21 +95,18 @@ class _AssessmentPageState extends State<AssessmentPage>
     'evaluated',
   ];
 
-  // NEW: Sort/Filter UI state
-  int _currentTabIndex = 0; // 0 for sort, 1 for filter
+  int _currentTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
     developer.log('AssessmentPage: Initializing state', name: 'AssessmentPage');
 
-    // Initialize PageController with physics for smooth scrolling
     _pageController = PageController(
       initialPage: _selectedCategoryIndex,
       viewportFraction: 1.0,
     );
 
-    // Initialize animation controllers
     _fabAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -134,13 +122,10 @@ class _AssessmentPageState extends State<AssessmentPage>
       duration: const Duration(milliseconds: 300),
     );
 
-    // Start with full animation
     _categoryAnimationController.value = 1.0;
 
-    // Initialize current user and load data
     _initializeCurrentUser();
 
-    // Add listener to page controller for indicator animation
     _pageController.addListener(_updateCategoryIndicator);
   }
 
@@ -155,7 +140,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     super.dispose();
   }
 
-  // Update the category indicator position based on page scroll
   void _updateCategoryIndicator() {
     final double page = _pageController.page ?? 0;
     final double screenWidth = MediaQuery.of(context).size.width;
@@ -166,7 +150,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     });
   }
 
-  // Initialize current user and load assessments
   Future<void> _initializeCurrentUser() async {
     developer.log(
       'AssessmentPage: Initializing current user',
@@ -174,7 +157,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
 
     try {
-      // Get current user
       _currentUserId = _auth.currentUser?.uid;
       developer.log(
         'AssessmentPage: Current user ID: $_currentUserId',
@@ -182,10 +164,8 @@ class _AssessmentPageState extends State<AssessmentPage>
       );
 
       if (_currentUserId != null) {
-        // Load initial category's assessments
         await _loadAssessmentsForCategory(_selectedCategoryIndex);
       } else {
-        // Handle not logged in state
         developer.log(
           'AssessmentPage: No user logged in',
           name: 'AssessmentPage',
@@ -210,9 +190,7 @@ class _AssessmentPageState extends State<AssessmentPage>
     }
   }
 
-  // Load assessments for a specific category
   Future<void> _loadAssessmentsForCategory(int categoryIndex) async {
-    // If already loaded and cached, use cached data
     if (_categoryLoaded[categoryIndex] == true) {
       developer.log(
         'AssessmentPage: Using cached data for category $categoryIndex',
@@ -244,16 +222,16 @@ class _AssessmentPageState extends State<AssessmentPage>
       List<Map<String, dynamic>> loadedAssessments = [];
 
       switch (categoryIndex) {
-        case 0: // My Assessments
+        case 0:
           loadedAssessments = await _loadMyAssessments();
           break;
-        case 1: // Shared with me
+        case 1:
           loadedAssessments = await _loadSharedAssessments();
           break;
-        case 2: // Group assessments
+        case 2:
           loadedAssessments = await _loadGroupAssessments();
           break;
-        case 3: // Public assessments
+        case 3:
           loadedAssessments = await _loadPublicAssessments();
           break;
       }
@@ -263,28 +241,22 @@ class _AssessmentPageState extends State<AssessmentPage>
         name: 'AssessmentPage',
       );
 
-      // Apply sorting to loaded assessments
       _sortAssessmentsList(loadedAssessments);
 
-      // NEW: Apply filtering to loaded assessments
       _filterAssessmentsList(loadedAssessments);
 
-      // Fetch submission data for My Assessments and Shared categories
       if (categoryIndex == 0 || categoryIndex == 1) {
         await _fetchSubmissionDataForAssessments(loadedAssessments);
       } else if (categoryIndex == 2) {
-        // For Group assessments, fetch the oldest submission
         await _fetchOldestSubmissionForGroupAssessments(loadedAssessments);
       }
 
-      // Update the cache and state
       setState(() {
         _cachedAssessments[categoryIndex] = loadedAssessments;
         _categoryLoaded[categoryIndex] = true;
         _isLoading = false;
       });
 
-      // Reset and start the animation for cards
       _cardsAnimationController.reset();
       _cardsAnimationController.forward();
     } catch (e) {
@@ -301,7 +273,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     }
   }
 
-  // Fetch submission data for assessments
   Future<void> _fetchSubmissionDataForAssessments(
     List<Map<String, dynamic>> assessments,
   ) async {
@@ -314,7 +285,6 @@ class _AssessmentPageState extends State<AssessmentPage>
       try {
         final String assessmentId = assessment['id'];
 
-        // Get submissions for this assessment by the current user
         final submissionsSnapshot =
             await _firestore
                 .collection('users')
@@ -326,13 +296,11 @@ class _AssessmentPageState extends State<AssessmentPage>
                 .get();
 
         if (submissionsSnapshot.docs.isNotEmpty) {
-          // Get the most recent submission
           final latestSubmission = submissionsSnapshot.docs.first.data();
           assessment['hasSubmission'] = true;
           assessment['submissionStatus'] =
               latestSubmission['status'] ?? 'in-progress';
 
-          // Check if any submission is evaluated
           bool hasEvaluatedSubmission = false;
           int bestScore = 0;
 
@@ -350,8 +318,7 @@ class _AssessmentPageState extends State<AssessmentPage>
           assessment['hasEvaluatedSubmission'] = hasEvaluatedSubmission;
           if (hasEvaluatedSubmission) {
             assessment['bestScore'] = bestScore;
-            assessment['totalPoints'] =
-                assessment['totalPoints'] ?? 100; // Fallback to 100 if not set
+            assessment['totalPoints'] = assessment['totalPoints'] ?? 100;
           }
         } else {
           assessment['hasSubmission'] = false;
@@ -367,7 +334,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     }
   }
 
-  // Fetch oldest submission for group assessments
   Future<void> _fetchOldestSubmissionForGroupAssessments(
     List<Map<String, dynamic>> assessments,
   ) async {
@@ -381,7 +347,6 @@ class _AssessmentPageState extends State<AssessmentPage>
         final String assessmentId = assessment['id'];
         final String groupId = assessment['groupId'];
 
-        // Get submissions for this assessment by the current user
         final submissionsSnapshot = await _firestore
             .collection('groups')
             .doc(groupId)
@@ -409,17 +374,14 @@ class _AssessmentPageState extends State<AssessmentPage>
 
         if (submissionsSnapshot != null &&
             submissionsSnapshot.docs.isNotEmpty) {
-          // Get the oldest submission
           final oldestSubmission = submissionsSnapshot.docs.first.data();
           assessment['hasSubmission'] = true;
           assessment['submissionStatus'] =
               oldestSubmission['status'] ?? 'in-progress';
 
-          // If evaluated, get the score
           if (oldestSubmission['status'] == 'evaluated') {
             assessment['score'] = oldestSubmission['totalScore'] ?? 0;
-            assessment['totalPoints'] =
-                assessment['totalPoints'] ?? 100; // Fallback to 100 if not set
+            assessment['totalPoints'] = assessment['totalPoints'] ?? 100;
           }
         } else {
           assessment['hasSubmission'] = false;
@@ -435,12 +397,10 @@ class _AssessmentPageState extends State<AssessmentPage>
     }
   }
 
-  // Load assessments created by the current user
   Future<List<Map<String, dynamic>>> _loadMyAssessments() async {
     List<Map<String, dynamic>> myAssessments = [];
 
     try {
-      // First get all assessments from user's subcollection
       final userAssessmentsSnapshot =
           await _firestore
               .collection('users')
@@ -457,14 +417,12 @@ class _AssessmentPageState extends State<AssessmentPage>
         final assessmentData = doc.data();
         final assessmentId = doc.id;
 
-        // Get the full assessment data from main collection
         final mainAssessmentDoc =
             await _firestore.collection('assessments').doc(assessmentId).get();
 
         if (mainAssessmentDoc.exists) {
           final mainData = mainAssessmentDoc.data() ?? {};
 
-          // Add to my assessments ONLY if creatorId matches current user
           if (mainData['creatorId'] == _currentUserId) {
             Map<String, dynamic> assessment = {
               'id': assessmentId,
@@ -480,7 +438,7 @@ class _AssessmentPageState extends State<AssessmentPage>
               'sourceType': 'created',
               'madeByAI': mainData['madeByAI'] ?? false,
               'isPublic': mainData['isPublic'] ?? false,
-              'status': 'created', // Default status
+              'status': 'created',
               'creatorId': mainData['creatorId'],
             };
 
@@ -503,12 +461,10 @@ class _AssessmentPageState extends State<AssessmentPage>
     return myAssessments;
   }
 
-  // Load assessments shared with the current user
   Future<List<Map<String, dynamic>>> _loadSharedAssessments() async {
     List<Map<String, dynamic>> sharedAssessments = [];
 
     try {
-      // Get assessments from user's collection that have wasSharedWithUser = true
       final userAssessmentsSnapshot =
           await _firestore
               .collection('users')
@@ -526,14 +482,12 @@ class _AssessmentPageState extends State<AssessmentPage>
         final assessmentData = doc.data();
         final assessmentId = doc.id;
 
-        // Get the full assessment data from main collection
         final mainAssessmentDoc =
             await _firestore.collection('assessments').doc(assessmentId).get();
 
         if (mainAssessmentDoc.exists) {
           final mainData = mainAssessmentDoc.data() ?? {};
 
-          // Get creator info
           String creatorName = 'Unknown User';
           if (mainData['creatorId'] != null) {
             final creatorDoc =
@@ -547,7 +501,6 @@ class _AssessmentPageState extends State<AssessmentPage>
             }
           }
 
-          // Create the assessment object
           Map<String, dynamic> assessment = {
             'id': assessmentId,
             'title':
@@ -585,12 +538,10 @@ class _AssessmentPageState extends State<AssessmentPage>
     return sharedAssessments;
   }
 
-  // Load assessments from groups
   Future<List<Map<String, dynamic>>> _loadGroupAssessments() async {
     List<Map<String, dynamic>> groupAssessments = [];
 
     try {
-      // Get assessments from user's collection that have wasSharedInGroup = true
       final userAssessmentsSnapshot =
           await _firestore
               .collection('users')
@@ -604,7 +555,6 @@ class _AssessmentPageState extends State<AssessmentPage>
         name: 'AssessmentPage',
       );
 
-      // Get all groups the user belongs to
       final userGroupsSnapshot =
           await _firestore
               .collection('users')
@@ -621,15 +571,13 @@ class _AssessmentPageState extends State<AssessmentPage>
       );
 
       if (userGroupIds.isEmpty) {
-        return []; // No groups, so no group assessments
+        return [];
       }
 
-      // Process each assessment shared in a group
       for (var doc in userAssessmentsSnapshot.docs) {
         final assessmentData = doc.data();
         final assessmentId = doc.id;
 
-        // Get the full assessment data from main collection
         final mainAssessmentDoc =
             await _firestore.collection('assessments').doc(assessmentId).get();
 
@@ -637,9 +585,7 @@ class _AssessmentPageState extends State<AssessmentPage>
 
         final mainData = mainAssessmentDoc.data() ?? {};
 
-        // Check which of the user's groups have this assessment
         for (var groupId in userGroupIds) {
-          // Check if this group is in the sharedWithGroups collection
           final groupShareDoc =
               await _firestore
                   .collection('assessments')
@@ -651,7 +597,6 @@ class _AssessmentPageState extends State<AssessmentPage>
           if (groupShareDoc.exists) {
             final groupShareData = groupShareDoc.data() ?? {};
 
-            // Get group name
             String groupName = 'Unknown Group';
             final groupDoc =
                 userGroupsSnapshot.docs
@@ -663,7 +608,6 @@ class _AssessmentPageState extends State<AssessmentPage>
               groupName = groupData['name'] ?? 'Unknown Group';
             }
 
-            // Create assessment object with group data
             Map<String, dynamic> assessment = {
               'id': assessmentId,
               'title':
@@ -688,7 +632,6 @@ class _AssessmentPageState extends State<AssessmentPage>
               'wasSharedInGroup': true,
             };
 
-            // Avoid duplicate assessments (same assessment shared in multiple groups)
             if (!groupAssessments.any((item) => item['id'] == assessmentId)) {
               groupAssessments.add(assessment);
               developer.log(
@@ -697,7 +640,6 @@ class _AssessmentPageState extends State<AssessmentPage>
               );
             }
 
-            // We found a match, no need to check other groups for this assessment
             break;
           }
         }
@@ -713,12 +655,10 @@ class _AssessmentPageState extends State<AssessmentPage>
     return groupAssessments;
   }
 
-  // Load public assessments
   Future<List<Map<String, dynamic>>> _loadPublicAssessments() async {
     List<Map<String, dynamic>> publicAssessments = [];
 
     try {
-      // Query all public assessments
       final publicAssessmentsSnapshot =
           await _firestore
               .collection('assessments')
@@ -735,7 +675,6 @@ class _AssessmentPageState extends State<AssessmentPage>
         final assessmentData = doc.data();
         final assessmentId = doc.id;
 
-        // Get creator info
         String creatorName = 'Unknown User';
         if (assessmentData['creatorId'] != null) {
           final creatorDoc =
@@ -782,7 +721,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     return publicAssessments;
   }
 
-  // Sort assessments based on selected option
   void _sortAssessmentsList(List<Map<String, dynamic>> assessments) {
     developer.log(
       'AssessmentPage: Sorting assessments by $_sortOption',
@@ -803,7 +741,6 @@ class _AssessmentPageState extends State<AssessmentPage>
         });
         break;
       case 'difficulty':
-        // Custom sort order for difficulty
         final difficultyOrder = {
           'Easy': 0,
           'Medium': 1,
@@ -822,23 +759,21 @@ class _AssessmentPageState extends State<AssessmentPage>
         assessments.sort((a, b) {
           final aPoints = a['totalPoints'] ?? 0;
           final bPoints = b['totalPoints'] ?? 0;
-          return bPoints.compareTo(aPoints); // Higher points first
+          return bPoints.compareTo(aPoints);
         });
         break;
       case 'rating':
         assessments.sort((a, b) {
           final aRating = a['rating'] ?? 0.0;
           final bRating = b['rating'] ?? 0.0;
-          return bRating.compareTo(aRating); // Higher rating first
+          return bRating.compareTo(aRating);
         });
         break;
     }
   }
 
-  // NEW: Filter assessments based on selected filter option
   void _filterAssessmentsList(List<Map<String, dynamic>> assessments) {
     if (_filterOption == 'all') {
-      // No filtering needed
       return;
     }
 
@@ -847,26 +782,23 @@ class _AssessmentPageState extends State<AssessmentPage>
       name: 'AssessmentPage',
     );
 
-    // Create a new list with filtered assessments
     assessments.removeWhere((assessment) {
       final String status = assessment['submissionStatus'] ?? '';
       return status != _filterOption;
     });
   }
 
-  // Resort and refresh current category's assessments
   void _resortCurrentAssessments() {
     if (_cachedAssessments.containsKey(_selectedCategoryIndex)) {
       final assessments = _cachedAssessments[_selectedCategoryIndex] ?? [];
       _sortAssessmentsList(assessments);
-      _filterAssessmentsList(assessments); // Also apply filtering
+      _filterAssessmentsList(assessments);
       setState(() {
         _cachedAssessments[_selectedCategoryIndex] = assessments;
       });
     }
   }
 
-  // Share assessment with user
   Future<void> _shareAssessment(
     String assessmentId,
     String assessmentTitle,
@@ -876,10 +808,8 @@ class _AssessmentPageState extends State<AssessmentPage>
       name: 'AssessmentPage',
     );
 
-    // Get current category color
     final Color categoryColor = _categories[_selectedCategoryIndex]['color'];
 
-    // Show a beautiful snackbar
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
@@ -918,22 +848,18 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Navigate to create assessment
   void _navigateToCreateAssessment(String type) {
     developer.log(
       'AssessmentPage: Navigating to create assessment page with type: $type',
       name: 'AssessmentPage',
     );
 
-    // Close the FAB menu
     setState(() {
       _isFabExpanded = false;
     });
 
-    // Reset FAB animation
     _fabAnimationController.reverse();
 
-    // Navigate to the create assessment page
     Future.delayed(const Duration(milliseconds: 200), () {
       Navigator.push(
         context,
@@ -954,18 +880,15 @@ class _AssessmentPageState extends State<AssessmentPage>
           },
         ),
       ).then((_) {
-        // Reset cached data to force reload
         setState(() {
-          _categoryLoaded[0] = false; // Reset "My Assessments" category
+          _categoryLoaded[0] = false;
         });
 
-        // Load assessments for the current category
         _loadAssessmentsForCategory(_selectedCategoryIndex);
       });
     });
   }
 
-  // MODIFIED: Choose sort and filter options
   void _chooseSortOption() {
     developer.log(
       'AssessmentPage: Opening sort/filter options',
@@ -1002,7 +925,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Handle
                     Container(
                       width: 40,
                       height: 4,
@@ -1013,12 +935,10 @@ class _AssessmentPageState extends State<AssessmentPage>
                     ),
                     const SizedBox(height: 16),
 
-                    // Tab selector
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Row(
                         children: [
-                          // Sort tab
                           Expanded(
                             child: GestureDetector(
                               onTap: () {
@@ -1070,7 +990,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                             ),
                           ),
 
-                          // Filter tab
                           Expanded(
                             child: GestureDetector(
                               onTap: () {
@@ -1128,12 +1047,10 @@ class _AssessmentPageState extends State<AssessmentPage>
                     const SizedBox(height: 16),
                     const Divider(height: 1),
 
-                    // Show sort or filter options based on selected tab
                     _currentTabIndex == 0
                         ? _buildSortOptionsView(categoryColor)
                         : _buildFilterOptionsView(categoryColor, setModalState),
 
-                    // Safe area padding
                     SizedBox(
                       height: MediaQuery.of(context).padding.bottom + 16,
                     ),
@@ -1147,7 +1064,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // NEW: Build sort options view
   Widget _buildSortOptionsView(Color categoryColor) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1189,7 +1105,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // NEW: Build filter options view
   Widget _buildFilterOptionsView(
     Color categoryColor,
     StateSetter setModalState,
@@ -1232,7 +1147,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Build a sort option
   Widget _buildSortOption(
     String value,
     String label,
@@ -1259,7 +1173,6 @@ class _AssessmentPageState extends State<AssessmentPage>
         ),
         child: Row(
           children: [
-            // Icon
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -1275,7 +1188,6 @@ class _AssessmentPageState extends State<AssessmentPage>
 
             const SizedBox(width: 16),
 
-            // Label
             Text(
               label,
               style: TextStyle(
@@ -1287,7 +1199,6 @@ class _AssessmentPageState extends State<AssessmentPage>
 
             const Spacer(),
 
-            // Selected indicator
             if (isSelected)
               Container(
                 padding: const EdgeInsets.all(4),
@@ -1303,7 +1214,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // NEW: Build a filter option
   Widget _buildFilterOption(
     String value,
     String label,
@@ -1315,7 +1225,6 @@ class _AssessmentPageState extends State<AssessmentPage>
 
     return InkWell(
       onTap: () {
-        // Update the state of both the modal and the parent widget
         setModalState(() {
           _filterOption = value;
         });
@@ -1326,7 +1235,6 @@ class _AssessmentPageState extends State<AssessmentPage>
 
         Navigator.pop(context);
 
-        // Force reload to apply the new filter
         setState(() {
           _categoryLoaded[_selectedCategoryIndex] = false;
         });
@@ -1342,7 +1250,6 @@ class _AssessmentPageState extends State<AssessmentPage>
         ),
         child: Row(
           children: [
-            // Icon
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -1358,7 +1265,6 @@ class _AssessmentPageState extends State<AssessmentPage>
 
             const SizedBox(width: 16),
 
-            // Label
             Text(
               label,
               style: TextStyle(
@@ -1370,7 +1276,6 @@ class _AssessmentPageState extends State<AssessmentPage>
 
             const Spacer(),
 
-            // Selected indicator
             if (isSelected)
               Container(
                 padding: const EdgeInsets.all(4),
@@ -1386,7 +1291,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Helper method to format timestamps into readable dates
   String _formatTimestamp(dynamic timestamp) {
     if (timestamp == null) return '';
 
@@ -1414,33 +1318,30 @@ class _AssessmentPageState extends State<AssessmentPage>
     }
   }
 
-  // Helper method to get color based on difficulty
   Color _getDifficultyColor(String? difficulty) {
     switch (difficulty?.toLowerCase()) {
       case 'easy':
-        return const Color(0xFF43E97B); // Green
+        return const Color(0xFF43E97B);
       case 'medium':
-        return const Color(0xFFFF9E40); // Orange
+        return const Color(0xFFFF9E40);
       case 'hard':
-        return const Color(0xFFFF6584); // Red
+        return const Color(0xFFFF6584);
       case 'expert':
-        return const Color(0xFF6C63FF); // Purple
+        return const Color(0xFF6C63FF);
       default:
-        return const Color(0xFF6C63FF); // Purple
+        return const Color(0xFF6C63FF);
     }
   }
 
-  // Build bottom navigation bar
   Widget _buildBottomNavBar() {
-    // Use the current category color for the nav bar
     final Color navBarColor = _categories[_selectedCategoryIndex]['color'];
 
     return Container(
       height: 55,
       margin: const EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 25.0),
       decoration: BoxDecoration(
-        color: navBarColor, // Dynamic color based on selected category
-        border: Border.all(color: Colors.black, width: 1.5), // Black border
+        color: navBarColor,
+        border: Border.all(color: Colors.black, width: 1.5),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -1453,8 +1354,7 @@ class _AssessmentPageState extends State<AssessmentPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildNavItem(Icons.bar_chart, true), // Bar chart icon is selected
-          // AI Learning page navigation
+          _buildNavItem(Icons.bar_chart, true),
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -1463,7 +1363,6 @@ class _AssessmentPageState extends State<AssessmentPage>
             },
             child: _buildNavItem(Icons.access_time, false),
           ),
-          // Home icon with navigation to Dashboard
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -1472,7 +1371,6 @@ class _AssessmentPageState extends State<AssessmentPage>
             },
             child: _buildNavItem(Icons.home, false),
           ),
-          // Journal icon with navigation to JournalPage
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -1481,7 +1379,6 @@ class _AssessmentPageState extends State<AssessmentPage>
             },
             child: _buildNavItem(Icons.assessment, false),
           ),
-          // Person icon with navigation to FriendsGroupsPage
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -1497,7 +1394,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Build a navigation item
   Widget _buildNavItem(IconData icon, bool isSelected) {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -1533,32 +1429,22 @@ class _AssessmentPageState extends State<AssessmentPage>
           bottom: false,
           child: Stack(
             children: [
-              // Main content
               Column(
                 children: [
-                  // Custom app bar
                   _buildAppBar(),
 
-                  // Category selection
                   _buildCategorySelector(),
 
-                  // Content area
                   Expanded(child: _buildPageView()),
                 ],
               ),
 
-              // Floating action button
               Positioned(
                 right: 20,
-                bottom:
-                    100 +
-                    MediaQuery.of(
-                      context,
-                    ).padding.bottom, // Adjusted for nav bar
+                bottom: 100 + MediaQuery.of(context).padding.bottom,
                 child: _buildFab(),
               ),
 
-              // Bottom navigation bar
               Positioned(
                 bottom: 0,
                 left: 0,
@@ -1572,17 +1458,14 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Build app bar - MODIFIED: Removed back button
   Widget _buildAppBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Spacer (replaced back button)
           const SizedBox(width: 40),
 
-          // App title
           TweenAnimationBuilder<Color?>(
             tween: ColorTween(
               begin: _categories[0]['color'],
@@ -1601,7 +1484,6 @@ class _AssessmentPageState extends State<AssessmentPage>
             },
           ),
 
-          // Sort button
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -1650,7 +1532,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Build category selector
   Widget _buildCategorySelector() {
     final double itemWidth =
         MediaQuery.of(context).size.width / _categories.length;
@@ -1659,7 +1540,6 @@ class _AssessmentPageState extends State<AssessmentPage>
       padding: const EdgeInsets.fromLTRB(0, 20, 0, 10),
       child: Column(
         children: [
-          // Category items
           SizedBox(
             height: 36,
             child: Row(
@@ -1672,20 +1552,17 @@ class _AssessmentPageState extends State<AssessmentPage>
                   onTap: () {
                     HapticFeedback.lightImpact();
 
-                    // Only do something if selecting a different category
                     if (index != _selectedCategoryIndex) {
                       setState(() {
                         _selectedCategoryIndex = index;
                       });
 
-                      // Animate to the selected page
                       _pageController.animateToPage(
                         index,
                         duration: const Duration(milliseconds: 400),
                         curve: Curves.easeOutCubic,
                       );
 
-                      // Load data for the selected category if not already loaded
                       if (_categoryLoaded[index] != true) {
                         _loadAssessmentsForCategory(index);
                       }
@@ -1713,13 +1590,11 @@ class _AssessmentPageState extends State<AssessmentPage>
             ),
           ),
 
-          // Indicator
           Container(
             margin: const EdgeInsets.only(top: 8),
             height: 3,
             child: Stack(
               children: [
-                // Background line
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 30),
                   decoration: BoxDecoration(
@@ -1728,7 +1603,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                   ),
                 ),
 
-                // Animated indicator
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOutCubic,
@@ -1758,7 +1632,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Build page view
   Widget _buildPageView() {
     return PageView.builder(
       controller: _pageController,
@@ -1769,7 +1642,6 @@ class _AssessmentPageState extends State<AssessmentPage>
           _selectedCategoryIndex = index;
         });
 
-        // Load data for the selected category if not already loaded
         if (_categoryLoaded[index] != true) {
           _loadAssessmentsForCategory(index);
         }
@@ -1795,7 +1667,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Build loading state with shimmer effect
   Widget _buildLoadingState(Map<String, dynamic> category) {
     return ListView.builder(
       key: const ValueKey('loading'),
@@ -1824,7 +1695,6 @@ class _AssessmentPageState extends State<AssessmentPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Shimmer header
               Container(
                 height: 12,
                 decoration: BoxDecoration(
@@ -1836,13 +1706,11 @@ class _AssessmentPageState extends State<AssessmentPage>
                 ),
               ),
 
-              // Shimmer content
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title
                     Container(
                       width: 200 + (index * 40 % 100),
                       height: 24,
@@ -1853,7 +1721,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                     ),
                     const SizedBox(height: 16),
 
-                    // Description
                     Container(
                       width: double.infinity,
                       height: 16,
@@ -1873,7 +1740,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                     ),
                     const SizedBox(height: 20),
 
-                    // Badges
                     Row(
                       children: [
                         Container(
@@ -1897,7 +1763,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                     ),
                     const SizedBox(height: 20),
 
-                    // Footer
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1929,27 +1794,26 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Build empty state
   Widget _buildEmptyState(Map<String, dynamic> category) {
     String message;
     String buttonText;
 
     switch (_categories.indexOf(category)) {
-      case 0: // My Assessments
+      case 0:
         message =
             'You haven\'t created any assessments yet.\nCreate one to get started!';
         buttonText = 'Create Assessment';
         break;
-      case 1: // Shared
+      case 1:
         message = 'No assessments have been shared with you yet.';
         buttonText = 'Find Friends';
         break;
-      case 2: // Group
+      case 2:
         message =
             'No group assessments available.\nJoin a group to see assessments.';
         buttonText = 'Join a Group';
         break;
-      case 3: // Public
+      case 3:
         message =
             'No public assessments available.\nExplore community assessments.';
         buttonText = 'Refresh';
@@ -1966,7 +1830,6 @@ class _AssessmentPageState extends State<AssessmentPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Animated icon
             TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0.8, end: 1.0),
               duration: const Duration(seconds: 2),
@@ -1993,7 +1856,6 @@ class _AssessmentPageState extends State<AssessmentPage>
 
             const SizedBox(height: 40),
 
-            // Message
             Text(
               message,
               textAlign: TextAlign.center,
@@ -2006,18 +1868,15 @@ class _AssessmentPageState extends State<AssessmentPage>
 
             const SizedBox(height: 30),
 
-            // Action button
             ElevatedButton(
               onPressed: () {
                 final index = _categories.indexOf(category);
                 if (index == 0) {
-                  // For My Assessments, show FAB
                   setState(() {
                     _isFabExpanded = true;
                   });
                   _fabAnimationController.forward();
                 } else if (index == 3) {
-                  // For Public, refresh
                   setState(() {
                     _categoryLoaded[index] = false;
                   });
@@ -2046,7 +1905,6 @@ class _AssessmentPageState extends State<AssessmentPage>
               ),
             ),
 
-            // Add bottom spacing
             SizedBox(height: MediaQuery.of(context).padding.bottom + 100),
           ],
         ),
@@ -2054,7 +1912,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Build list of assessments
   Widget _buildAssessmentList(
     List<Map<String, dynamic>> assessments,
     Map<String, dynamic> category,
@@ -2075,7 +1932,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // MODIFIED: Build assessment card with submission status indicators
   Widget _buildAssessmentCard(
     Map<String, dynamic> assessment,
     Map<String, dynamic> category,
@@ -2088,11 +1944,9 @@ class _AssessmentPageState extends State<AssessmentPage>
     final Color categoryColor = category['color'];
     final String sourceType = assessment['sourceType'] ?? '';
 
-    // Check if assessment is locked (start time in future)
     bool isLocked = false;
     String? lockReason;
 
-    // Check start time for group assessments or assessments with a start time
     if (assessment['sourceType'] == 'group' ||
         assessment['startTime'] != null) {
       final startTime =
@@ -2107,7 +1961,6 @@ class _AssessmentPageState extends State<AssessmentPage>
       }
     }
 
-    // Determine button text and status based on submission status
     String buttonText = 'Attempt';
     Color statusColor = categoryColor;
     IconData statusIcon = Icons.play_arrow;
@@ -2132,20 +1985,16 @@ class _AssessmentPageState extends State<AssessmentPage>
           statusColor = Colors.green;
           break;
         default:
-        // Use defaults
       }
     }
 
-    // Animated card appearance
     return AnimatedBuilder(
       animation: _cardsAnimationController,
       builder: (context, child) {
-        // Calculate delay based on index
         final double delay = index * 0.1;
         final double start = delay;
         final double end = delay + 0.4;
 
-        // Calculate current animation value
         final double t = _cardsAnimationController.value;
         double opacity = 0.0;
         double yOffset = 50.0;
@@ -2168,7 +2017,6 @@ class _AssessmentPageState extends State<AssessmentPage>
       },
       child: GestureDetector(
         onTap: () {
-          // Navigate to assessment detail
           Navigator.push(
             context,
             PageRouteBuilder(
@@ -2215,7 +2063,6 @@ class _AssessmentPageState extends State<AssessmentPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Container(
                 height: 12,
                 decoration: BoxDecoration(
@@ -2231,17 +2078,14 @@ class _AssessmentPageState extends State<AssessmentPage>
                 ),
               ),
 
-              // Content
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title with badges
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Title
                         Expanded(
                           child: Text(
                             assessment['title'] ?? 'Untitled Assessment',
@@ -2256,7 +2100,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                           ),
                         ),
 
-                        // AI badge
                         if (isAiGenerated)
                           Container(
                             margin: const EdgeInsets.only(left: 8, top: 2),
@@ -2293,7 +2136,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                             ),
                           ),
 
-                        // Lock badge
                         if (isLocked)
                           Container(
                             margin: const EdgeInsets.only(left: 8, top: 2),
@@ -2317,7 +2159,6 @@ class _AssessmentPageState extends State<AssessmentPage>
 
                     const SizedBox(height: 12),
 
-                    // Description
                     Text(
                       assessment['description'] ?? 'No description available',
                       style: TextStyle(
@@ -2331,13 +2172,11 @@ class _AssessmentPageState extends State<AssessmentPage>
 
                     const SizedBox(height: 16),
 
-                    // Badges row - difficulty, points, rating, score
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       physics: const BouncingScrollPhysics(),
                       child: Row(
                         children: [
-                          // Difficulty badge
                           _buildBadge(
                             icon:
                                 difficulty == 'Easy'
@@ -2353,14 +2192,12 @@ class _AssessmentPageState extends State<AssessmentPage>
 
                           const SizedBox(width: 12),
 
-                          // Points badge
                           _buildBadge(
                             icon: Icons.star,
                             label: '$points pts',
                             color: Colors.amber,
                           ),
 
-                          // Rating badge if available
                           if (assessment['rating'] != null &&
                               assessment['rating'] > 0) ...[
                             const SizedBox(width: 12),
@@ -2371,7 +2208,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                             ),
                           ],
 
-                          // Score badge if evaluated
                           if ((assessment['hasEvaluatedSubmission'] == true ||
                                   assessment['submissionStatus'] ==
                                       'evaluated') &&
@@ -2386,7 +2222,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                             ),
                           ],
 
-                          // Status badge if has submission
                           if (assessment['hasSubmission'] == true) ...[
                             const SizedBox(width: 12),
                             _buildBadge(
@@ -2422,16 +2257,13 @@ class _AssessmentPageState extends State<AssessmentPage>
 
                     const SizedBox(height: 16),
 
-                    // Source info
                     _buildSourceInfo(assessment, categoryColor),
 
                     const SizedBox(height: 12),
 
-                    // Footer - action buttons and information
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Due date or lock reason
                         Expanded(
                           child:
                               isLocked && lockReason != null
@@ -2483,11 +2315,9 @@ class _AssessmentPageState extends State<AssessmentPage>
                                   : const SizedBox(),
                         ),
 
-                        // Action buttons container
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // View Submissions button (if any evaluated submissions)
                             if (assessment['hasEvaluatedSubmission'] == true)
                               Container(
                                 margin: const EdgeInsets.only(right: 8),
@@ -2500,7 +2330,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(12),
                                     onTap: () {
-                                      // Navigate to submissions view
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
@@ -2540,7 +2369,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                                 ),
                               ),
 
-                            // Attempt/Continue button
                             Container(
                               margin: const EdgeInsets.only(right: 8),
                               decoration: BoxDecoration(
@@ -2568,7 +2396,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                                       isLocked
                                           ? null
                                           : () {
-                                            // Always navigate to conditions page first for all assessments
                                             Navigator.push(
                                               context,
                                               MaterialPageRoute(
@@ -2622,7 +2449,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                               ),
                             ),
 
-                            // MODIFIED: Share button (not for group assessments)
                             if (sourceType != 'group')
                               Container(
                                 decoration: BoxDecoration(
@@ -2680,7 +2506,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Build a badge
   Widget _buildBadge({
     required IconData icon,
     required String label,
@@ -2711,7 +2536,6 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Build source info
   Widget _buildSourceInfo(
     Map<String, dynamic> assessment,
     Color categoryColor,
@@ -2722,18 +2546,15 @@ class _AssessmentPageState extends State<AssessmentPage>
     switch (assessment['sourceType']) {
       case 'created':
         icon = Icons.person;
-        // Remove "Created by you" text
         label = '';
         break;
       case 'shared':
         icon = Icons.person;
-        // Handle multiple users who shared the assessment
         if (assessment['sharedByUsers'] != null &&
             assessment['sharedByUsers'] is List &&
             (assessment['sharedByUsers'] as List).isNotEmpty) {
           final sharedUsers = assessment['sharedByUsers'] as List;
           final now = DateTime.now().millisecondsSinceEpoch;
-          // Rotate through users based on time (change every 3 seconds)
           final currentIndex = (now ~/ 3000) % sharedUsers.length;
           label = 'By ${sharedUsers[currentIndex]['displayName'] ?? 'Unknown'}';
         } else {
@@ -2753,7 +2574,6 @@ class _AssessmentPageState extends State<AssessmentPage>
         label = 'Unknown source';
     }
 
-    // If label is empty, don't show the row at all
     if (label.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -2784,25 +2604,23 @@ class _AssessmentPageState extends State<AssessmentPage>
     );
   }
 
-  // Build floating action button
   Widget _buildFab() {
-    // Available FAB options
     final List<Map<String, dynamic>> fabOptions = [
       {
         'icon': Icons.edit_document,
-        'color': const Color(0xFF43E97B), // Green
+        'color': const Color(0xFF43E97B),
         'label': 'Manual',
         'type': 'manual',
       },
       {
         'icon': Icons.picture_as_pdf,
-        'color': const Color(0xFFFF6584), // Pink
+        'color': const Color(0xFFFF6584),
         'label': 'From PDF',
         'type': 'pdf',
       },
       {
         'icon': Icons.auto_awesome,
-        'color': const Color(0xFF6C63FF), // Purple
+        'color': const Color(0xFF6C63FF),
         'label': 'AI Generated',
         'type': 'ai',
       },
@@ -2815,20 +2633,17 @@ class _AssessmentPageState extends State<AssessmentPage>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // FAB options
             ...fabOptions.asMap().entries.map((entry) {
               final index = entry.key;
               final option = entry.value;
               final double startValue = index * 0.2;
               final double endValue = startValue + 0.2;
 
-              // Calculate option animation progress
               double t =
                   (_fabAnimationController.value - startValue) /
                   (endValue - startValue);
               t = t.clamp(0.0, 1.0);
 
-              // Apply curve to animation
               final double progress = Curves.easeOutCubic.transform(t);
 
               return Transform.translate(
@@ -2840,7 +2655,6 @@ class _AssessmentPageState extends State<AssessmentPage>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Label
                         Material(
                           color: option['color'],
                           borderRadius: BorderRadius.circular(16),
@@ -2884,7 +2698,6 @@ class _AssessmentPageState extends State<AssessmentPage>
               );
             }).toList(),
 
-            // Main FAB
             GestureDetector(
               onTap: () {
                 HapticFeedback.mediumImpact();
@@ -2899,9 +2712,7 @@ class _AssessmentPageState extends State<AssessmentPage>
                 }
               },
               child: Transform.rotate(
-                angle:
-                    _fabAnimationController.value *
-                    0.75, // 135 degrees in radians when fully expanded
+                angle: _fabAnimationController.value * 0.75,
                 child: Container(
                   width: 60,
                   height: 60,

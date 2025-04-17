@@ -30,9 +30,9 @@ class ResourceItem {
   final String fileURL;
   final String uploadedBy;
   final Timestamp uploadedAt;
-  final int? fileSize; // Added file size
-  final int? downloadCount; // Added download count
-  final List<String>? tags; // Added tags
+  final int? fileSize;
+  final int? downloadCount;
+  final List<String>? tags;
 
   ResourceItem({
     required this.id,
@@ -49,7 +49,6 @@ class ResourceItem {
 
   factory ResourceItem.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-
     return ResourceItem(
       id: doc.id,
       title: data['title'] as String? ?? 'Untitled Resource',
@@ -72,24 +71,19 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
   bool _isUploading = false;
   String _selectedCategory = 'all';
   String _searchQuery = '';
-  String _sortBy = 'newest'; // 'newest', 'oldest', 'alphabetical', 'popular'
+  String _sortBy = 'newest';
 
-  // For animations
   late AnimationController _filterAnimationController;
   late Animation<double> _filterAnimation;
 
-  // For expanded resource view
   String? _expandedResourceId;
 
-  // For expanded instructions
   bool _showInstructions = true;
   late AnimationController _instructionsController;
   late Animation<double> _instructionsAnimation;
 
-  // For grouping by file type
   Map<String, List<ResourceItem>> _resourcesByType = {};
 
-  // Resource type info
   final Map<String, Color> _typeColors = {
     'pdf': Colors.red,
     'document': Colors.blue,
@@ -138,7 +132,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
   void initState() {
     super.initState();
 
-    // Set up animations
     _filterAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -149,7 +142,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
       curve: Curves.easeInOut,
     );
 
-    // Set up instructions animation
     _instructionsController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -191,13 +183,10 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
       _resources =
           snapshot.docs.map((doc) => ResourceItem.fromFirestore(doc)).toList();
 
-      // Group resources by type
       _groupResourcesByType();
 
-      // Sort resources
       _sortResources();
 
-      // Start animation
       _filterAnimationController.forward();
     } catch (e) {
       ScaffoldMessenger.of(
@@ -215,12 +204,10 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
   void _groupResourcesByType() {
     _resourcesByType = {};
 
-    // Initialize with empty lists for all types
     _typeColors.keys.forEach((type) {
       _resourcesByType[type] = [];
     });
 
-    // Group resources by type
     for (var resource in _resources) {
       if (_resourcesByType.containsKey(resource.fileType)) {
         _resourcesByType[resource.fileType]!.add(resource);
@@ -255,7 +242,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
         });
         break;
       case 'popular':
-        // Sort by download count (fallback to upload date if download count is null)
         _resources.sort((a, b) {
           if (a.downloadCount != null && b.downloadCount != null) {
             return b.downloadCount!.compareTo(a.downloadCount!);
@@ -540,10 +526,8 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
       ),
       child: Column(
         children: [
-          // Search bar and sort button
           Row(
             children: [
-              // Search bar
               Expanded(
                 child: Container(
                   height: 40,
@@ -565,8 +549,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                 ),
               ),
               const SizedBox(width: 8),
-
-              // Sort button
               PopupMenuButton<String>(
                 tooltip: 'Sort By',
                 icon: Container(
@@ -626,10 +608,7 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          // Category filter chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -730,16 +709,13 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
   }
 
   Widget _buildResourceContent() {
-    // Apply search and category filters
     List<ResourceItem> filteredResources =
         _resources.where((resource) {
-          // Apply category filter
           if (_selectedCategory != 'all' &&
               resource.fileType != _selectedCategory) {
             return false;
           }
 
-          // Apply search filter
           if (_searchQuery.isNotEmpty) {
             final query = _searchQuery.toLowerCase();
             return resource.title.toLowerCase().contains(query) ||
@@ -753,17 +729,14 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
       return _buildEmptyState();
     }
 
-    // If showing all resources and not searching, group by type
     if (_selectedCategory == 'all' && _searchQuery.isEmpty) {
       return _buildResourcesByType();
     }
 
-    // Otherwise, show a regular list
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: filteredResources.length,
       itemBuilder: (context, index) {
-        // Staggered animation based on index
         return AnimatedOpacity(
           opacity: 1.0,
           duration: Duration(milliseconds: 300 + (index * 50)),
@@ -843,7 +816,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
   }
 
   Widget _buildResourcesByType() {
-    // Get all types that have resources
     final types =
         _resourcesByType.entries
             .where((entry) => entry.value.isNotEmpty)
@@ -875,7 +847,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
               final resourceIndex = entry.key;
               final resource = entry.value;
 
-              // Staggered animation based on index
               return AnimatedOpacity(
                 opacity: 1.0,
                 duration: Duration(milliseconds: 300 + (resourceIndex * 50)),
@@ -940,7 +911,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1027,8 +997,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                 ],
               ),
             ),
-
-            // Body - shown when expanded
             AnimatedCrossFade(
               firstChild: const SizedBox(height: 0),
               secondChild: _buildExpandedResourceDetails(resource),
@@ -1038,8 +1006,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                       : CrossFadeState.showFirst,
               duration: const Duration(milliseconds: 300),
             ),
-
-            // Footer
             Container(
               padding: const EdgeInsets.all(12),
               decoration: const BoxDecoration(
@@ -1050,7 +1016,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
               ),
               child: Row(
                 children: [
-                  // Uploader info
                   FutureBuilder<DocumentSnapshot>(
                     future:
                         FirebaseFirestore.instance
@@ -1119,8 +1084,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                       );
                     },
                   ),
-
-                  // Action buttons
                   Row(
                     children: [
                       if (widget.userRole == UserRole.mentor)
@@ -1168,7 +1131,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Description
           if (resource.description.isNotEmpty) ...[
             Text(
               'Description',
@@ -1185,11 +1147,8 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
             ),
             const SizedBox(height: 16),
           ],
-
-          // Resource details in a grid
           Row(
             children: [
-              // File details
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1209,8 +1168,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                   ],
                 ),
               ),
-
-              // Usage details
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1232,8 +1189,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
               ),
             ],
           ),
-
-          // Preview (placeholder)
           if (_canShowPreview(resource.fileType)) ...[
             const SizedBox(height: 16),
             const Divider(color: Color(0xFF202225)),
@@ -1246,7 +1201,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
   }
 
   bool _canShowPreview(String fileType) {
-    // File types that could have previews
     return [
       'image',
       'pdf',
@@ -1505,7 +1459,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Channel description
                   _buildInfoSection(
                     'Description',
                     Icons.description,
@@ -1513,19 +1466,13 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                         ? widget.channel.description
                         : 'No description provided',
                   ),
-
                   const SizedBox(height: 16),
-
-                  // Creation info
                   _buildInfoSection(
                     'Created',
                     Icons.event,
                     _formatFullTimestamp(widget.channel.createdAt),
                   ),
-
                   const SizedBox(height: 16),
-
-                  // Creator info
                   FutureBuilder<DocumentSnapshot>(
                     future:
                         FirebaseFirestore.instance
@@ -1549,11 +1496,8 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                       );
                     },
                   ),
-
-                  // Channel instructions
                   if (widget.channel.instructions.isNotEmpty) ...[
                     const SizedBox(height: 16),
-
                     _buildInfoSection(
                       'Instructions',
                       Icons.lightbulb_outline,
@@ -1561,10 +1505,7 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                       highlight: true,
                     ),
                   ],
-
                   const SizedBox(height: 16),
-
-                  // Resource statistics
                   _buildInfoSection(
                     'Statistics',
                     Icons.bar_chart,
@@ -1676,7 +1617,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
   }
 
   void _showChannelStats() {
-    // Calculate total download count
     int totalDownloads = 0;
     for (final resource in _resources) {
       if (resource.downloadCount != null) {
@@ -1684,7 +1624,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
       }
     }
 
-    // Find most popular resource
     ResourceItem? mostPopular;
     int maxDownloads = 0;
     for (final resource in _resources) {
@@ -1708,7 +1647,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
             ),
             child: Column(
               children: [
-                // Handle bar
                 Container(
                   width: 40,
                   height: 4,
@@ -1718,7 +1656,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                // Title
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -1745,13 +1682,11 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                     ],
                   ),
                 ),
-                // Content
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
-                        // Resources by type
                         _buildStatCard(
                           'Resources by Type',
                           Icons.folder,
@@ -1800,10 +1735,7 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 24),
-
-                        // Usage statistics
                         _buildStatCard(
                           'Usage Statistics',
                           Icons.analytics,
@@ -1873,10 +1805,7 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                             ],
                           ],
                         ),
-
                         const SizedBox(height: 24),
-
-                        // User engagement
                         _buildStatCard(
                           'User Engagement',
                           Icons.people,
@@ -1914,7 +1843,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                                       .orderBy('uploadedAt')
                                       .get(),
                               builder: (context, snapshot) {
-                                // Count unique uploaders
                                 final uploaders = <String>{};
                                 if (snapshot.hasData) {
                                   for (final doc in snapshot.data!.docs) {
@@ -2036,7 +1964,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
   }
 
   void _editChannel() {
-    // Navigate to channel edit page
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Edit channel functionality would go here')),
     );
@@ -2082,7 +2009,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
 
   void _deleteChannel() async {
     try {
-      // Show loading indicator
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -2106,7 +2032,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
             ),
       );
 
-      // First, get all resources
       final resourcesSnapshot =
           await FirebaseFirestore.instance
               .collection('groups')
@@ -2118,14 +2043,10 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
 
       final batch = FirebaseFirestore.instance.batch();
 
-      // Delete all resources
       for (final resourceDoc in resourcesSnapshot.docs) {
         batch.delete(resourceDoc.reference);
-
-        // TODO: In a real app, you would also delete the file from storage here
       }
 
-      // Delete the channel document
       batch.delete(
         FirebaseFirestore.instance
             .collection('groups')
@@ -2136,10 +2057,8 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
 
       await batch.commit();
 
-      // Pop loading dialog
       Navigator.pop(context);
 
-      // Pop back to group page
       Navigator.pop(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2149,7 +2068,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
         ),
       );
     } catch (e) {
-      // Pop loading dialog
       Navigator.pop(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2166,7 +2084,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
       _isUploading = true;
     });
 
-    // Show upload dialog with options
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -2180,7 +2097,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
             ),
             child: Column(
               children: [
-                // Handle bar
                 Container(
                   width: 40,
                   height: 4,
@@ -2190,7 +2106,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                // Title
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -2222,8 +2137,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                     ],
                   ),
                 ),
-
-                // Upload options
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
@@ -2239,8 +2152,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                           ),
                         ),
                         const SizedBox(height: 16),
-
-                        // Grid of upload options
                         GridView.count(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
@@ -2304,12 +2215,9 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 24),
                         const Divider(color: Color(0xFF202225)),
                         const SizedBox(height: 16),
-
-                        // Create folder option
                         InkWell(
                           onTap: () {
                             Navigator.pop(context);
@@ -2377,10 +2285,7 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 16),
-
-                        // Bulk upload option
                         InkWell(
                           onTap: () {
                             Navigator.pop(context);
@@ -2508,12 +2413,8 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
 
   void _addMockResource(String fileType) async {
     try {
-      // In a real app, you would upload the file to Firebase Storage
-      // and then add the resource document with the file URL
-
       final userId = FirebaseAuth.instance.currentUser!.uid;
 
-      // Generate a random file size between 100KB and 50MB
       final fileSize =
           fileType == 'link'
               ? null
@@ -2521,14 +2422,11 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                       .round() *
                   1024;
 
-      // Generate random download count
       final downloadCount =
           fileType == 'link' ? null : (DateTime.now().second % 20) + 1;
 
-      // Generate random tags
       final tags = _generateRandomTags(fileType);
 
-      // Create resource data
       final resourceData = {
         'title': 'Sample ${_typeLabels[fileType] ?? ''} resource',
         'description':
@@ -2539,7 +2437,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
         'uploadedAt': FieldValue.serverTimestamp(),
       };
 
-      // Add optional fields
       if (fileSize != null) {
         resourceData['fileSize'] = fileSize;
       }
@@ -2589,12 +2486,10 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
   List<String> _generateRandomTags(String fileType) {
     final tags = <String>[];
 
-    // Add file type as a tag
     if (_typeLabels.containsKey(fileType)) {
       tags.add(_typeLabels[fileType]!);
     }
 
-    // Add random subject tags
     final subjects = [
       'Mathematics',
       'Science',
@@ -2607,7 +2502,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
       'Biology',
     ];
 
-    // Random level tags
     final levels = [
       'Beginner',
       'Intermediate',
@@ -2617,7 +2511,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
       'Year 3',
     ];
 
-    // Add 1-3 random tags
     final tagCount = (DateTime.now().millisecond % 3) + 1;
     final random = DateTime.now().microsecond;
 
@@ -2681,8 +2574,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
           .doc(resource.id)
           .delete();
 
-      // TODO: In a real app, you would also delete the file from storage here
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Resource deleted'),
@@ -2691,7 +2582,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
       );
 
       setState(() {
-        // If the deleted resource was expanded, clear the expanded resource id
         if (_expandedResourceId == resource.id) {
           _expandedResourceId = null;
         }
@@ -2718,7 +2608,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
           throw 'Could not launch ${resource.fileURL}';
         }
       } else {
-        // Show a preview dialog
         _showResourcePreview(resource);
       }
     } catch (e) {
@@ -2747,7 +2636,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -2777,8 +2665,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                     ],
                   ),
                 ),
-
-                // Preview content (placeholder)
                 Container(
                   width: 400,
                   height: 300,
@@ -2817,8 +2703,6 @@ class _ResourceChannelPageState extends State<ResourceChannelPage>
                     ],
                   ),
                 ),
-
-                // Action buttons
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: const BoxDecoration(

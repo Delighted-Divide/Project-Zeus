@@ -1,24 +1,17 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 
-/// Instruction item for the instruction overlay
 class InstructionItem extends StatelessWidget {
-  /// Icon to display
   final IconData icon;
-
-  /// Title of the instruction
   final String title;
-
-  /// Description text
   final String description;
 
-  /// Constructor
   const InstructionItem({
-    Key? key,
+    super.key,
     required this.icon,
     required this.title,
     required this.description,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +21,7 @@ class InstructionItem extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: AppConstants.primaryColor.withOpacity(0.1),
+            color: AppConstants.primaryColor.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: AppConstants.primaryColor, size: 20),

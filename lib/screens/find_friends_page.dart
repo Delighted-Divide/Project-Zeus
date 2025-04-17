@@ -1,18 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:logger/logger.dart'; // Added for better logging
+import 'package:logger/logger.dart';
 import 'user_profile_page.dart';
 import 'friends_groups_page.dart';
 
-/// FindFriendsPage allows users to discover and connect with other users on the platform.
-///
-/// Key features:
-/// - Searches for users by name or email
-/// - Filters out existing friends
-/// - Shows user status instead of common interests
-/// - Displays friend request status (if applicable)
-/// - Supports pagination for efficient loading
 class FindFriendsPage extends StatefulWidget {
   const FindFriendsPage({super.key});
 
@@ -21,7 +13,6 @@ class FindFriendsPage extends StatefulWidget {
 }
 
 class _FindFriendsPageState extends State<FindFriendsPage> {
-  // Initialize logger for better debugging
   final Logger _logger = Logger(
     printer: PrettyPrinter(
       methodCount: 0,
@@ -32,37 +23,28 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     ),
   );
 
-  // Firebase instances
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Current user information
   String? _currentUserId;
-  Set<String> _currentUserFriendIds = {}; // Store friend IDs for filtering
-  Map<String, String> _friendRequestStatuses =
-      {}; // Track friend request statuses
+  Set<String> _currentUserFriendIds = {};
+  Map<String, String> _friendRequestStatuses = {};
 
-  // UI state
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _isSearchingByEmail = false;
   bool _showNoUsersFound = false;
   bool _hasMoreUsers = true;
 
-  // List of users to display
   List<Map<String, dynamic>> _users = [];
-  List<Map<String, dynamic>> _originalUsers =
-      []; // Keep original list for filtering
+  List<Map<String, dynamic>> _originalUsers = [];
 
-  // Last document for pagination
   DocumentSnapshot? _lastDocument;
 
-  // Controllers
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
-  // Constants
   static const int _usersPerPage = 25;
 
   @override
@@ -71,7 +53,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     _logger.i('Initializing FindFriendsPage');
     _initializeCurrentUser();
 
-    // Add scroll listener for pagination
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
               _scrollController.position.maxScrollExtent - 100 &&
@@ -84,7 +65,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
       }
     });
 
-    // Add listener to search controller for filtering
     _searchController.addListener(() {
       if (!_isSearchingByEmail && _searchController.text.isNotEmpty) {
         _filterUsersByName(_searchController.text);
@@ -101,13 +81,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     super.dispose();
   }
 
-  /// Initialize current user and load their data
-  ///
-  /// This method:
-  /// 1. Fetches the current user ID
-  /// 2. Retrieves the list of friends to exclude
-  /// 3. Gets pending friend requests to show status
-  /// 4. Loads the initial list of users
   Future<void> _initializeCurrentUser() async {
     _logger.i('Initializing current user data');
     setState(() {
@@ -119,11 +92,9 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
       _logger.d('Current user ID: $_currentUserId');
 
       if (_currentUserId != null) {
-        // Clear existing data
         _currentUserFriendIds = {};
         _friendRequestStatuses = {};
 
-        // 1. Get friends list to exclude from results
         _logger.d('Fetching current user\'s friends');
         final friendsSnapshot =
             await _firestore
@@ -132,13 +103,11 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
                 .collection('friends')
                 .get();
 
-        // Store friend IDs in a Set for efficient lookup
         for (var doc in friendsSnapshot.docs) {
           _currentUserFriendIds.add(doc.id);
         }
         _logger.d('Fetched ${_currentUserFriendIds.length} friends');
 
-        // 2. Get friend requests to show status
         _logger.d('Fetching friend requests');
         final requestsSnapshot =
             await _firestore
@@ -147,7 +116,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
                 .collection('friendRequests')
                 .get();
 
-        // Store request statuses in a map for reference
         for (var doc in requestsSnapshot.docs) {
           final data = doc.data();
           final userId = data['userId'] as String?;
@@ -155,13 +123,11 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
           final status = data['status'] as String?;
 
           if (userId != null && type != null && status != null) {
-            // Combine type and status for display
             _friendRequestStatuses[userId] = '$type:$status';
           }
         }
         _logger.d('Fetched ${_friendRequestStatuses.length} friend requests');
 
-        // 3. Load initial users
         await _loadInitialUsers();
       } else {
         _logger.e('No current user found');
@@ -177,7 +143,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     }
   }
 
-  /// Load initial set of users
   Future<void> _loadInitialUsers() async {
     _logger.i('Loading initial users');
     _users.clear();
@@ -186,7 +151,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     _hasMoreUsers = true;
 
     try {
-      // Get a list of groups the user is in
       final userGroupsSnapshot =
           await _firestore
               .collection('users')
@@ -198,30 +162,24 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
           userGroupsSnapshot.docs.map((doc) => doc.id).toList();
       _logger.d('User is in ${userGroupIds.length} groups');
 
-      // If the user is in groups, find other members with public profiles
       if (userGroupIds.isNotEmpty) {
         await _loadUsersFromGroups(userGroupIds);
       } else {
-        // If no groups, load public users directly
         await _loadPublicUsers();
       }
 
-      // Store original users list for filtering
       _originalUsers = List.from(_users);
     } catch (e) {
       _logger.e('Error loading initial users: $e');
     }
   }
 
-  /// Load users from the user's groups
   Future<void> _loadUsersFromGroups(List<String> groupIds) async {
     _logger.i('Loading users from ${groupIds.length} groups');
     try {
       for (String groupId in groupIds) {
-        // Skip if we already have 25+ users
         if (_users.length >= _usersPerPage) break;
 
-        // Get group members
         final groupMembersSnapshot =
             await _firestore
                 .collection('groups')
@@ -229,21 +187,17 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
                 .collection('members')
                 .get();
 
-        // Get user IDs from the group
         List<String> memberIds =
             groupMembersSnapshot.docs
                 .map((doc) => doc.id)
-                .where((id) => id != _currentUserId) // Exclude current user
+                .where((id) => id != _currentUserId)
                 .toList();
         _logger.d('Found ${memberIds.length} members in group $groupId');
 
-        // Load public user profiles from these members
         if (memberIds.isNotEmpty) {
           for (String memberId in memberIds) {
-            // Skip if this user is already in our list
             if (_users.any((user) => user['id'] == memberId)) continue;
 
-            // Skip if this user is already a friend
             if (_currentUserFriendIds.contains(memberId)) {
               _logger.d('Skipping user $memberId (already a friend)');
               continue;
@@ -254,7 +208,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
             final userData = userDoc.data();
 
             if (userData != null && userData['privacyLevel'] == 'public') {
-              // Add user to list with their status
               _users.add({
                 'id': memberId,
                 'displayName': userData['displayName'] ?? 'Unknown User',
@@ -268,17 +221,14 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
               _logger.d('Added group member $memberId to results');
             }
 
-            // Break if we have enough users
             if (_users.length >= _usersPerPage) break;
           }
         }
       }
 
-      // If we still need more users, load public users
       if (_users.length < _usersPerPage) {
         await _loadPublicUsers();
       } else {
-        // Save the last document for pagination
         if (_users.isNotEmpty) {
           _lastDocument =
               await _firestore.collection('users').doc(_users.last['id']).get();
@@ -289,27 +239,22 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     }
   }
 
-  /// Load public users directly
   Future<void> _loadPublicUsers() async {
     _logger.i('Loading public users');
     try {
-      // Create a base query for public users
       Query query = _firestore
           .collection('users')
           .where('privacyLevel', isEqualTo: 'public')
           .where(FieldPath.documentId, isNotEqualTo: _currentUserId)
           .limit(_usersPerPage);
 
-      // Apply pagination if we have a last document
       if (_lastDocument != null) {
         query = query.startAfterDocument(_lastDocument!);
       }
 
-      // Execute the query
       final querySnapshot = await query.get();
       _logger.d('Found ${querySnapshot.docs.length} public users');
 
-      // Handle case where no more users are found
       if (querySnapshot.docs.isEmpty) {
         setState(() {
           _hasMoreUsers = false;
@@ -320,21 +265,17 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
         return;
       }
 
-      // Process user documents
       for (var doc in querySnapshot.docs) {
         final userData = doc.data() as Map<String, dynamic>;
         final userId = doc.id;
 
-        // Skip if this user is already in our list
         if (_users.any((user) => user['id'] == userId)) continue;
 
-        // Skip if this user is already a friend
         if (_currentUserFriendIds.contains(userId)) {
           _logger.d('Skipping user $userId (already a friend)');
           continue;
         }
 
-        // Add user to list with their status
         _users.add({
           'id': userId,
           'displayName': userData['displayName'] ?? 'Unknown User',
@@ -348,7 +289,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
         _logger.d('Added public user $userId to results');
       }
 
-      // Save the last document for pagination
       if (querySnapshot.docs.isNotEmpty) {
         _lastDocument = querySnapshot.docs.last;
       }
@@ -357,7 +297,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     }
   }
 
-  /// Load more users when scrolling
   Future<void> _loadMoreUsers() async {
     if (_isLoadingMore || !_hasMoreUsers) return;
 
@@ -367,10 +306,8 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     });
 
     try {
-      // Load more public users
       await _loadPublicUsers();
 
-      // Update the original users list
       _originalUsers = List.from(_users);
     } catch (e) {
       _logger.e('Error loading more users: $e');
@@ -383,18 +320,15 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     }
   }
 
-  /// Filter users by name as typing
   void _filterUsersByName(String query) {
     _logger.d('Filtering users by name: $query');
     if (query.isEmpty) {
-      // Reset to original list if query is empty
       setState(() {
         _users = List.from(_originalUsers);
       });
       return;
     }
 
-    // Simple local filtering based on the name
     setState(() {
       _users =
           _originalUsers
@@ -409,7 +343,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     });
   }
 
-  /// Search for a user by exact email
   Future<void> _searchUserByEmail() async {
     String email = _searchController.text.trim();
 
@@ -428,7 +361,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     });
 
     try {
-      // Search for user with the exact email (regardless of privacy level)
       final querySnapshot =
           await _firestore
               .collection('users')
@@ -449,7 +381,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
       for (var doc in querySnapshot.docs) {
         if (doc.id == _currentUserId) continue;
 
-        // Skip if this user is already a friend
         if (_currentUserFriendIds.contains(doc.id)) {
           _logger.d('Skipping user ${doc.id} (already a friend)');
           continue;
@@ -484,7 +415,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     }
   }
 
-  /// Clear search and reset to initial state
   void _clearSearch() {
     _logger.d('Clearing search');
     _searchController.clear();
@@ -495,7 +425,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     });
   }
 
-  /// Toggle email search mode
   void _toggleEmailSearchMode(bool enabled) {
     _logger.i('Toggling email search mode: $enabled');
     setState(() {
@@ -503,32 +432,25 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
       _searchController.clear();
 
       if (enabled) {
-        // Clear the user list when switching to email mode
         _users = [];
       } else {
-        // Restore original users list when switching back to name mode
         _users = List.from(_originalUsers);
       }
     });
-    // Re-focus search field
     _searchFocusNode.requestFocus();
   }
 
-  /// Helper method to send a friend request
   Future<void> _sendFriendRequest(String userId, String displayName) async {
     _logger.i('Sending friend request to user: $userId');
     try {
-      // Generate a unique request ID
       final requestId = _firestore.collection('users').doc().id;
 
-      // Get current user's display name
       final currentUserDoc =
           await _firestore.collection('users').doc(_currentUserId).get();
       final currentUserData = currentUserDoc.data() ?? {};
       final currentUserName = currentUserData['displayName'] ?? 'Unknown User';
       final currentUserPhoto = currentUserData['photoURL'] ?? '';
 
-      // Create request in current user's outgoing requests
       await _firestore
           .collection('users')
           .doc(_currentUserId)
@@ -542,7 +464,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-      // Create request in recipient's incoming requests
       await _firestore
           .collection('users')
           .doc(userId)
@@ -557,15 +478,12 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-      // Update local state to reflect the sent request
       setState(() {
         _friendRequestStatuses[userId] = 'sent:pending';
 
-        // Update the user in the list
         final index = _users.indexWhere((user) => user['id'] == userId);
         if (index != -1) {
           _users[index]['requestStatus'] = 'sent:pending';
-          // Also update in original list if present
           final origIndex = _originalUsers.indexWhere(
             (user) => user['id'] == userId,
           );
@@ -575,7 +493,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
         }
       });
 
-      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Friend request sent to $displayName')),
       );
@@ -589,13 +506,11 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     }
   }
 
-  /// Helper method to get image provider with fallback
   ImageProvider _getImageProvider(String? path) {
     if (path == null || path.isEmpty) {
       return const AssetImage('assets/images/default_avatar.jpg');
     }
 
-    // Check if it's a network image or asset image
     if (path.startsWith('http')) {
       return NetworkImage(path);
     } else {
@@ -603,7 +518,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     }
   }
 
-  /// Get text and color for friend request status
   Map<String, dynamic> _getRequestStatusInfo(String status) {
     if (status.isEmpty) {
       return {'text': '', 'color': Colors.transparent};
@@ -634,7 +548,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Salmon colored top section with gradient
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -644,12 +557,11 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
               ),
             ),
             child: SafeArea(
-              bottom: false, // No bottom padding
+              bottom: false,
               child: Column(
                 children: [
                   _buildHeader(),
                   _buildSearchSection(),
-                  // Curved bottom edge
                   Container(
                     height: 30,
                     decoration: const BoxDecoration(
@@ -664,8 +576,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
               ),
             ),
           ),
-
-          // Main content area (white background)
           Expanded(
             child:
                 _isLoading
@@ -679,13 +589,11 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     );
   }
 
-  // Header with page title and back button
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
       child: Row(
         children: [
-          // Back button
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
             child: Container(
@@ -705,10 +613,7 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
               child: const Icon(Icons.arrow_back, color: Colors.black),
             ),
           ),
-
           const Spacer(),
-
-          // Page title with decorative container
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -733,26 +638,20 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
               ),
             ),
           ),
-
           const Spacer(),
-
-          // Empty container for symmetry
           const SizedBox(width: 40),
         ],
       ),
     );
   }
 
-  // Search bar section
   Widget _buildSearchSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Column(
         children: [
-          // Search bar row
           Row(
             children: [
-              // Main search field
               Expanded(
                 child: Container(
                   height: 50,
@@ -808,10 +707,7 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
                   ),
                 ),
               ),
-
               const SizedBox(width: 10),
-
-              // Email search toggle button
               Container(
                 height: 50,
                 width: 50,
@@ -844,8 +740,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
               ),
             ],
           ),
-
-          // Email search mode instructions
           if (_isSearchingByEmail)
             Padding(
               padding: const EdgeInsets.only(top: 12.0),
@@ -912,14 +806,12 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     );
   }
 
-  // Users list widget
   Widget _buildUsersList() {
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       itemCount: _users.length + (_isLoadingMore || _hasMoreUsers ? 1 : 0),
       itemBuilder: (context, index) {
-        // Show loading indicator at the end
         if (index == _users.length) {
           return _isLoadingMore
               ? Container(
@@ -953,16 +845,13 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
               : const SizedBox.shrink();
         }
 
-        // Get the user data for this index
         final user = _users[index];
         final bool isPrivate = user['userData']['privacyLevel'] == 'private';
         final requestStatus = user['requestStatus'] as String? ?? '';
         final requestInfo = _getRequestStatusInfo(requestStatus);
 
-        // Build user card
         return GestureDetector(
           onTap: () {
-            // Navigate to user profile page
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => UserProfilePage(userId: user['id']),
@@ -985,7 +874,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
             ),
             child: Stack(
               children: [
-                // Background decoration on bottom-right
                 Positioned(
                   right: 0,
                   bottom: 0,
@@ -1001,15 +889,12 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
                     ),
                   ),
                 ),
-
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
                     children: [
-                      // User avatar with decorative border
                       Stack(
                         children: [
-                          // Decorative circle behind avatar
                           Container(
                             width: 68,
                             height: 68,
@@ -1021,7 +906,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
                               ),
                             ),
                           ),
-                          // Avatar
                           Positioned(
                             top: 4,
                             left: 4,
@@ -1043,15 +927,11 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
                           ),
                         ],
                       ),
-
                       const SizedBox(width: 16),
-
-                      // User info
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Name row with privacy indicator
                             Row(
                               children: [
                                 Expanded(
@@ -1065,7 +945,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-
                                 if (isPrivate)
                                   Container(
                                     padding: const EdgeInsets.symmetric(
@@ -1102,10 +981,7 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
                                   ),
                               ],
                             ),
-
                             const SizedBox(height: 6),
-
-                            // User status
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
@@ -1143,8 +1019,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
                                 ],
                               ),
                             ),
-
-                            // Friend request status if any
                             if (requestInfo['text'] != '')
                               Container(
                                 margin: const EdgeInsets.only(top: 6),
@@ -1183,10 +1057,7 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
                           ],
                         ),
                       ),
-
                       const SizedBox(width: 8),
-
-                      // Add friend button (hidden if request already sent)
                       if (requestStatus.isEmpty)
                         GestureDetector(
                           onTap:
@@ -1233,7 +1104,6 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
     );
   }
 
-  // No users found message
   Widget _buildNoUsersFound() {
     return Center(
       child: Column(

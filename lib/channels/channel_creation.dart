@@ -21,10 +21,8 @@ class _ChannelCreationScreenState extends State<ChannelCreationScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _instructionsController = TextEditingController();
-
   String _selectedType = '';
   bool _isCreating = false;
-
   @override
   void initState() {
     super.initState();
@@ -322,7 +320,6 @@ class _ChannelCreationScreenState extends State<ChannelCreationScreen> {
   }
 
   void _createChannel() async {
-    // Validate form
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {

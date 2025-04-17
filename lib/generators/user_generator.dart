@@ -8,7 +8,6 @@ import '../services/batch_manager.dart';
 import '../utils/file_utils.dart';
 import '../utils/logging_utils.dart';
 
-/// A class dedicated to generating user data
 class UserGenerator {
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
@@ -18,8 +17,6 @@ class UserGenerator {
 
   UserGenerator(this._auth, this._firestore);
 
-  /// Generate authenticated users with proper profiles
-  /// Returns a map of userId to user data (displayName, email, photoURL)
   Future<Map<String, Map<String, dynamic>>> generateUsers(
     User currentUser,
   ) async {
@@ -27,7 +24,6 @@ class UserGenerator {
     final Map<String, List<String>> staticData =
         StaticData.getPreGeneratedData();
 
-    // Add current user to our userMap first
     _logger.log(
       "Getting data for current user: ${currentUser.uid}",
       level: LogLevel.INFO,
@@ -38,7 +34,6 @@ class UserGenerator {
 
     if (!currentUserDoc.exists) {
       _logger.log("Creating document for current user", level: LogLevel.INFO);
-      // Create user document for current user
       await _createUserDocument(currentUser.uid, {
         'displayName': currentUserDisplayName,
         'email': currentUser.email,
@@ -48,7 +43,6 @@ class UserGenerator {
         'privacyLevel': 'public',
       });
     } else {
-      // Get existing display name
       currentUserDisplayName =
           currentUserDoc.data()?['displayName'] ?? currentUserDisplayName;
       _logger.log(
@@ -57,7 +51,6 @@ class UserGenerator {
       );
     }
 
-    // Store current user data
     userData[currentUser.uid] = {
       'displayName': currentUserDisplayName,
       'email': currentUser.email,
@@ -66,16 +59,13 @@ class UserGenerator {
 
     _logger.log("Current user added to userData map", level: LogLevel.DEBUG);
 
-    // Get static data
     final List<String> firstNames = staticData['firstNames']!;
     final List<String> lastNames = staticData['lastNames']!;
     final List<String> statusOptions = staticData['statusOptions']!;
     final List<String> bioTemplates = staticData['bioTemplates']!;
 
-    // Password for test users
     const String testPassword = 'Test123!';
 
-    // Create NUM_USERS authenticated users
     _logger.log(
       "Creating ${StaticData.NUM_USERS} authenticated users",
       level: LogLevel.INFO,
@@ -85,28 +75,23 @@ class UserGenerator {
     int failedAttempts = 0;
     final int maxFailedAttempts = StaticData.NUM_USERS * 2;
 
-    // Batch for user documents
     final BatchManager batchManager = BatchManager(_firestore, verbose: true);
 
-    // Create all users with parallel generation of profile images
     final List<Future<void>> userCreationTasks = [];
 
     while (createdUsers < StaticData.NUM_USERS &&
         failedAttempts < maxFailedAttempts) {
       try {
-        // Generate user info
         final String firstName = firstNames[_random.nextInt(firstNames.length)];
         final String lastName = lastNames[_random.nextInt(lastNames.length)];
         final String displayName = '$firstName $lastName';
 
-        // Add unique timestamp identifier to email to ensure uniqueness
         final timestamp = DateTime.now().millisecondsSinceEpoch;
         final String email =
             '${firstName.toLowerCase()}.${lastName.toLowerCase()}.$timestamp@${StaticData.TEST_EMAIL_DOMAIN}';
 
         _logger.log("Attempting to create user: $email", level: LogLevel.DEBUG);
 
-        // Create Firebase Auth user - this must be done sequentially
         final UserCredential userCredential = await _auth
             .createUserWithEmailAndPassword(
               email: email,
@@ -120,17 +105,13 @@ class UserGenerator {
           level: LogLevel.DEBUG,
         );
 
-        // Update profile in parallel
         userCreationTasks.add(user.updateProfile(displayName: displayName));
 
-        // Generate profile image in parallel
         final Future<String?> photoURLFuture = _fileUtils
             .generateDummyProfileImage(userId);
 
-        // Generate bio
         final String bio = _generateBio(bioTemplates, staticData['interests']!);
 
-        // Add task to wait for photo generation and create Firestore document
         userCreationTasks.add(
           photoURLFuture.then((photoURL) async {
             final userRef = _firestore.collection('users').doc(userId);
@@ -151,7 +132,6 @@ class UserGenerator {
               },
             });
 
-            // Add to userData map
             userData[userId] = {
               'displayName': displayName,
               'email': email,
@@ -177,7 +157,6 @@ class UserGenerator {
           level: LogLevel.ERROR,
         );
 
-        // If we hit a rate limit, wait a bit
         if (e.toString().contains('too-many-requests')) {
           _logger.log(
             "Rate limit detected, waiting 30 seconds before retrying",
@@ -188,14 +167,12 @@ class UserGenerator {
       }
     }
 
-    // Wait for all user creation tasks to complete
     _logger.log(
       "Waiting for ${userCreationTasks.length} user tasks to complete",
       level: LogLevel.INFO,
     );
     await Future.wait(userCreationTasks);
 
-    // Commit the batch for user documents
     await batchManager.commit();
 
     _logger.log(
@@ -212,19 +189,16 @@ class UserGenerator {
     return userData;
   }
 
-  /// Create user goals
   Future<void> createUserGoals(
     List<String> userIds,
     BatchManager batchManager,
   ) async {
     _logger.log("Starting creating user goals", level: LogLevel.INFO);
 
-    // Goal description templates
     final List<String> goalDescriptions = StaticData.getGoalDescriptions();
     int totalGoalsCreated = 0;
 
     for (String userId in userIds) {
-      // Every user gets at least 1 goal, up to 3 goals (1-3)
       final int numGoals = _random.nextInt(3) + 1;
       _logger.log(
         "Creating $numGoals goals for user $userId",
@@ -240,12 +214,10 @@ class UserGenerator {
             .collection('goals')
             .doc(goalId);
 
-        // Generate random progress values
         final int lessonsLearnt = _random.nextInt(20);
         final int assessmentsCompleted = _random.nextInt(10);
         final int assessmentsCreated = _random.nextInt(5);
 
-        // Set target date between 1-6 months from now
         final targetDate = DateTime.now().add(
           Duration(days: _random.nextInt(180) + 30),
         );
@@ -257,8 +229,7 @@ class UserGenerator {
           'targetDate': Timestamp.fromDate(targetDate),
           'description':
               goalDescriptions[_random.nextInt(goalDescriptions.length)],
-          'isCompleted':
-              _random.nextDouble() < 0.3, // 30% chance of being completed
+          'isCompleted': _random.nextDouble() < 0.3,
           'createdAt': FieldValue.serverTimestamp(),
         });
 
@@ -272,14 +243,12 @@ class UserGenerator {
     );
   }
 
-  /// Create a user document in Firestore
   Future<void> _createUserDocument(
     String userId,
     Map<String, dynamic> userData,
   ) async {
     final userRef = _firestore.collection('users').doc(userId);
 
-    // Add default fields
     final Map<String, dynamic> userDoc = {
       ...userData,
       'createdAt': FieldValue.serverTimestamp(),
@@ -297,7 +266,6 @@ class UserGenerator {
     );
   }
 
-  /// Generate a random bio
   String _generateBio(List<String> bioTemplates, List<String> interests) {
     final bioTemplate = bioTemplates[_random.nextInt(bioTemplates.length)];
 

@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// Onboarding screen shown to first-time users
 class OnboardingScreen extends StatefulWidget {
-  /// Controller for page transitions
   final PageController controller;
-
-  /// Callback when the user finishes onboarding
   final VoidCallback onComplete;
 
-  /// Constructor
   const OnboardingScreen({
     Key? key,
     required this.controller,
@@ -26,7 +21,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: PageView(
         controller: widget.controller,
         children: [
-          // Introduction page
           _buildOnboardingPage(
             title: 'Welcome to Your AI Assistant',
             description:
@@ -35,8 +29,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             backgroundColor: const Color(0xFF6A3DE8),
             isFirstPage: true,
           ),
-
-          // API Key page
           _buildOnboardingPage(
             title: 'Set Up Your API Key',
             description:
@@ -44,8 +36,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             icon: Icons.vpn_key,
             backgroundColor: Colors.orange,
           ),
-
-          // PDF Processing page
           _buildOnboardingPage(
             title: 'Upload PDFs for Analysis',
             description:
@@ -53,8 +43,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             icon: Icons.description,
             backgroundColor: const Color(0xFF4CAF50),
           ),
-
-          // Assessment Generation page
           _buildOnboardingPage(
             title: 'Generate Assessments',
             description:
@@ -62,8 +50,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             icon: Icons.assignment,
             backgroundColor: const Color(0xFFFFC107),
           ),
-
-          // Chat Interface page
           _buildOnboardingPage(
             title: 'Intelligent Chat',
             description:
@@ -77,7 +63,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  /// Build a single onboarding page
   Widget _buildOnboardingPage({
     required String title,
     required String description,
@@ -91,7 +76,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: SafeArea(
         child: Column(
           children: [
-            // Skip button for first page
             if (isFirstPage)
               Align(
                 alignment: Alignment.topRight,
@@ -107,17 +91,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ),
               ),
-
-            // Content
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Icon
                   Icon(icon, size: 120, color: Colors.white.withOpacity(0.9)),
                   const SizedBox(height: 48),
-
-                  // Title
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
                     child: Text(
@@ -131,8 +110,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
-                  // Description
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 48),
                     child: Text(
@@ -148,14 +125,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ],
               ),
             ),
-
-            // Navigation buttons
             Padding(
               padding: const EdgeInsets.all(32),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Back button (except for first page)
                   if (!isFirstPage)
                     TextButton(
                       onPressed: () {
@@ -180,15 +154,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     )
                   else
                     const SizedBox(width: 80),
-
-                  // Page indicator
                   Row(
                     children: List.generate(5, (index) {
                       bool isActive = false;
                       if (widget.controller.hasClients) {
                         isActive = index == widget.controller.page?.round();
                       } else {
-                        isActive = index == 0; // Default for first render
+                        isActive = index == 0;
                       }
 
                       return Container(
@@ -205,8 +177,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       );
                     }),
                   ),
-
-                  // Next/Done button
                   TextButton(
                     onPressed: () {
                       if (isLastPage) {

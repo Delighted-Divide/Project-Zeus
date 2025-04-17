@@ -6,7 +6,6 @@ import '../models/static_data.dart';
 import '../services/batch_manager.dart';
 import '../utils/logging_utils.dart';
 
-/// A class dedicated to generating social connections (friendships, requests, etc.)
 class SocialGenerator {
   final FirebaseFirestore _firestore;
   final LoggingUtils _logger = LoggingUtils();
@@ -14,7 +13,6 @@ class SocialGenerator {
 
   SocialGenerator(this._firestore);
 
-  /// Create friend relationships between users
   Future<void> createFriendships(
     List<String> userIds,
     Map<String, Map<String, dynamic>> userData,
@@ -24,9 +22,7 @@ class SocialGenerator {
     int friendshipsCreated = 0;
     int requestsCreated = 0;
 
-    // For each user, establish friend relationships with some other users
     for (String userId in userIds) {
-      // Decide how many friends this user will have (MIN_FRIENDS to MAX_FRIENDS)
       final int numberOfFriends =
           _random.nextInt(StaticData.MAX_FRIENDS - StaticData.MIN_FRIENDS + 1) +
           StaticData.MIN_FRIENDS;
@@ -35,12 +31,10 @@ class SocialGenerator {
         level: LogLevel.DEBUG,
       );
 
-      // Create friends for this user
       final List<String> friendIds = [];
       final List<String> potentialFriends = List.from(userIds)..remove(userId);
-      potentialFriends.shuffle(_random); // Shuffle for randomness
+      potentialFriends.shuffle(_random);
 
-      // Take the first numberOfFriends from the shuffled list
       final selectedFriends = potentialFriends.take(numberOfFriends).toList();
 
       for (final String friendId in selectedFriends) {
@@ -50,13 +44,11 @@ class SocialGenerator {
           level: LogLevel.DEBUG,
         );
 
-        // Use the display names from userData map
         String userDisplayName =
             userData[userId]?['displayName'] ?? 'Unknown User';
         String friendDisplayName =
             userData[friendId]?['displayName'] ?? 'Unknown User';
 
-        // First user's friends collection
         final userFriendDoc = _firestore
             .collection('users')
             .doc(userId)
@@ -69,7 +61,6 @@ class SocialGenerator {
           'becameFriendsAt': FieldValue.serverTimestamp(),
         });
 
-        // Friend's friends collection
         final friendUserDoc = _firestore
             .collection('users')
             .doc(friendId)
@@ -85,7 +76,6 @@ class SocialGenerator {
         friendshipsCreated++;
       }
 
-      // Create friend requests (MIN_FRIEND_REQUESTS to MAX_FRIEND_REQUESTS)
       final int numberOfRequests =
           _random.nextInt(
             StaticData.MAX_FRIEND_REQUESTS - StaticData.MIN_FRIEND_REQUESTS + 1,
@@ -96,12 +86,10 @@ class SocialGenerator {
         level: LogLevel.DEBUG,
       );
 
-      // Get remaining users not already friends
       final List<String> remainingUsers =
           potentialFriends.where((id) => !friendIds.contains(id)).toList();
       remainingUsers.shuffle(_random);
 
-      // Take the first numberOfRequests users
       final requestUsers = remainingUsers.take(numberOfRequests).toList();
 
       for (final String requestUserId in requestUsers) {
@@ -110,11 +98,9 @@ class SocialGenerator {
           level: LogLevel.DEBUG,
         );
 
-        // Determine direction of request (sent or received)
         final bool isSent = _random.nextBool();
 
         if (isSent) {
-          // User sent request to another user
           final userRef = _firestore.collection('users').doc(userId);
           final String sentRequestId =
               'sent_${userId}_${requestUserId}_${_random.nextInt(10000)}';
@@ -132,7 +118,6 @@ class SocialGenerator {
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-          // Create corresponding received request for the other user
           final otherUserRef = _firestore
               .collection('users')
               .doc(requestUserId);
@@ -151,7 +136,6 @@ class SocialGenerator {
             'createdAt': FieldValue.serverTimestamp(),
           });
         } else {
-          // User received request from another user
           final userRef = _firestore.collection('users').doc(userId);
           final String receivedRequestId =
               'received_${userId}_${requestUserId}_${_random.nextInt(10000)}';
@@ -169,7 +153,6 @@ class SocialGenerator {
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-          // Create corresponding sent request for the other user
           final otherUserRef = _firestore
               .collection('users')
               .doc(requestUserId);
@@ -189,7 +172,7 @@ class SocialGenerator {
           });
         }
 
-        requestsCreated += 2; // Counting both sides of the request
+        requestsCreated += 2;
       }
     }
 

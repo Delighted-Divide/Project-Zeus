@@ -24,19 +24,13 @@ class _SignupPageState extends State<SignupPage>
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   String _errorMessage = '';
-  DateTime? _lastErrorTime; // Track when the last error was shown
-
-  // Animation controller for transitions
+  DateTime? _lastErrorTime;
   late AnimationController _animationController;
   late Animation<double> _animation;
   bool _isSigningIn = false;
   bool _isSigningUp = false;
-
-  // Firebase Auth instance
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  // Google Sign In instance
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   @override
@@ -56,18 +50,15 @@ class _SignupPageState extends State<SignupPage>
         Future.delayed(const Duration(milliseconds: 100), () {
           if (mounted) {
             if (_isSigningUp && _errorMessage.isEmpty) {
-              // Redirect all sign-ups to profile setup page
               Navigator.of(context).pushReplacement(
                 PageRouteBuilder(
                   pageBuilder: (context, animation, secondaryAnimation) {
-                    // For Google Sign In, pass the pre-filled values
                     if (!_isEmailSignup && _googleUserInfo != null) {
                       return ProfileSetupPage(
                         prefillName: _googleUserInfo!['displayName'],
                         prefillPhotoURL: _googleUserInfo!['photoURL'],
                       );
                     }
-                    // For email signup, just go to the regular profile setup
                     return const ProfileSetupPage();
                   },
                   transitionsBuilder: (
@@ -82,7 +73,6 @@ class _SignupPageState extends State<SignupPage>
                 ),
               );
             } else if (_isSigningIn) {
-              // Navigate to login page
               Navigator.of(context).pushReplacement(
                 PageRouteBuilder(
                   pageBuilder:
@@ -121,10 +111,8 @@ class _SignupPageState extends State<SignupPage>
     _animationController.forward(from: 0.0);
   }
 
-  // Prevent error message spam by checking the time since last error
   void _setErrorWithDebounce(String message) {
     final now = DateTime.now();
-    // Only show a new error if none exists or if the last error was shown more than 2 seconds ago
     if (_lastErrorTime == null ||
         now.difference(_lastErrorTime!).inSeconds >= 2) {
       setState(() {
@@ -134,14 +122,10 @@ class _SignupPageState extends State<SignupPage>
     }
   }
 
-  // Track whether signup was with email
   bool _isEmailSignup = false;
-
-  // Store Google user info for pre-filling in profile setup
   Map<String, String>? _googleUserInfo;
 
   Future<void> _signUpWithEmail() async {
-    // If already loading, don't allow another request
     if (_isLoading) {
       return;
     }
@@ -181,12 +165,10 @@ class _SignupPageState extends State<SignupPage>
         password: _passwordController.text.trim(),
       );
 
-      // Set flag that this was an email signup
       _isEmailSignup = true;
 
       _startSignUpAnimation();
     } on FirebaseAuthException catch (e) {
-      // Use debounce function for errors
       if (e.code == 'weak-password') {
         _setErrorWithDebounce('The password provided is too weak');
       } else if (e.code == 'email-already-in-use') {
@@ -207,9 +189,7 @@ class _SignupPageState extends State<SignupPage>
     }
   }
 
-  // Google Sign In implementation
   Future<void> _signInWithGoogle() async {
-    // If already loading, don't allow another request
     if (_isLoading) {
       return;
     }
@@ -220,10 +200,8 @@ class _SignupPageState extends State<SignupPage>
     });
 
     try {
-      // Begin interactive sign in process
       final GoogleSignInAccount? gUser = await _googleSignIn.signIn();
 
-      // If the user canceled the sign-in flow, return early
       if (gUser == null) {
         setState(() {
           _isLoading = false;
@@ -231,45 +209,34 @@ class _SignupPageState extends State<SignupPage>
         return;
       }
 
-      // Obtain auth details from Google
       final GoogleSignInAuthentication gAuth = await gUser.authentication;
 
-      // Create a new credential for Firebase
       final credential = GoogleAuthProvider.credential(
         accessToken: gAuth.accessToken,
         idToken: gAuth.idToken,
       );
 
-      // Sign in with credential
       final UserCredential userCredential = await _auth.signInWithCredential(
         credential,
       );
       final User? user = userCredential.user;
 
       if (user != null) {
-        // Store Google user data for pre-filling profile setup
         _googleUserInfo = {
           'displayName': gUser.displayName ?? '',
           'photoURL': gUser.photoUrl ?? '',
           'email': gUser.email,
         };
 
-        // Create minimal user record in Firestore
-        // (The full profile will be created in ProfileSetupPage)
-        await _firestore.collection('users').doc(user.uid).set(
-          {
-            'userId': user.uid,
-            'email': gUser.email,
-            'createdAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        ); // Use merge true to prevent overwriting if exists
+        await _firestore.collection('users').doc(user.uid).set({
+          'userId': user.uid,
+          'email': gUser.email,
+          'createdAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
       }
 
-      // Set flag that this was NOT an email signup
       _isEmailSignup = false;
 
-      // Start animation for successful sign in
       _startSignUpAnimation();
     } on FirebaseAuthException catch (e) {
       _setErrorWithDebounce('Firebase error: ${e.message}');
@@ -284,7 +251,6 @@ class _SignupPageState extends State<SignupPage>
     }
   }
 
-  // GitHub sign in method (placeholder)
   void _signInWithGitHub() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -294,7 +260,6 @@ class _SignupPageState extends State<SignupPage>
     );
   }
 
-  // Microsoft sign in method (placeholder)
   void _signInWithMicrosoft() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -319,8 +284,6 @@ class _SignupPageState extends State<SignupPage>
     final screenWidth = mediaQuery.size.width;
     final safeAreaTop = mediaQuery.padding.top;
     final safeAreaBottom = mediaQuery.padding.bottom;
-
-    // Calculate the available height for content
     final availableHeight = screenHeight - safeAreaTop - safeAreaBottom;
 
     return Scaffold(
@@ -331,7 +294,6 @@ class _SignupPageState extends State<SignupPage>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Background purple circle in top left
             Positioned(
               top: -50,
               left: -50,
@@ -339,13 +301,11 @@ class _SignupPageState extends State<SignupPage>
                 width: 150,
                 height: 150,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFFFB6C1), // Light pink
+                  color: Color(0xFFFFB6C1),
                   shape: BoxShape.circle,
                 ),
               ),
             ),
-
-            // Background purple circle in bottom right
             Positioned(
               bottom: -50,
               right: -50,
@@ -353,13 +313,11 @@ class _SignupPageState extends State<SignupPage>
                 width: 150,
                 height: 150,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF0E6FA), // Light purple
+                  color: Color(0xFFF0E6FA),
                   shape: BoxShape.circle,
                 ),
               ),
             ),
-
-            // Main content with SingleChildScrollView to handle overflow
             SafeArea(
               child: SingleChildScrollView(
                 physics: const ClampingScrollPhysics(),
@@ -372,8 +330,6 @@ class _SignupPageState extends State<SignupPage>
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const SizedBox(height: 30),
-
-                        // SIGNUP title
                         const Text(
                           'SIGNUP',
                           style: TextStyle(
@@ -383,12 +339,9 @@ class _SignupPageState extends State<SignupPage>
                             letterSpacing: 1.2,
                           ),
                         ),
-
                         const SizedBox(height: 20),
-
-                        // Signup illustration - responsive sizing
                         SizedBox(
-                          height: availableHeight * 0.25, // Adaptive height
+                          height: availableHeight * 0.25,
                           child: Center(
                             child: Image.asset(
                               'assets/images/signup2.png',
@@ -413,9 +366,7 @@ class _SignupPageState extends State<SignupPage>
                             ),
                           ),
                         ),
-
-                        const SizedBox(height: 30), // Reduced space
-                        // Error message
+                        const SizedBox(height: 30),
                         if (_errorMessage.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
@@ -428,13 +379,11 @@ class _SignupPageState extends State<SignupPage>
                               textAlign: TextAlign.center,
                             ),
                           ),
-
-                        // Email field
                         Container(
                           width: double.infinity,
                           height: 55,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF0E6FA), // Light purple
+                            color: const Color(0xFFF0E6FA),
                             borderRadius: BorderRadius.circular(30),
                           ),
                           child: TextField(
@@ -461,15 +410,12 @@ class _SignupPageState extends State<SignupPage>
                             keyboardType: TextInputType.emailAddress,
                           ),
                         ),
-
                         const SizedBox(height: 16),
-
-                        // Password field
                         Container(
                           width: double.infinity,
                           height: 55,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF0E6FA), // Light purple
+                            color: const Color(0xFFF0E6FA),
                             borderRadius: BorderRadius.circular(30),
                           ),
                           child: TextField(
@@ -513,22 +459,15 @@ class _SignupPageState extends State<SignupPage>
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 24),
-
-                        // Signup button
                         SizedBox(
                           width: double.infinity,
                           height: 55,
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : _signUpWithEmail,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(
-                                0xFF6A3DE8,
-                              ), // Bright purple
-                              disabledBackgroundColor: const Color(
-                                0xFFA391C8,
-                              ), // Lighter purple when disabled
+                              backgroundColor: const Color(0xFF6A3DE8),
+                              disabledBackgroundColor: const Color(0xFFA391C8),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(30),
@@ -555,10 +494,7 @@ class _SignupPageState extends State<SignupPage>
                                     ),
                           ),
                         ),
-
                         const SizedBox(height: 16),
-
-                        // Already have an Account text
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -582,10 +518,7 @@ class _SignupPageState extends State<SignupPage>
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 16),
-
-                        // OR divider
                         Row(
                           children: [
                             Expanded(
@@ -613,14 +546,10 @@ class _SignupPageState extends State<SignupPage>
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 20),
-
-                        // Social media buttons row
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // GitHub button
                             Material(
                               color: Colors.transparent,
                               child: InkWell(
@@ -644,19 +573,14 @@ class _SignupPageState extends State<SignupPage>
                                   child: const Center(
                                     child: Icon(
                                       Icons.code,
-                                      color: Color(
-                                        0xFF333333,
-                                      ), // GitHub dark color
+                                      color: Color(0xFF333333),
                                       size: 24,
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-
                             const SizedBox(width: 20),
-
-                            // Microsoft button
                             Material(
                               color: Colors.transparent,
                               child: InkWell(
@@ -680,19 +604,14 @@ class _SignupPageState extends State<SignupPage>
                                   child: const Center(
                                     child: Icon(
                                       Icons.grid_view,
-                                      color: Color(
-                                        0xFF00A4EF,
-                                      ), // Microsoft blue
+                                      color: Color(0xFF00A4EF),
                                       size: 24,
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-
                             const SizedBox(width: 20),
-
-                            // Google button with Material for better touch response
                             Material(
                               color: Colors.transparent,
                               child: InkWell(
@@ -728,10 +647,7 @@ class _SignupPageState extends State<SignupPage>
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 30),
-
-                        // Bottom home indicator
                         Container(
                           width: 80,
                           height: 5,
@@ -747,8 +663,6 @@ class _SignupPageState extends State<SignupPage>
                 ),
               ),
             ),
-
-            // Animation circles for transitions - matching login page style
             if (_isSigningIn)
               AnimatedBuilder(
                 animation: _animation,
@@ -762,7 +676,7 @@ class _SignupPageState extends State<SignupPage>
                         width: screenWidth,
                         height: screenWidth,
                         decoration: const BoxDecoration(
-                          color: Color(0xFFFFB6C1), // Red circle for sign in
+                          color: Color(0xFFFFB6C1),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -770,7 +684,6 @@ class _SignupPageState extends State<SignupPage>
                   );
                 },
               ),
-
             if (_isSigningUp)
               AnimatedBuilder(
                 animation: _animation,
@@ -784,7 +697,7 @@ class _SignupPageState extends State<SignupPage>
                         width: screenWidth,
                         height: screenWidth,
                         decoration: const BoxDecoration(
-                          color: Color(0xFF6A3DE8), // Purple circle for sign up
+                          color: Color(0xFF6A3DE8),
                           shape: BoxShape.circle,
                         ),
                       ),

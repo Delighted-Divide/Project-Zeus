@@ -10,32 +10,25 @@ class JoinGroupPage extends StatefulWidget {
 }
 
 class _JoinGroupPageState extends State<JoinGroupPage> {
-  // Firebase instances
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // UI state
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMoreGroups = true;
   String _searchQuery = '';
 
-  // Current user data
   String? _currentUserId;
   List<String> _userTags = [];
 
-  // Groups data
   List<Map<String, dynamic>> _allGroups = [];
   List<Map<String, dynamic>> _filteredGroups = [];
 
-  // Controllers
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  // Constants
   static const int _groupsPerPage = 25;
 
-  // Last document for pagination
   DocumentSnapshot? _lastDocument;
 
   @override
@@ -43,10 +36,8 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     super.initState();
     _initializeUserData();
 
-    // Set up search controller listener
     _searchController.addListener(_onSearchChanged);
 
-    // Set up scroll controller for pagination
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
               _scrollController.position.maxScrollExtent - 100 &&
@@ -65,7 +56,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     super.dispose();
   }
 
-  // Initialize user data and load groups
   Future<void> _initializeUserData() async {
     setState(() {
       _isLoading = true;
@@ -75,7 +65,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
       _currentUserId = _auth.currentUser?.uid;
 
       if (_currentUserId != null) {
-        // Get user's tags
         final userDoc =
             await _firestore.collection('users').doc(_currentUserId).get();
         final userData = userDoc.data();
@@ -84,7 +73,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
           _userTags = List<String>.from(userData['favTags'] ?? []);
         }
 
-        // Load initial groups
         await _loadInitialGroups();
       }
     } catch (e) {
@@ -98,16 +86,13 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     }
   }
 
-  // Load initial set of groups
   Future<void> _loadInitialGroups() async {
     try {
-      // Create query for public groups
       Query query = _firestore
           .collection('groups')
           .where('settings.visibility', isEqualTo: 'public')
           .limit(_groupsPerPage);
 
-      // Execute query
       final querySnapshot = await query.get();
 
       if (querySnapshot.docs.isEmpty) {
@@ -117,14 +102,12 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
         return;
       }
 
-      // Process results
       List<Map<String, dynamic>> groups = [];
 
       for (var doc in querySnapshot.docs) {
         final groupData = doc.data() as Map<String, dynamic>;
         final groupId = doc.id;
 
-        // Check if user is already a member
         final isMemberSnapshot =
             await _firestore
                 .collection('users')
@@ -134,7 +117,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
                 .get();
 
         if (!isMemberSnapshot.exists) {
-          // Calculate tag similarity score
           int tagSimilarity = 0;
           if (groupData.containsKey('tags') && _userTags.isNotEmpty) {
             List<String> groupTags = List<String>.from(groupData['tags'] ?? []);
@@ -142,7 +124,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
                 groupTags.where((tag) => _userTags.contains(tag)).length;
           }
 
-          // Get member count
           int memberCount = 0;
           try {
             final membersSnapshot =
@@ -154,7 +135,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
                     .get();
             memberCount = membersSnapshot.count!;
           } catch (e) {
-            // If count() is not available, fall back to getting all docs
             try {
               final membersSnapshot =
                   await _firestore
@@ -168,7 +148,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
             }
           }
 
-          // Add group to list
           groups.add({
             'id': groupId,
             'name': groupData['name'] ?? 'Unnamed Group',
@@ -178,24 +157,19 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
             'memberCount': memberCount,
             'settings': groupData['settings'] ?? {},
             'tags': groupData['tags'] ?? [],
-            // Store fields to help with tag name display
             'tagNames': await _getTagNames(groupData['tags'] ?? []),
           });
         }
       }
 
-      // Sort groups by tag similarity (descending) and then by member count (descending)
       groups.sort((a, b) {
-        // First compare tag similarity
         int tagComparison = b['tagSimilarity'].compareTo(a['tagSimilarity']);
         if (tagComparison != 0) {
           return tagComparison;
         }
-        // If tag similarity is the same, compare member count
         return b['memberCount'].compareTo(a['memberCount']);
       });
 
-      // Save the last document for pagination
       if (querySnapshot.docs.isNotEmpty) {
         _lastDocument = querySnapshot.docs.last;
       }
@@ -209,7 +183,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     }
   }
 
-  // Load more groups when scrolling
   Future<void> _loadMoreGroups() async {
     if (_isLoadingMore || !_hasMoreGroups) return;
 
@@ -218,18 +191,15 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     });
 
     try {
-      // Create query for more public groups
       Query query = _firestore
           .collection('groups')
           .where('settings.visibility', isEqualTo: 'public')
           .limit(_groupsPerPage);
 
-      // Apply pagination if we have a last document
       if (_lastDocument != null) {
         query = query.startAfterDocument(_lastDocument!);
       }
 
-      // Execute query
       final querySnapshot = await query.get();
 
       if (querySnapshot.docs.isEmpty) {
@@ -240,14 +210,12 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
         return;
       }
 
-      // Process results
       List<Map<String, dynamic>> moreGroups = [];
 
       for (var doc in querySnapshot.docs) {
         final groupData = doc.data() as Map<String, dynamic>;
         final groupId = doc.id;
 
-        // Check if user is already a member
         final isMemberSnapshot =
             await _firestore
                 .collection('users')
@@ -257,7 +225,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
                 .get();
 
         if (!isMemberSnapshot.exists) {
-          // Calculate tag similarity score
           int tagSimilarity = 0;
           if (groupData.containsKey('tags') && _userTags.isNotEmpty) {
             List<String> groupTags = List<String>.from(groupData['tags'] ?? []);
@@ -265,7 +232,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
                 groupTags.where((tag) => _userTags.contains(tag)).length;
           }
 
-          // Get member count
           int memberCount = 0;
           try {
             final membersSnapshot =
@@ -277,7 +243,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
                     .get();
             memberCount = membersSnapshot.count!;
           } catch (e) {
-            // If count() is not available, fall back to getting all docs
             try {
               final membersSnapshot =
                   await _firestore
@@ -291,7 +256,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
             }
           }
 
-          // Add group to list
           moreGroups.add({
             'id': groupId,
             'name': groupData['name'] ?? 'Unnamed Group',
@@ -301,21 +265,18 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
             'memberCount': memberCount,
             'settings': groupData['settings'] ?? {},
             'tags': groupData['tags'] ?? [],
-            // Store fields to help with tag name display
             'tagNames': await _getTagNames(groupData['tags'] ?? []),
           });
         }
       }
 
-      // Save the last document for pagination
       if (querySnapshot.docs.isNotEmpty) {
         _lastDocument = querySnapshot.docs.last;
       }
 
-      // Add new groups to the list
       setState(() {
         _allGroups.addAll(moreGroups);
-        _filterGroups(); // Apply any active filter
+        _filterGroups();
         _isLoadingMore = false;
       });
     } catch (e) {
@@ -326,7 +287,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     }
   }
 
-  // Get tag names for display
   Future<Map<String, String>> _getTagNames(List<dynamic> tagIds) async {
     Map<String, String> tagNames = {};
 
@@ -353,7 +313,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     return tagNames;
   }
 
-  // Handle search changes
   void _onSearchChanged() {
     setState(() {
       _searchQuery = _searchController.text;
@@ -361,7 +320,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     });
   }
 
-  // Filter groups based on search query
   void _filterGroups() {
     if (_searchQuery.isEmpty) {
       _filteredGroups = List.from(_allGroups);
@@ -377,12 +335,10 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     }
   }
 
-  // Request to join a group
   Future<void> _requestToJoinGroup(String groupId, String groupName) async {
     if (_currentUserId == null) return;
 
     try {
-      // Get the group settings
       final groupDoc = await _firestore.collection('groups').doc(groupId).get();
       final groupData = groupDoc.data();
 
@@ -390,10 +346,8 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
         throw Exception('Group not found');
       }
 
-      // Check if approval is required
       final requiresApproval = groupData['settings']?['joinApproval'] ?? true;
 
-      // Get current user data
       final userDoc =
           await _firestore.collection('users').doc(_currentUserId).get();
       final userData = userDoc.data();
@@ -406,7 +360,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
       final String photoURL = userData['photoURL'] ?? '';
 
       if (requiresApproval) {
-        // Add to join requests
         await _firestore
             .collection('groups')
             .doc(groupId)
@@ -420,7 +373,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
               'message': 'I would like to join this group',
             });
 
-        // Add to sent group requests
         await _firestore
             .collection('users')
             .doc(_currentUserId)
@@ -433,16 +385,13 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
               'status': 'pending',
             });
 
-        // Show message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Request to join $groupName has been sent'),
-            backgroundColor: const Color(0xFF80AB82), // Green
+            backgroundColor: const Color(0xFF80AB82),
           ),
         );
       } else {
-        // Direct join without approval
-        // Add user to group members
         await _firestore
             .collection('groups')
             .doc(groupId)
@@ -455,7 +404,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
               'joinedAt': FieldValue.serverTimestamp(),
             });
 
-        // Add group to user's groups
         await _firestore
             .collection('users')
             .doc(_currentUserId)
@@ -468,15 +416,13 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
               'joinedAt': FieldValue.serverTimestamp(),
             });
 
-        // Show message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('You have joined $groupName'),
-            backgroundColor: const Color(0xFF80AB82), // Green
+            backgroundColor: const Color(0xFF80AB82),
           ),
         );
 
-        // Remove from filtered list
         setState(() {
           _filteredGroups.removeWhere((group) => group['id'] == groupId);
           _allGroups.removeWhere((group) => group['id'] == groupId);
@@ -499,16 +445,14 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Salmon colored top section
           Container(
-            color: const Color(0xFFFFA07A), // Salmon background
+            color: const Color(0xFFFFA07A),
             child: SafeArea(
-              bottom: false, // Don't add bottom padding
+              bottom: false,
               child: Column(
                 children: [
                   _buildHeader(),
                   _buildSearchBar(),
-                  // Curved bottom edge
                   Container(
                     height: 30,
                     decoration: const BoxDecoration(
@@ -523,8 +467,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
               ),
             ),
           ),
-
-          // Main content area (white background)
           Expanded(
             child:
                 _isLoading
@@ -538,13 +480,11 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     );
   }
 
-  // Header with title and back button
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
       child: Row(
         children: [
-          // Back button
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
             child: Container(
@@ -556,10 +496,7 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
               child: const Icon(Icons.arrow_back, color: Colors.black),
             ),
           ),
-
           const Spacer(),
-
-          // Page title
           const Text(
             'JOIN GROUP',
             style: TextStyle(
@@ -568,17 +505,13 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
               color: Colors.black,
             ),
           ),
-
           const Spacer(),
-
-          // Empty container for symmetry
           const SizedBox(width: 40),
         ],
       ),
     );
   }
 
-  // Search bar
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -612,9 +545,7 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     );
   }
 
-  // Groups list view
   Widget _buildGroupsList() {
-    // Group by categories
     List<Map<String, dynamic>> similarTagGroups = [];
     List<Map<String, dynamic>> otherGroups = [];
 
@@ -630,7 +561,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
       controller: _scrollController,
       padding: const EdgeInsets.all(16.0),
       children: [
-        // Shared interests section
         if (similarTagGroups.isNotEmpty) ...[
           const Padding(
             padding: EdgeInsets.only(bottom: 12.0),
@@ -646,8 +576,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
           ...similarTagGroups.map((group) => _buildGroupCard(group)).toList(),
           const SizedBox(height: 20),
         ],
-
-        // Other groups section
         if (otherGroups.isNotEmpty) ...[
           const Padding(
             padding: EdgeInsets.only(bottom: 12.0),
@@ -662,8 +590,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
           ),
           ...otherGroups.map((group) => _buildGroupCard(group)).toList(),
         ],
-
-        // Loading more indicator
         if (_isLoadingMore)
           const Center(
             child: Padding(
@@ -700,7 +626,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     );
   }
 
-  // Individual group card
   Widget _buildGroupCard(Map<String, dynamic> group) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -719,12 +644,10 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Group header with name, member count
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
               children: [
-                // Group avatar
                 Container(
                   width: 60,
                   height: 60,
@@ -745,7 +668,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Group info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -774,7 +696,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
                     ],
                   ),
                 ),
-                // Join button
                 GestureDetector(
                   onTap: () => _requestToJoinGroup(group['id'], group['name']),
                   child: Container(
@@ -783,7 +704,7 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF80AB82), // Green
+                      color: const Color(0xFF80AB82),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.black, width: 1),
                     ),
@@ -800,8 +721,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
               ],
             ),
           ),
-
-          // Description (if available)
           if (group['description'] != null && group['description'].isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -812,14 +731,11 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-
-          // Tags and similarity
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tags row
                 if (group['tags'] != null && (group['tags'] as List).isNotEmpty)
                   Wrap(
                     spacing: 8,
@@ -836,7 +752,7 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF0E6FA), // Light purple
+                              color: const Color(0xFFF0E6FA),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -849,8 +765,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
                           );
                         }).toList(),
                   ),
-
-                // Similarity badge if applicable
                 if (group['tagSimilarity'] > 0)
                   Container(
                     margin: const EdgeInsets.only(top: 8),
@@ -859,7 +773,7 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFD6E0), // Light pink
+                      color: const Color(0xFFFFD6E0),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: const Color(0xFFFFB6C1),
@@ -894,7 +808,6 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     );
   }
 
-  // Empty state when no groups are found
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -927,17 +840,15 @@ class _JoinGroupPageState extends State<JoinGroupPage> {
     );
   }
 
-  // Helper method to get a color based on the group name
   Color _getGroupColor(String name) {
     final List<Color> colors = [
-      const Color(0xFF98D8C8), // Light teal
-      const Color(0xFFF4A9A8), // Light coral
-      const Color(0xFFD8BFD8), // Light purple
-      const Color(0xFF80AB82), // Green
-      const Color(0xFFB0C4DE), // Light steel blue
+      const Color(0xFF98D8C8),
+      const Color(0xFFF4A9A8),
+      const Color(0xFFD8BFD8),
+      const Color(0xFF80AB82),
+      const Color(0xFFB0C4DE),
     ];
 
-    // Use the first character of the name to determine color (consistent)
     final int index = name.isEmpty ? 0 : name.codeUnitAt(0) % colors.length;
 
     return colors[index];

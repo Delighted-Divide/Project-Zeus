@@ -14,17 +14,10 @@ import 'group_generator.dart';
 import 'assessment_generator.dart';
 import 'submission_generator.dart';
 
-/// A comprehensive utility class to orchestrate generating test data for educational application
-/// Optimized for performance and reliability through modular architecture
 class DummyDataGenerator {
-  // Core Firebase services
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
-
-  // Build context for UI feedback
   final BuildContext context;
-
-  // Utility and generator instances
   final LoggingUtils _logger;
   final TagGenerator _tagGenerator;
   final UserGenerator _userGenerator;
@@ -33,11 +26,9 @@ class DummyDataGenerator {
   final AssessmentGenerator _assessmentGenerator;
   final SubmissionGenerator _submissionGenerator;
 
-  // Timers for tracking performance
   final Stopwatch _totalStopwatch = Stopwatch();
   final Map<String, Stopwatch> _stepTimers = {};
 
-  // Constructor with dependency injection
   DummyDataGenerator(this.context, {bool verbose = true})
     : _auth = FirebaseAuth.instance,
       _firestore = FirebaseFirestore.instance,
@@ -52,18 +43,15 @@ class DummyDataGenerator {
       _assessmentGenerator = AssessmentGenerator(FirebaseFirestore.instance),
       _submissionGenerator = SubmissionGenerator(FirebaseFirestore.instance);
 
-  /// Main function to orchestrate the generation of all dummy data
   Future<void> generateAllDummyData() async {
     _totalStopwatch.start();
     _startStepTimer('total');
     try {
-      // Log start of process
       _logger.log(
         "====== STARTING DUMMY DATA GENERATION PROCESS ======",
         level: LogLevel.INFO,
       );
 
-      // Verify a user is signed in
       final User? currentUser = _auth.currentUser;
       if (currentUser == null) {
         _showSnackBar('No user signed in. Please sign in first.', Colors.red);
@@ -76,18 +64,14 @@ class DummyDataGenerator {
         level: LogLevel.INFO,
       );
 
-      // Store original user info for reference
       final String originalUid = currentUser.uid;
 
       _showSnackBar('Starting to generate dummy data...', Colors.blue);
 
-      // Create a batch manager for Firestore operations
       final batchManager = BatchManager(_firestore, verbose: true);
 
-      // Execute data generation steps
       await _executeDataGenerationSteps(currentUser, batchManager);
 
-      // Log final stats
       _logGenerationSummary();
 
       _showSnackBar(
@@ -105,17 +89,14 @@ class DummyDataGenerator {
     } finally {
       _stopStepTimer('total');
       _totalStopwatch.stop();
-      // Save logs to file
       await _logger.saveLogsToFile();
     }
   }
 
-  /// Execute all data generation steps with proper timing and metrics
   Future<void> _executeDataGenerationSteps(
     User currentUser,
     BatchManager batchManager,
   ) async {
-    // Step 1: Generate tags
     _startStepTimer('generateTags');
     _logger.log("STEP 1: Generating tags", level: LogLevel.INFO);
     final tagIds = await _tagGenerator.generateTags(batchManager);
@@ -126,7 +107,6 @@ class DummyDataGenerator {
       level: LogLevel.SUCCESS,
     );
 
-    // Step 2: Generate users
     _startStepTimer('generateUsers');
     _logger.log("STEP 2: Generating users", level: LogLevel.INFO);
     final userData = await _userGenerator.generateUsers(currentUser);
@@ -137,7 +117,6 @@ class DummyDataGenerator {
       level: LogLevel.SUCCESS,
     );
 
-    // Step 3: Assign favorite tags
     _startStepTimer('assignTags');
     _logger.log("STEP 3: Assigning favorite tags", level: LogLevel.INFO);
     await _tagGenerator.assignFavoriteTags(userIds, tagIds, batchManager);
@@ -148,7 +127,6 @@ class DummyDataGenerator {
       level: LogLevel.SUCCESS,
     );
 
-    // Step 4: Create user goals
     _startStepTimer('createGoals');
     _logger.log("STEP 4: Creating user goals", level: LogLevel.INFO);
     await _userGenerator.createUserGoals(userIds, batchManager);
@@ -156,7 +134,6 @@ class DummyDataGenerator {
     _stopStepTimer('createGoals');
     _logger.log("User goals created and committed", level: LogLevel.SUCCESS);
 
-    // Step 5: Create friendships
     _startStepTimer('createFriendships');
     _logger.log("STEP 5: Creating friendships", level: LogLevel.INFO);
     await _socialGenerator.createFriendships(userIds, userData, batchManager);
@@ -164,7 +141,6 @@ class DummyDataGenerator {
     _stopStepTimer('createFriendships');
     _logger.log("Friendships created and committed", level: LogLevel.SUCCESS);
 
-    // Step 6: Generate groups
     _startStepTimer('generateGroups');
     _logger.log("STEP 6: Generating groups", level: LogLevel.INFO);
     final groupIds = await _groupGenerator.generateGroups(
@@ -180,7 +156,6 @@ class DummyDataGenerator {
       level: LogLevel.SUCCESS,
     );
 
-    // Step 7: Create group memberships
     _startStepTimer('createMemberships');
     _logger.log("STEP 7: Creating group memberships", level: LogLevel.INFO);
     await _groupGenerator.createGroupMemberships(
@@ -196,7 +171,6 @@ class DummyDataGenerator {
       level: LogLevel.SUCCESS,
     );
 
-    // Step 8: Generate assessments
     _startStepTimer('generateAssessments');
     _logger.log("STEP 8: Generating assessments", level: LogLevel.INFO);
     final assessmentIds = await _assessmentGenerator.generateAssessments(
@@ -212,7 +186,6 @@ class DummyDataGenerator {
       level: LogLevel.SUCCESS,
     );
 
-    // Step 9: Share assessments
     _startStepTimer('shareAssessments');
     _logger.log("STEP 9: Sharing assessments", level: LogLevel.INFO);
     await _assessmentGenerator.shareAssessments(
@@ -229,7 +202,6 @@ class DummyDataGenerator {
       level: LogLevel.SUCCESS,
     );
 
-    // Step 10: Generate submissions
     _startStepTimer('generateSubmissions');
     _logger.log("STEP 10: Generating submissions", level: LogLevel.INFO);
     await _submissionGenerator.generateSubmissions(
@@ -244,19 +216,16 @@ class DummyDataGenerator {
     _logger.log("Submissions generated and committed", level: LogLevel.SUCCESS);
   }
 
-  /// Show snackbar with message
   void _showSnackBar(String message, Color backgroundColor) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: backgroundColor),
     );
   }
 
-  /// Start a step timer
   void _startStepTimer(String step) {
     _stepTimers[step] = Stopwatch()..start();
   }
 
-  /// Stop a step timer and log the elapsed time
   void _stopStepTimer(String step) {
     if (_stepTimers.containsKey(step)) {
       final elapsed = _stepTimers[step]!.elapsedMilliseconds;
@@ -268,7 +237,6 @@ class DummyDataGenerator {
     }
   }
 
-  /// Log a summary of the generation process
   void _logGenerationSummary() {
     final totalElapsed = _totalStopwatch.elapsedMilliseconds;
 
@@ -278,19 +246,15 @@ class DummyDataGenerator {
       level: LogLevel.INFO,
     );
 
-    // List step times in order
     List<MapEntry<String, int>> stepTimes = [];
     for (final entry in _stepTimers.entries) {
       if (entry.key != 'total') {
-        // Skip total time
         stepTimes.add(MapEntry(entry.key, entry.value.elapsedMilliseconds));
       }
     }
 
-    // Sort by elapsed time (descending)
     stepTimes.sort((a, b) => b.value.compareTo(a.value));
 
-    // Log each step time
     for (final entry in stepTimes) {
       final percentage = (entry.value / totalElapsed * 100).toStringAsFixed(1);
       _logger.log(

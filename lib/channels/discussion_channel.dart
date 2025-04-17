@@ -33,27 +33,20 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
   late AnimationController _instructionsAnimationController;
   late Animation<double> _instructionsAnimation;
   Map<String, bool> _expandedMessages = {};
-
-  // For message grouping by date
   final _dateFormat = DateFormat('MMMM d, yyyy');
   final _timeFormat = DateFormat('h:mm a');
   String _currentDateGroup = '';
-
   @override
   void initState() {
     super.initState();
-
-    // Setup instructions animation
     _instructionsAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
-
     _instructionsAnimation = CurvedAnimation(
       parent: _instructionsAnimationController,
       curve: Curves.easeInOut,
     );
-
     _instructionsAnimationController.forward();
   }
 
@@ -99,7 +92,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      // Close keyboard and emoji picker when tapping outside
       onTap: () {
         FocusScope.of(context).unfocus();
         if (_isEmojiPickerVisible) {
@@ -147,7 +139,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
           icon: const Icon(Icons.search, color: Colors.white70),
           tooltip: 'Search Messages',
           onPressed: () {
-            // Implement search functionality
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Search feature coming soon!')),
             );
@@ -278,7 +269,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
           }
         });
 
-        // Reset current date group
         _currentDateGroup = '';
 
         return ListView.builder(
@@ -289,26 +279,19 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
             final doc = snapshot.data!.docs[index];
             final data = doc.data() as Map<String, dynamic>;
             final messageId = doc.id;
-
-            // Get timestamp and format message date
             final timestamp = data['timestamp'] as Timestamp?;
             final messageDate = timestamp?.toDate() ?? DateTime.now();
             final messageDateStr = _dateFormat.format(messageDate);
-
-            // Check if we need a date header
             Widget? dateHeader;
             if (messageDateStr != _currentDateGroup) {
               _currentDateGroup = messageDateStr;
               dateHeader = _buildDateHeader(messageDateStr);
             }
-
-            // Check if this message is a reply
             final isReply = data['replyTo'] != null;
             String? replyToId;
             if (isReply) {
               replyToId = data['replyTo'] as String?;
             }
-
             final userId = data['userId'] as String? ?? '';
             final isCurrentUser =
                 userId == FirebaseAuth.instance.currentUser!.uid;
@@ -366,17 +349,12 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
           const SizedBox(height: 32),
           OutlinedButton.icon(
             onPressed: () {
-              // Focus on message input
               FocusScope.of(context).requestFocus(FocusNode());
-              // Small delay to ensure UI updated before requesting focus
               Future.delayed(const Duration(milliseconds: 100), () {
-                // Focus on the text field
                 FocusScope.of(context).requestFocus(FocusNode());
-                // Find the render box
                 final RenderBox? renderBox =
                     context.findRenderObject() as RenderBox?;
                 if (renderBox != null) {
-                  // Scroll to the bottom
                   Scrollable.ensureVisible(
                     context,
                     duration: const Duration(milliseconds: 300),
@@ -525,19 +503,14 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
     final userName = data['userName'] as String? ?? 'Unknown User';
     final userPhotoURL = data['userPhotoURL'] as String?;
     final timestamp = data['timestamp'] as Timestamp?;
-
     final isExpanded = _expandedMessages[messageId] ?? false;
-
-    // Options visible when hovering or message is expanded
     final messageOptions = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildMessageOption(
           icon: Icons.emoji_emotions_outlined,
           tooltip: 'React',
-          onPressed: () {
-            // Implement reaction picker
-          },
+          onPressed: () {},
         ),
         _buildMessageOption(
           icon: Icons.reply,
@@ -550,9 +523,7 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
           _buildMessageOption(
             icon: Icons.edit,
             tooltip: 'Edit',
-            onPressed: () {
-              // Implement edit functionality
-            },
+            onPressed: () {},
           ),
         if (isCurrentUser || widget.userRole == UserRole.mentor)
           _buildMessageOption(
@@ -580,7 +551,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (showAvatar) ...[
-                // User avatar
                 CircleAvatar(
                   radius: 20,
                   backgroundColor: Colors.grey.shade800,
@@ -599,13 +569,11 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
                 ),
                 const SizedBox(width: 12),
               ] else
-                // Message content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (showAvatar) ...[
-                        // User name and timestamp
                         Row(
                           children: [
                             Text(
@@ -630,20 +598,13 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
                         ),
                         const SizedBox(height: 4),
                       ],
-
-                      // Reply preview if applicable
                       if (replyToId != null) _buildReplyPreview(replyToId),
-
-                      // Message text
                       Text(text, style: TextStyle(color: Colors.grey.shade200)),
-
-                      // Reactions (placeholder)
                       if (data['reactions'] != null) ...[
                         const SizedBox(height: 4),
                         Wrap(
                           spacing: 4,
                           children: [
-                            // Example reactions
                             _buildReaction('👍', 2),
                             _buildReaction('❤️', 1),
                             _buildReaction('😂', 3),
@@ -653,8 +614,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
                     ],
                   ),
                 ),
-
-              // Message options
               AnimatedCrossFade(
                 firstChild: const SizedBox(width: 40, height: 24),
                 secondChild: messageOptions,
@@ -774,7 +733,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Emoji button
           IconButton(
             icon: Icon(
               _isEmojiPickerVisible
@@ -788,11 +746,9 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
             onPressed: _toggleEmojiPicker,
             splashRadius: 20,
           ),
-          // Upload button
           IconButton(
             icon: Icon(Icons.add_circle_outline, color: Colors.grey.shade400),
             onPressed: () {
-              // Implement file upload
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('File upload coming soon!')),
               );
@@ -800,7 +756,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
             splashRadius: 20,
           ),
           const SizedBox(width: 8),
-          // Message text field
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -824,7 +779,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
             ),
           ),
           const SizedBox(width: 8),
-          // Send button
           Container(
             height: 40,
             width: 40,
@@ -861,8 +815,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
       return const SizedBox.shrink();
     }
 
-    // This is a placeholder for an emoji picker
-    // You would integrate a proper emoji picker library here
     return Container(
       height: 250,
       padding: const EdgeInsets.all(16),
@@ -877,9 +829,8 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
         ),
-        itemCount: 24, // A sample of emojis
+        itemCount: 24,
         itemBuilder: (context, index) {
-          // A selection of common emojis
           const emojis = [
             '😀',
             '😂',
@@ -909,7 +860,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
 
           return InkWell(
             onTap: () {
-              // Insert emoji at cursor position
               final text = _messageController.text;
               final selection = _messageController.selection;
               final newText = text.replaceRange(
@@ -953,7 +903,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
         'timestamp': FieldValue.serverTimestamp(),
       };
 
-      // Add reply data if replying to a message
       if (_replyingTo.isNotEmpty) {
         messageData['replyTo'] = _replyingTo;
       }
@@ -1005,7 +954,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Channel description section
                   _buildInfoSection(
                     'Description',
                     Icons.description,
@@ -1013,19 +961,13 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
                         ? widget.channel.description
                         : 'No description provided',
                   ),
-
                   const SizedBox(height: 16),
-
-                  // Creation info section
                   _buildInfoSection(
                     'Created',
                     Icons.event,
                     _formatFullTimestamp(widget.channel.createdAt),
                   ),
-
                   const SizedBox(height: 16),
-
-                  // Creator info section
                   FutureBuilder<DocumentSnapshot>(
                     future:
                         FirebaseFirestore.instance
@@ -1049,11 +991,8 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
                       );
                     },
                   ),
-
-                  // Channel instructions section
                   if (widget.channel.instructions.isNotEmpty) ...[
                     const SizedBox(height: 16),
-
                     _buildInfoSection(
                       'Instructions',
                       Icons.lightbulb_outline,
@@ -1160,8 +1099,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
   }
 
   void _editChannel() {
-    // Navigate to channel edit page
-    // This is a placeholder for your implementation
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Edit channel functionality would go here')),
     );
@@ -1245,7 +1182,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
 
   void _deleteChannel() async {
     try {
-      // Show loading indicator
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -1269,7 +1205,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
             ),
       );
 
-      // Delete messages subcollection first
       final messagesSnapshot =
           await FirebaseFirestore.instance
               .collection('groups')
@@ -1285,7 +1220,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
         batch.delete(doc.reference);
       }
 
-      // Delete the channel document
       batch.delete(
         FirebaseFirestore.instance
             .collection('groups')
@@ -1296,13 +1230,10 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
 
       await batch.commit();
 
-      // Pop loading dialog
       Navigator.pop(context);
 
-      // Pop channel page and return to group
       Navigator.pop(context);
 
-      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Channel deleted successfully'),
@@ -1310,7 +1241,6 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
         ),
       );
     } catch (e) {
-      // Pop loading dialog
       Navigator.pop(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1349,23 +1279,20 @@ class _DiscussionChannelPageState extends State<DiscussionChannelPage>
     }
   }
 
-  // Get a consistent color for a user based on their name
   Color _getUserNameColor(String userName) {
-    // List of distinct colors for user names
     const colors = [
-      Color(0xFF7289DA), // Discord blurple
-      Color(0xFFE91E63), // Pink
-      Color(0xFF4CAF50), // Green
-      Color(0xFFFF9800), // Orange
-      Color(0xFF9C27B0), // Purple
-      Color(0xFF2196F3), // Blue
-      Color(0xFFFFEB3B), // Yellow
-      Color(0xFF795548), // Brown
-      Color(0xFF009688), // Teal
-      Color(0xFFE53935), // Red
+      Color(0xFF7289DA),
+      Color(0xFFE91E63),
+      Color(0xFF4CAF50),
+      Color(0xFFFF9800),
+      Color(0xFF9C27B0),
+      Color(0xFF2196F3),
+      Color(0xFFFFEB3B),
+      Color(0xFF795548),
+      Color(0xFF009688),
+      Color(0xFFE53935),
     ];
 
-    // Simple hash function to get a consistent index
     int hash = 0;
     for (int i = 0; i < userName.length; i++) {
       hash = (hash + userName.codeUnitAt(i)) % colors.length;

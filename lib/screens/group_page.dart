@@ -21,10 +21,9 @@ class _GroupPageState extends State<GroupPage>
   GroupModel? _group;
   UserRole? _userRole;
   bool _isLoading = true;
-  bool _showMembers = false; // Default to showing channels
+  bool _showMembers = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // Animation controller for switching sections
   late AnimationController _animationController;
   late Animation<double> _animation;
 
@@ -33,7 +32,6 @@ class _GroupPageState extends State<GroupPage>
     super.initState();
     _loadGroupData();
 
-    // Initialize animation controller
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -57,10 +55,8 @@ class _GroupPageState extends State<GroupPage>
     });
 
     try {
-      // Get current user ID
       final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
-      // Load group data
       final groupDoc =
           await FirebaseFirestore.instance
               .collection('groups')
@@ -75,10 +71,8 @@ class _GroupPageState extends State<GroupPage>
         return;
       }
 
-      // Create group model
       _group = GroupModel.fromFirestore(groupDoc);
 
-      // Get user's role in the group
       final memberDoc =
           await FirebaseFirestore.instance
               .collection('groups')
@@ -91,7 +85,6 @@ class _GroupPageState extends State<GroupPage>
         final role = memberDoc.data()?['role'] as String?;
         _userRole = role == 'mentor' ? UserRole.mentor : UserRole.member;
       } else {
-        // User is not a member of this group
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('You are not a member of this group')),
         );
@@ -111,7 +104,6 @@ class _GroupPageState extends State<GroupPage>
     }
   }
 
-  // Toggle between members and channels with animation
   void _toggleSection() {
     setState(() {
       _showMembers = !_showMembers;
@@ -161,13 +153,12 @@ class _GroupPageState extends State<GroupPage>
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: const Color(0xFF282c34), // Dark background color
+      backgroundColor: const Color(0xFF282c34),
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: const Color(0xFF1e2124), // Discord-like dark header
+        backgroundColor: const Color(0xFF1e2124),
         title: Row(
           children: [
-            // Group avatar
             CircleAvatar(
               backgroundColor: Colors.grey.shade800,
               backgroundImage:
@@ -187,7 +178,6 @@ class _GroupPageState extends State<GroupPage>
                       : null,
             ),
             const SizedBox(width: 10),
-            // Group name
             Text(
               _group!.name,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
@@ -195,13 +185,11 @@ class _GroupPageState extends State<GroupPage>
           ],
         ),
         actions: [
-          // Group info button
           IconButton(
             icon: const Icon(Icons.info_outline, color: Colors.white70),
             tooltip: 'Group Information',
             onPressed: () => _showGroupInfo(),
           ),
-          // Edit group button (only for mentors)
           if (_userRole == UserRole.mentor)
             IconButton(
               icon: const Icon(Icons.edit, color: Colors.white70),
@@ -210,30 +198,26 @@ class _GroupPageState extends State<GroupPage>
             ),
         ],
       ),
-      // Add a floating action button for mentors
       floatingActionButton:
           _userRole == UserRole.mentor
               ? FloatingActionButton(
-                backgroundColor: const Color(0xFF7289da), // Discord blurple
+                backgroundColor: const Color(0xFF7289da),
                 foregroundColor: Colors.white,
                 elevation: 4,
                 onPressed: () => _showActionMenu(),
                 child: const Icon(Icons.add),
               )
               : null,
-      // Main body with Discord-like sidebar and content layout
       body: Row(
         children: [
-          // Left sidebar for navigation
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
             width: 70,
-            color: const Color(0xFF1e2124), // Discord dark sidebar
+            color: const Color(0xFF1e2124),
             child: Column(
               children: [
                 const SizedBox(height: 16),
-                // Channels button
                 _buildSidebarButton(
                   icon: Icons.forum,
                   label: 'Channels',
@@ -243,7 +227,6 @@ class _GroupPageState extends State<GroupPage>
                   },
                 ),
                 const SizedBox(height: 8),
-                // Members button
                 _buildSidebarButton(
                   icon: Icons.people,
                   label: 'Members',
@@ -257,7 +240,6 @@ class _GroupPageState extends State<GroupPage>
                   height: 24,
                   thickness: 1,
                 ),
-                // Settings button
                 _buildSidebarButton(
                   icon: Icons.settings,
                   label: 'Settings',
@@ -267,7 +249,6 @@ class _GroupPageState extends State<GroupPage>
               ],
             ),
           ),
-          // Main content area
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 400),
@@ -302,7 +283,6 @@ class _GroupPageState extends State<GroupPage>
     );
   }
 
-  // Helper method to build sidebar buttons
   Widget _buildSidebarButton({
     required IconData icon,
     required String label,
@@ -474,8 +454,6 @@ class _GroupPageState extends State<GroupPage>
   }
 
   void _editGroup() {
-    // Navigate to edit group page
-    // This is a placeholder for your implementation
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Edit group functionality would go here')),
     );
@@ -501,7 +479,6 @@ class _GroupPageState extends State<GroupPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Sheet handle bar
                 Container(
                   width: 40,
                   height: 4,
@@ -511,7 +488,6 @@ class _GroupPageState extends State<GroupPage>
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                // Menu options
                 _buildActionMenuItem(
                   icon: Icons.forum,
                   iconColor: Colors.blue,
@@ -612,7 +588,6 @@ class _GroupPageState extends State<GroupPage>
   }
 
   void _createChannel(String type) {
-    // Navigate to channel creation page
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -622,12 +597,10 @@ class _GroupPageState extends State<GroupPage>
               initialType: type,
             ),
       ),
-    ).then((_) => setState(() {})); // Refresh the UI when returning
+    ).then((_) => setState(() {}));
   }
 
   void _inviteMembers() {
-    // Navigate to member invitation page
-    // This is a placeholder for your implementation
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Invite members functionality would go here'),

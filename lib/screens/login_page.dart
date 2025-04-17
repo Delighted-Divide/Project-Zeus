@@ -17,22 +17,18 @@ class _LoginPageState extends State<LoginPage>
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   String _errorMessage = '';
-  DateTime? _lastErrorTime; // Track when the last error was shown
-  bool _showForgotPassword = false; // Track if forgot password UI is shown
+  DateTime? _lastErrorTime;
+  bool _showForgotPassword = false;
 
-  // Animation controller for transitions
   late AnimationController _animationController;
   late Animation<double> _animation;
   bool _isSigningUp = false;
   bool _isLoggingIn = false;
 
-  // Flag to track successful authentication
   bool _authSuccess = false;
 
-  // Firebase Auth instance
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Controller for reset password email
   final TextEditingController _resetEmailController = TextEditingController();
 
   @override
@@ -52,7 +48,6 @@ class _LoginPageState extends State<LoginPage>
         Future.delayed(const Duration(milliseconds: 100), () {
           if (mounted) {
             if (_isSigningUp) {
-              // Create a page route with a transition
               Navigator.of(context).pushReplacement(
                 PageRouteBuilder(
                   pageBuilder:
@@ -70,7 +65,6 @@ class _LoginPageState extends State<LoginPage>
                 ),
               );
             } else if (_isLoggingIn && _authSuccess) {
-              // Create a page route with a smooth transition when auth is successful
               Navigator.of(context).pushReplacement(
                 PageRouteBuilder(
                   pageBuilder:
@@ -97,7 +91,6 @@ class _LoginPageState extends State<LoginPage>
                 ),
               );
             } else if (_isLoggingIn && !_authSuccess) {
-              // Reset animation if authentication failed
               setState(() {
                 _isLoggingIn = false;
               });
@@ -124,18 +117,15 @@ class _LoginPageState extends State<LoginPage>
     _animationController.forward(from: 0.0);
   }
 
-  // Toggle forgot password UI
   void _toggleForgotPassword() {
     setState(() {
       _showForgotPassword = !_showForgotPassword;
       if (_showForgotPassword) {
-        _resetEmailController.text =
-            _emailController.text; // Pre-fill with current email
+        _resetEmailController.text = _emailController.text;
       }
     });
   }
 
-  // Handle password reset request
   Future<void> _sendPasswordResetEmail() async {
     if (_resetEmailController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -156,7 +146,6 @@ class _LoginPageState extends State<LoginPage>
         email: _resetEmailController.text.trim(),
       );
 
-      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Password reset email sent! Check your inbox.'),
@@ -164,7 +153,6 @@ class _LoginPageState extends State<LoginPage>
         ),
       );
 
-      // Close the forgot password UI
       setState(() {
         _showForgotPassword = false;
         _isLoading = false;
@@ -189,10 +177,8 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
-  // Prevent error message spam by checking the time since last error
   void _setErrorWithDebounce(String message) {
     final now = DateTime.now();
-    // Only show a new error if none exists or if the last error was shown more than 2 seconds ago
     if (_lastErrorTime == null ||
         now.difference(_lastErrorTime!).inSeconds >= 2) {
       setState(() {
@@ -202,15 +188,12 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
-  // Login method
   Future<void> _login() async {
-    // Clear any previous errors
     setState(() {
       _errorMessage = '';
       _isLoading = true;
     });
 
-    // Basic validation
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       _setErrorWithDebounce('Please enter both email and password');
       setState(() {
@@ -220,20 +203,17 @@ class _LoginPageState extends State<LoginPage>
     }
 
     try {
-      // Attempt to sign in with Firebase
       await _auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // Authentication successful, start the animation
       setState(() {
         _authSuccess = true;
         _isLoggingIn = true;
       });
       _animationController.forward(from: 0.0);
     } on FirebaseAuthException catch (e) {
-      // Handle specific Firebase Auth errors
       if (e.code == 'user-not-found') {
         _setErrorWithDebounce('No user found with this email');
       } else if (e.code == 'wrong-password') {
@@ -253,7 +233,6 @@ class _LoginPageState extends State<LoginPage>
         _isLoading = false;
       });
     } catch (e) {
-      // Handle other errors
       _setErrorWithDebounce('An unexpected error occurred: $e');
       setState(() {
         _isLoading = false;
@@ -265,16 +244,14 @@ class _LoginPageState extends State<LoginPage>
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-    final bool isSmallScreen = screenHeight < 600; // Detect smaller screens
+    final bool isSmallScreen = screenHeight < 600;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      // Add resizeToAvoidBottomInset to prevent keyboard from pushing up content
       resizeToAvoidBottomInset: true,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background purple circle in top right
           Positioned(
             top: -50,
             right: -50,
@@ -282,13 +259,12 @@ class _LoginPageState extends State<LoginPage>
               width: 150,
               height: 150,
               decoration: const BoxDecoration(
-                color: Color(0xFFE6D8FA), // Light purple
+                color: Color(0xFFE6D8FA),
                 shape: BoxShape.circle,
               ),
             ),
           ),
 
-          // Background pink circle in bottom left
           Positioned(
             bottom: -50,
             left: -50,
@@ -296,52 +272,41 @@ class _LoginPageState extends State<LoginPage>
               width: 150,
               height: 150,
               decoration: const BoxDecoration(
-                color: Color(0xFFFFD6E0), // Light pink
+                color: Color(0xFFFFD6E0),
                 shape: BoxShape.circle,
               ),
             ),
           ),
 
-          // Use SafeArea and LayoutBuilder for responsive layout
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // Calculate a more adaptive height for the image based on available height
                 final double imageHeight =
                     isSmallScreen
-                        ? constraints.maxHeight *
-                            0.2 // Smaller image for small screens
-                        : constraints.maxHeight *
-                            0.28; // Normal size for larger screens
+                        ? constraints.maxHeight * 0.2
+                        : constraints.maxHeight * 0.28;
 
                 return GestureDetector(
-                  // Add GestureDetector to dismiss keyboard when tapping outside
                   onTap: () => FocusScope.of(context).unfocus(),
                   child: SingleChildScrollView(
-                    // Avoid ScrollView inside ScrollView
                     child: Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: 24.0,
-                        // Add bottom padding when keyboard is visible to prevent overflow
                         vertical:
                             MediaQuery.of(context).viewInsets.bottom > 0
                                 ? 20
                                 : 0,
                       ),
                       child: ConstrainedBox(
-                        // Make sure content is at least as tall as available space
                         constraints: BoxConstraints(
                           minHeight: constraints.maxHeight,
                         ),
                         child: Column(
-                          mainAxisSize:
-                              MainAxisSize
-                                  .min, // Use min size to avoid overflow
+                          mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             SizedBox(height: isSmallScreen ? 15 : 30),
 
-                            // LOGIN title
                             const Text(
                               'LOGIN',
                               style: TextStyle(
@@ -352,7 +317,6 @@ class _LoginPageState extends State<LoginPage>
                               ),
                             ),
 
-                            // Adaptive login illustration with reduced height
                             SizedBox(
                               height: imageHeight,
                               child: Center(
@@ -366,10 +330,7 @@ class _LoginPageState extends State<LoginPage>
                                       children: [
                                         Icon(
                                           Icons.laptop_mac,
-                                          size:
-                                              isSmallScreen
-                                                  ? 60
-                                                  : 100, // Smaller icon on small screens
+                                          size: isSmallScreen ? 60 : 100,
                                           color: Colors.deepPurple,
                                         ),
                                         SizedBox(
@@ -377,10 +338,7 @@ class _LoginPageState extends State<LoginPage>
                                         ),
                                         Icon(
                                           Icons.person,
-                                          size:
-                                              isSmallScreen
-                                                  ? 40
-                                                  : 60, // Smaller icon on small screens
+                                          size: isSmallScreen ? 40 : 60,
                                           color: Colors.amber,
                                         ),
                                         const SizedBox(height: 8),
@@ -397,10 +355,8 @@ class _LoginPageState extends State<LoginPage>
                               ),
                             ),
 
-                            // Adaptive spacing after image
                             SizedBox(height: isSmallScreen ? 40 : 60),
 
-                            // Error message
                             if (_errorMessage.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 16.0),
@@ -414,15 +370,12 @@ class _LoginPageState extends State<LoginPage>
                                 ),
                               ),
 
-                            // Forgot password UI or Login form - no more Expanded that causes overflow
                             _showForgotPassword
                                 ? _buildForgotPasswordUI(isSmallScreen)
                                 : _buildLoginForm(isSmallScreen),
 
-                            // Add flexible space
                             SizedBox(height: isSmallScreen ? 15 : 30),
 
-                            // Bottom home indicator
                             Container(
                               width: 80,
                               height: 5,
@@ -442,7 +395,6 @@ class _LoginPageState extends State<LoginPage>
             ),
           ),
 
-          // Animation circles for transitions - matching signup page style
           if (_isSigningUp)
             AnimatedBuilder(
               animation: _animation,
@@ -456,7 +408,7 @@ class _LoginPageState extends State<LoginPage>
                       width: screenWidth,
                       height: screenWidth,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF6A3DE8), // Purple circle for sign up
+                        color: Color(0xFF6A3DE8),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -478,7 +430,7 @@ class _LoginPageState extends State<LoginPage>
                       width: screenWidth,
                       height: screenWidth,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF6A3DE8), // Purple circle for login
+                        color: Color(0xFF6A3DE8),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -491,17 +443,15 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
-  // Login form UI - removed Expanded to avoid overflow
   Widget _buildLoginForm(bool isSmallScreen) {
     return Column(
-      mainAxisSize: MainAxisSize.min, // Use min size to prevent overflow
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Email field
         Container(
           width: double.infinity,
           height: 55,
           decoration: BoxDecoration(
-            color: const Color(0xFFE6D8FA), // Light purple
+            color: const Color(0xFFE6D8FA),
             borderRadius: BorderRadius.circular(30),
           ),
           child: TextField(
@@ -525,12 +475,11 @@ class _LoginPageState extends State<LoginPage>
 
         const SizedBox(height: 16),
 
-        // Password field
         Container(
           width: double.infinity,
           height: 55,
           decoration: BoxDecoration(
-            color: const Color(0xFFE6D8FA), // Light purple
+            color: const Color(0xFFE6D8FA),
             borderRadius: BorderRadius.circular(30),
           ),
           child: TextField(
@@ -569,17 +518,14 @@ class _LoginPageState extends State<LoginPage>
 
         SizedBox(height: isSmallScreen ? 16 : 24),
 
-        // Login button
         SizedBox(
           width: double.infinity,
           height: 55,
           child: ElevatedButton(
             onPressed: _isLoading ? null : _login,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6A3DE8), // Purple
-              disabledBackgroundColor: const Color(
-                0xFFA391C8,
-              ), // Lighter purple when disabled
+              backgroundColor: const Color(0xFF6A3DE8),
+              disabledBackgroundColor: const Color(0xFFA391C8),
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30),
@@ -609,7 +555,6 @@ class _LoginPageState extends State<LoginPage>
 
         SizedBox(height: isSmallScreen ? 12 : 16),
 
-        // Don't have an Account text
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -633,7 +578,6 @@ class _LoginPageState extends State<LoginPage>
 
         SizedBox(height: isSmallScreen ? 16 : 20),
 
-        // Forgot Password button with improved UI
         Material(
           color: Colors.transparent,
           child: InkWell(
@@ -667,7 +611,6 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
-  // Forgot password UI - removed Expanded to avoid overflow
   Widget _buildForgotPasswordUI(bool isSmallScreen) {
     return Container(
       padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
@@ -684,7 +627,7 @@ class _LoginPageState extends State<LoginPage>
         ],
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min, // Use min size to prevent overflow
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -702,8 +645,7 @@ class _LoginPageState extends State<LoginPage>
                 icon: const Icon(Icons.close, color: Colors.grey),
                 onPressed: _toggleForgotPassword,
                 padding: EdgeInsets.zero,
-                constraints:
-                    const BoxConstraints(), // Remove padding constraints
+                constraints: const BoxConstraints(),
               ),
             ],
           ),
@@ -717,7 +659,6 @@ class _LoginPageState extends State<LoginPage>
 
           SizedBox(height: isSmallScreen ? 16 : 20),
 
-          // Email field for password reset
           Container(
             width: double.infinity,
             height: 55,
@@ -741,7 +682,6 @@ class _LoginPageState extends State<LoginPage>
 
           SizedBox(height: isSmallScreen ? 16 : 20),
 
-          // Send button
           SizedBox(
             width: double.infinity,
             height: 55,
@@ -778,7 +718,6 @@ class _LoginPageState extends State<LoginPage>
 
           SizedBox(height: isSmallScreen ? 12 : 15),
 
-          // Back to login option
           TextButton.icon(
             onPressed: _toggleForgotPassword,
             icon: const Icon(

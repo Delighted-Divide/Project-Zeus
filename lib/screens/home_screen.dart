@@ -9,7 +9,6 @@ import '../screens/signup_page.dart';
 import '../screens/friends_groups_page.dart';
 import '../screens/assistant_page.dart';
 
-/// A home screen widget that displays user information and database statistics.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -19,11 +18,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
-  // Firebase instances
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Logger instance for better debugging
   final logger_pkg.Logger _logger = logger_pkg.Logger(
     printer: logger_pkg.PrettyPrinter(
       methodCount: 2,
@@ -35,17 +32,14 @@ class _HomeScreenState extends State<HomeScreen>
     ),
   );
 
-  // Animation controller for statistics cards
   late AnimationController _animationController;
 
-  // User information
   String? _userEmail;
   bool _isLoading = true;
   String? _userName;
   String? _profileImagePath;
   bool _isGeneratingDummyData = false;
 
-  // Database statistics
   final Map<String, dynamic> _dbStats = {
     'users': 0,
     'groups': 0,
@@ -66,7 +60,6 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
-    // Initialize animation controller for stat cards
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -82,23 +75,19 @@ class _HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
-  /// Initialize user and check if they already exist in Firestore
   Future<void> _initializeUser() async {
     try {
       final User? currentUser = _auth.currentUser;
 
       if (currentUser != null) {
         _logger.i('Initializing user: ${currentUser.uid}');
-        // Set email from authentication
         _userEmail = currentUser.email;
 
-        // Check if user already exists in Firestore
         final userDoc =
             await _firestore.collection('users').doc(currentUser.uid).get();
 
         if (!userDoc.exists) {
           _logger.w('User does not exist in Firestore yet');
-          // User doesn't exist in Firestore yet
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -115,22 +104,18 @@ class _HomeScreenState extends State<HomeScreen>
           }
         } else {
           _logger.i('User found in Firestore, fetching profile data');
-          // User already exists, fetch their display name and profile image path
           final userData = userDoc.data();
           if (userData != null) {
             _userName = userData['displayName'];
             _profileImagePath = userData['photoURL'];
 
-            // If we have a photoURL value from Firestore, check if it's a Firebase Storage URL
             if (_profileImagePath != null && _profileImagePath!.isNotEmpty) {
               if (_profileImagePath!.startsWith('gs://') ||
                   _profileImagePath!.startsWith('http')) {
-                // This is a Firebase Storage URL, we can use it directly
                 _logger.d(
                   'Using Firebase Storage profile image: $_profileImagePath',
                 );
               } else {
-                // This is a local file path, check if it exists
                 final file = File(_profileImagePath!);
                 if (!await file.exists()) {
                   _logger.w(
@@ -146,13 +131,11 @@ class _HomeScreenState extends State<HomeScreen>
         _logger.w('No current user found');
       }
 
-      // Update UI
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
 
-        // Start animation after UI is loaded
         _animationController.forward();
       }
     } catch (e, stackTrace) {
@@ -172,7 +155,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  /// Load all database statistics
   Future<void> _loadDatabaseStats() async {
     if (_isLoadingStats) return;
 
@@ -183,10 +165,8 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       _logger.i('Loading database statistics');
 
-      // Reset animation to play again when refreshing stats
       _animationController.reset();
 
-      // Run queries in parallel for better performance
       await Future.wait([
         _countUsers(),
         _countGroups(),
@@ -200,7 +180,6 @@ class _HomeScreenState extends State<HomeScreen>
       _logger.i('Database statistics loaded successfully');
 
       if (mounted) {
-        // Start animation again after stats are loaded
         _animationController.forward();
       }
     } catch (e, stackTrace) {
@@ -227,7 +206,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  /// Count total users
   Future<void> _countUsers() async {
     try {
       final usersSnapshot = await _firestore.collection('users').count().get();
@@ -238,7 +216,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  /// Count total groups
   Future<void> _countGroups() async {
     try {
       final groupsSnapshot =
@@ -250,7 +227,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  /// Count total assessments
   Future<void> _countAssessments() async {
     try {
       final assessmentsSnapshot =
@@ -262,7 +238,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  /// Count total tags
   Future<void> _countTags() async {
     try {
       final tagsSnapshot = await _firestore.collection('tags').count().get();
@@ -273,21 +248,18 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  /// Count shared assessments - improved version
   Future<void> _countSharedAssessments() async {
     try {
       _logger.d('Counting shared assessments');
       int sharedWithUserCount = 0;
       int sharedInGroupCount = 0;
 
-      // Use batched query for better performance
       final usersQuery = await _firestore.collection('users').limit(10).get();
       _logger.d(
         'Processing ${usersQuery.docs.length} users for shared assessments',
       );
 
       for (final userDoc in usersQuery.docs) {
-        // Query assessments where wasSharedWithUser is true
         final userSharedWithUserQuery =
             await _firestore
                 .collection('users')
@@ -299,7 +271,6 @@ class _HomeScreenState extends State<HomeScreen>
 
         sharedWithUserCount += userSharedWithUserQuery.count as int;
 
-        // Query assessments where wasSharedInGroup is true
         final userSharedInGroupQuery =
             await _firestore
                 .collection('users')
@@ -327,14 +298,12 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  /// Count unique friendships - improved version
   Future<void> _countUniqueFriendships() async {
     try {
       _logger.d('Counting unique friendships');
       final Set<String> processedPairs = {};
       int uniqueFriendshipsCount = 0;
 
-      // Sample friendships from users
       final usersQuery = await _firestore.collection('users').limit(20).get();
       _logger.d('Processing ${usersQuery.docs.length} users for friendships');
 
@@ -350,7 +319,6 @@ class _HomeScreenState extends State<HomeScreen>
         for (final friendDoc in userFriendsQuery.docs) {
           final friendId = friendDoc.id;
 
-          // Create a unique identifier for each friendship pair (using alphabetical ordering)
           final friendshipPair = [userId, friendId]..sort();
           final pairKey = '${friendshipPair[0]}_${friendshipPair[1]}';
 
@@ -372,7 +340,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  /// Count submissions and categorize by status
   Future<void> _countSubmissionsByStatus() async {
     try {
       _logger.d('Counting submissions by status');
@@ -381,7 +348,6 @@ class _HomeScreenState extends State<HomeScreen>
       int submittedCount = 0;
       int evaluatedCount = 0;
 
-      // Sample submissions from users
       final usersQuery = await _firestore.collection('users').limit(10).get();
       _logger.d('Processing ${usersQuery.docs.length} users for submissions');
 
@@ -406,7 +372,6 @@ class _HomeScreenState extends State<HomeScreen>
 
           totalSubmissions += submissionsQuery.docs.length;
 
-          // Categorize submissions by status
           for (final submissionDoc in submissionsQuery.docs) {
             final status = submissionDoc.data()['status'] as String?;
 
@@ -440,10 +405,9 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  /// Generate dummy data for all collections
   Future<void> _generateDummyData() async {
     if (_isGeneratingDummyData) {
-      return; // Don't allow multiple simultaneous generations
+      return;
     }
 
     setState(() {
@@ -453,19 +417,15 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       _logger.i('Starting dummy data generation');
 
-      // Use the updated DummyDataGenerator to create all dummy data
       final generator = DummyDataGenerator(context);
       await generator.generateAllDummyData();
 
       _logger.i('Dummy data generated successfully');
 
-      // Refresh user data after generation
       await _initializeUser();
 
-      // Refresh database statistics
       await _loadDatabaseStats();
 
-      // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -499,12 +459,10 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  /// Method to handle sign out
   Future<void> _signOut(BuildContext context) async {
     try {
       _logger.i('Signing out user');
 
-      // Update lastActive timestamp before signing out
       final User? currentUser = _auth.currentUser;
       if (currentUser != null) {
         await _firestore.collection('users').doc(currentUser.uid).update({
@@ -516,7 +474,6 @@ class _HomeScreenState extends State<HomeScreen>
       await _auth.signOut();
       _logger.i('User signed out successfully');
 
-      // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -527,13 +484,11 @@ class _HomeScreenState extends State<HomeScreen>
         );
       }
 
-      // Navigate back to signup page
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const SignupPage()),
       );
     } catch (e, stackTrace) {
       _logger.e('Error signing out', error: e, stackTrace: stackTrace);
-      // Show error message if sign out fails
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -546,7 +501,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  /// Navigate to dashboard
   void _navigateToDashboard() {
     _logger.i('Navigating to dashboard');
     Navigator.of(
@@ -554,7 +508,6 @@ class _HomeScreenState extends State<HomeScreen>
     ).push(MaterialPageRoute(builder: (context) => const FriendsGroupsPage()));
   }
 
-  /// Navigate to AI Assistant page
   void _navigateToAIAssistant() {
     _logger.i('Navigating to AI Assistant');
     Navigator.of(
@@ -564,7 +517,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Get the screen size for responsive layout
     final Size screenSize = MediaQuery.of(context).size;
     final bool isSmallScreen = screenSize.width < 600;
 
@@ -603,10 +555,8 @@ class _HomeScreenState extends State<HomeScreen>
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // Sliver app bar with profile info
           SliverAppBar(
-            expandedHeight:
-                screenSize.height * 0.28, // Dynamic height based on screen size
+            expandedHeight: screenSize.height * 0.28,
             pinned: true,
             floating: false,
             backgroundColor: const Color(0xFF6A3DE8),
@@ -632,13 +582,11 @@ class _HomeScreenState extends State<HomeScreen>
                     children: [
                       Row(
                         children: [
-                          // Profile picture with improved shadow and borders
                           Hero(
                             tag: 'profileImage',
                             child: Container(
-                              width: screenSize.width * 0.2, // Dynamic width
-                              height:
-                                  screenSize.width * 0.2, // Keep aspect ratio
+                              width: screenSize.width * 0.2,
+                              height: screenSize.width * 0.2,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
@@ -728,7 +676,6 @@ class _HomeScreenState extends State<HomeScreen>
                             ),
                           ),
                           SizedBox(width: screenSize.width * 0.04),
-                          // User info with improved typography
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -773,7 +720,6 @@ class _HomeScreenState extends State<HomeScreen>
                                     ),
                                   ),
                                 SizedBox(height: screenSize.height * 0.01),
-                                // Online status indicator
                                 Container(
                                   padding: EdgeInsets.symmetric(
                                     horizontal: screenSize.width * 0.025,
@@ -808,7 +754,6 @@ class _HomeScreenState extends State<HomeScreen>
                               ],
                             ),
                           ),
-                          // Sign out button with improved design
                           Container(
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
@@ -833,7 +778,6 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
             actions: [
-              // Refresh statistics button
               Padding(
                 padding: EdgeInsets.only(right: screenSize.width * 0.02),
                 child: IconButton(
@@ -847,7 +791,6 @@ class _HomeScreenState extends State<HomeScreen>
             ],
           ),
 
-          // Content
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -857,7 +800,6 @@ class _HomeScreenState extends State<HomeScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Welcome Card with improved design
                   Card(
                     elevation: 4,
                     shadowColor: Colors.black.withOpacity(0.1),
@@ -927,7 +869,6 @@ class _HomeScreenState extends State<HomeScreen>
                             ),
                           ),
                           SizedBox(height: screenSize.height * 0.03),
-                          // Action buttons with improved design
                           Row(
                             children: [
                               Expanded(
@@ -978,7 +919,6 @@ class _HomeScreenState extends State<HomeScreen>
 
                   SizedBox(height: screenSize.height * 0.03),
 
-                  // Database Statistics Section
                   Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: screenSize.width * 0.02,
@@ -1027,7 +967,6 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
 
-                  // Use LayoutBuilder for the stat cards to make them responsive
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final cardWidth =
@@ -1037,7 +976,6 @@ class _HomeScreenState extends State<HomeScreen>
 
                       return Column(
                         children: [
-                          // Users & Groups stats
                           _buildStatSection('Users & Groups', [
                             _buildAnimatedStatCard(
                               'Users',
@@ -1067,7 +1005,6 @@ class _HomeScreenState extends State<HomeScreen>
 
                           SizedBox(height: screenSize.height * 0.02),
 
-                          // Assessments stats
                           _buildStatSection('Assessments', [
                             _buildAnimatedStatCard(
                               'Total',
@@ -1094,8 +1031,6 @@ class _HomeScreenState extends State<HomeScreen>
                               cardWidth,
                             ),
                           ]),
-
-                          // Continue with other sections...
                         ],
                       );
                     },
@@ -1142,7 +1077,6 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  // Updated helper method to build animated stat cards with dynamic width
   Widget _buildAnimatedStatCard(
     String title,
     int count,

@@ -29,7 +29,6 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
     _loadPDF();
   }
 
-  // Download and prepare the PDF file
   Future<void> _loadPDF() async {
     setState(() {
       _isLoading = true;
@@ -37,12 +36,10 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
     });
 
     try {
-      // Create a temporary file name
       final filename = widget.title.replaceAll(' ', '_');
       final extension = widget.url.endsWith('.pdf') ? '' : '.pdf';
       final tempPath = await _getTempPath('$filename$extension');
 
-      // Check if file already exists
       final file = File(tempPath);
       if (await file.exists()) {
         setState(() {
@@ -52,10 +49,8 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
         return;
       }
 
-      // Download PDF
       final response = await http.get(Uri.parse(widget.url));
 
-      // Save to temporary file
       await file.writeAsBytes(response.bodyBytes);
 
       setState(() {
@@ -71,7 +66,6 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
     }
   }
 
-  // Get a path in the temp directory for the PDF file
   Future<String> _getTempPath(String filename) async {
     final dir = await getTemporaryDirectory();
     return '${dir.path}/$filename';
@@ -82,7 +76,7 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
-        backgroundColor: const Color(0xFFFFA07A), // Salmon color to match chat
+        backgroundColor: const Color(0xFFFFA07A),
         actions: [
           if (_isReady && _totalPages > 0)
             Padding(
@@ -132,8 +126,7 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
               : PDFView(
                 filePath: _pdfFile!.path,
                 enableSwipe: true,
-                swipeHorizontal:
-                    false, // Changed to false for vertical scrolling
+                swipeHorizontal: false,
                 autoSpacing: true,
                 pageFling: true,
                 pageSnap: true,
@@ -166,7 +159,6 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
                   }
                 },
               ),
-      // Removed floating action buttons for navigation
     );
   }
 }

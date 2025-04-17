@@ -22,11 +22,9 @@ class AssessmentConditionsPage extends StatefulWidget {
 
 class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     with TickerProviderStateMixin {
-  // Firebase instances
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // State variables
   bool _isLoading = true;
   String? _errorMessage;
   Map<String, dynamic>? _assessmentData;
@@ -34,11 +32,9 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
   bool _wasSharedInGroup = false;
   bool _isConditionsEditable = false;
 
-  // Timer configuration
   bool _hasTimer = false;
-  int _timerDuration = 60; // minutes
+  int _timerDuration = 60;
 
-  // Animations
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -47,7 +43,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
   void initState() {
     super.initState();
 
-    // Initialize animations
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -65,7 +60,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
 
-    // Load assessment data
     _loadAssessmentData();
   }
 
@@ -75,7 +69,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     super.dispose();
   }
 
-  // Load assessment data with group sharing checks
   Future<void> _loadAssessmentData() async {
     developer.log(
       'AssessmentConditionsPage: Loading assessment data for ID: ${widget.assessmentId}',
@@ -92,7 +85,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
         return;
       }
 
-      // First check if this assessment exists in the user's collection
       final userAssessmentDoc =
           await _firestore
               .collection('users')
@@ -111,11 +103,9 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
 
       final userAssessmentData = userAssessmentDoc.data() ?? {};
 
-      // Check if this assessment was shared in a group
       final bool wasSharedInGroup =
           userAssessmentData['wasSharedInGroup'] == true;
 
-      // Get the main assessment data
       final mainAssessmentDoc =
           await _firestore
               .collection('assessments')
@@ -132,7 +122,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
 
       final mainAssessmentData = mainAssessmentDoc.data() ?? {};
 
-      // Combine both data sources
       Map<String, dynamic> assessmentData = {
         'id': widget.assessmentId,
         'title':
@@ -148,13 +137,10 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
         'madeByAI': mainAssessmentData['madeByAI'] ?? false,
       };
 
-      // If assessment was shared in a group, get the group-specific conditions
       Map<String, dynamic>? groupShareData;
 
       if (wasSharedInGroup) {
-        // If groupName is provided, try to find that specific group
         if (widget.groupName != null) {
-          // Get user's groups to find the ID for the provided group name
           final userGroupsSnapshot =
               await _firestore
                   .collection('users')
@@ -172,7 +158,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
           }
 
           if (targetGroupId != null) {
-            // Get the group-specific sharing conditions
             final groupShareDoc =
                 await _firestore
                     .collection('assessments')
@@ -189,8 +174,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
           }
         }
 
-        // If we didn't find a specific group (or none was provided),
-        // get the first group the assessment was shared with
         if (groupShareData == null) {
           final groupSharesSnapshot =
               await _firestore
@@ -205,7 +188,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
             groupShareData = groupShareDoc.data();
             groupShareData['groupId'] = groupShareDoc.id;
 
-            // Get the group name
             final groupDoc =
                 await _firestore
                     .collection('groups')
@@ -222,17 +204,14 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
         }
       }
 
-      // Start the animation
       _animationController.forward();
 
-      // Update the state
       setState(() {
         _assessmentData = assessmentData;
         _groupShareData = groupShareData;
         _wasSharedInGroup = wasSharedInGroup;
         _isConditionsEditable = !wasSharedInGroup;
 
-        // Set timer settings from group share data if available
         if (groupShareData != null) {
           _hasTimer = groupShareData['hasTimer'] ?? false;
           _timerDuration = groupShareData['timerDuration'] ?? 60;
@@ -254,14 +233,12 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     }
   }
 
-  // Start the assessment
   void _startAssessment() {
     Map<String, dynamic> conditions = {
       'hasTimer': _hasTimer,
       'timerDuration': _timerDuration,
     };
 
-    // If this was shared in a group, add group data
     if (_wasSharedInGroup && _groupShareData != null) {
       conditions['groupId'] = _groupShareData!['groupId'];
       conditions['groupName'] = _groupShareData!['groupName'];
@@ -314,7 +291,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
 
   @override
   Widget build(BuildContext context) {
-    // Main gradient colors for the app
     final LinearGradient primaryGradient = const LinearGradient(
       colors: [Color(0xFF7F51E6), Color(0xFF5E72EB)],
       begin: Alignment.topLeft,
@@ -332,7 +308,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     );
   }
 
-  // Loading state with modern UI
   Widget _buildLoadingState(LinearGradient primaryGradient) {
     return Container(
       decoration: BoxDecoration(color: Colors.white),
@@ -407,7 +382,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     );
   }
 
-  // Error state with modern UI
   Widget _buildErrorState(LinearGradient primaryGradient) {
     return SafeArea(
       child: Container(
@@ -415,7 +389,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Back button
             GestureDetector(
               onTap: () => Navigator.pop(context),
               child: Container(
@@ -511,14 +484,11 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     );
   }
 
-  // Main content with modern UI design
   Widget _buildMainContent(LinearGradient primaryGradient) {
-    // Define some theme colors based on assessment data
     final String difficulty = _assessmentData?['difficulty'] ?? 'Medium';
-    _getDifficultyColor(difficulty); // Used for consistency in theme
+    _getDifficultyColor(difficulty);
     final bool isAiGenerated = _assessmentData?['madeByAI'] ?? false;
 
-    // Check if assessment is locked (start time in future)
     bool isLocked = false;
     String? lockReason;
 
@@ -538,7 +508,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
         color: Colors.white,
         child: Column(
           children: [
-            // Header section with gradient background
             Container(
               decoration: BoxDecoration(
                 gradient: primaryGradient,
@@ -558,7 +527,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Back button and title
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -585,13 +553,12 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(width: 42), // For balance
+                      SizedBox(width: 42),
                     ],
                   ),
 
                   const SizedBox(height: 25),
 
-                  // Assessment title and badge
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -603,7 +570,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Title
                                 Text(
                                   _assessmentData?['title'] ??
                                       'Untitled Assessment',
@@ -615,7 +581,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                // Description
                                 Text(
                                   _assessmentData?['description'] ??
                                       'No description available',
@@ -669,14 +634,12 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
 
                   const SizedBox(height: 20),
 
-                  // Stats and badges
                   FadeTransition(
                     opacity: _fadeAnimation,
                     child: SlideTransition(
                       position: _slideAnimation,
                       child: Row(
                         children: [
-                          // Difficulty badge
                           _buildInfoBadge(
                             _getDifficultyEmoji(difficulty),
                             difficulty,
@@ -685,7 +648,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
                           ),
                           const SizedBox(width: 12),
 
-                          // Points badge
                           _buildInfoBadge(
                             '🏆',
                             '${_assessmentData?['totalPoints'] ?? 0} Points',
@@ -711,7 +673,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
               ),
             ),
 
-            // Main content area with scroll
             Expanded(
               child: SingleChildScrollView(
                 physics: BouncingScrollPhysics(),
@@ -720,11 +681,9 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Shared in group notice
                       if (_wasSharedInGroup && _groupShareData != null)
                         _buildGroupNotice(primaryGradient),
 
-                      // Motivation card
                       FadeTransition(
                         opacity: _fadeAnimation,
                         child: SlideTransition(
@@ -735,7 +694,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
 
                       const SizedBox(height: 24),
 
-                      // Section title
                       FadeTransition(
                         opacity: _fadeAnimation,
                         child: SlideTransition(
@@ -753,7 +711,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
 
                       const SizedBox(height: 16),
 
-                      // Timer Settings Card
                       FadeTransition(
                         opacity: _fadeAnimation,
                         child: SlideTransition(
@@ -762,7 +719,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
                         ),
                       ),
 
-                      // Time constraints for group assessments
                       if (_wasSharedInGroup &&
                           _groupShareData != null &&
                           (_groupShareData!['startTime'] != null ||
@@ -780,7 +736,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
 
                       const SizedBox(height: 40),
 
-                      // Lock warning (if applicable)
                       if (isLocked && lockReason != null)
                         FadeTransition(
                           opacity: _fadeAnimation,
@@ -792,7 +747,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
               ),
             ),
 
-            // Start button
             FadeTransition(
               opacity: _fadeAnimation,
               child: Container(
@@ -854,7 +808,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     );
   }
 
-  // Group notification panel
   Widget _buildGroupNotice(LinearGradient primaryGradient) {
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -927,7 +880,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     );
   }
 
-  // Motivation card to replace the "good luck" message
   Widget _buildMotivationCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1017,7 +969,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     );
   }
 
-  // Timer settings card
   Widget _buildTimerSettings(LinearGradient primaryGradient) {
     final Color timerColor = _hasTimer ? Color(0xFF4CAF50) : Colors.grey[400]!;
 
@@ -1082,7 +1033,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
                 ],
               ),
 
-              // Toggle switch
               _isConditionsEditable
                   ? Switch(
                     value: _hasTimer,
@@ -1118,7 +1068,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
           if (_hasTimer) ...[
             const SizedBox(height: 24),
 
-            // Timer duration display
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -1153,7 +1102,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
 
             const SizedBox(height: 20),
 
-            // Slider (if editable)
             if (_isConditionsEditable) ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1185,7 +1133,7 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
                 ),
                 child: Slider(
                   min: 10,
-                  max: 360, // 6 hours
+                  max: 360,
                   divisions: 35,
                   value: _timerDuration.toDouble(),
                   onChanged: (value) {
@@ -1196,7 +1144,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
                 ),
               ),
             ] else ...[
-              // Read-only progress bar
               Container(
                 height: 10,
                 width: double.infinity,
@@ -1206,7 +1153,7 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
                 ),
                 child: FractionallySizedBox(
                   alignment: Alignment.centerLeft,
-                  widthFactor: _timerDuration / 360, // 6 hours maximum
+                  widthFactor: _timerDuration / 360,
                   child: Container(
                     decoration: BoxDecoration(
                       color: timerColor,
@@ -1219,7 +1166,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
 
             const SizedBox(height: 20),
 
-            // Information message about timer
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -1248,7 +1194,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     );
   }
 
-  // Time constraints for group assessments
   Widget _buildTimeConstraints(LinearGradient primaryGradient) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1296,14 +1241,12 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
 
           const SizedBox(height: 20),
 
-          // Availability period with timeline visualization
           if (_groupShareData!['startTime'] != null ||
               _groupShareData!['endTime'] != null) ...[
             SizedBox(
               height: 80,
               child: Row(
                 children: [
-                  // Start time indicator
                   if (_groupShareData!['startTime'] != null)
                     Expanded(
                       child: _buildTimelinePoint(
@@ -1316,7 +1259,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
                       ),
                     ),
 
-                  // Line connector
                   if (_groupShareData!['startTime'] != null &&
                       _groupShareData!['endTime'] != null)
                     Expanded(
@@ -1327,7 +1269,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
                       ),
                     ),
 
-                  // End time indicator
                   if (_groupShareData!['endTime'] != null)
                     Expanded(
                       child: _buildTimelinePoint(
@@ -1345,7 +1286,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
 
             const SizedBox(height: 16),
 
-            // Information message
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -1372,7 +1312,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     );
   }
 
-  // Timeline point for schedule visualization
   Widget _buildTimelinePoint(
     String label,
     String timeText,
@@ -1415,7 +1354,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     );
   }
 
-  // Lock warning for assessments that aren't yet available
   Widget _buildLockWarning(String message, LinearGradient primaryGradient) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -1461,7 +1399,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     );
   }
 
-  // Helper badge widget
   Widget _buildInfoBadge(
     String emoji,
     String label,
@@ -1492,7 +1429,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     );
   }
 
-  // Format duration into readable string
   String _formatDuration(int minutes) {
     if (minutes < 60) {
       return '$minutes minutes';
@@ -1507,7 +1443,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
     }
   }
 
-  // Format timestamp into readable date/time
   String _formatTimestamp(dynamic timestamp) {
     if (timestamp == null) return '';
 
@@ -1518,7 +1453,6 @@ class AssessmentConditionsPageState extends State<AssessmentConditionsPage>
       return '';
     }
 
-    // Format the date and time
     final day = dateTime.day.toString().padLeft(2, '0');
     final monthNames = [
       'Jan',

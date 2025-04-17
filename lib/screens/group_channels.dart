@@ -28,7 +28,6 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
 
-  // Animation controller for channel selection
   late AnimationController _filterAnimationController;
   late Animation<double> _filterAnimation;
 
@@ -36,7 +35,6 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
   void initState() {
     super.initState();
 
-    // Initialize animation controller
     _filterAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -70,7 +68,7 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF36393f), // Discord dark theme
+      backgroundColor: const Color(0xFF36393f),
       body: Column(
         children: [
           _buildSearchAndFilterBar(),
@@ -102,7 +100,6 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
       ),
       child: Column(
         children: [
-          // Search bar
           TextField(
             controller: _searchController,
             style: const TextStyle(color: Colors.white),
@@ -139,7 +136,6 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
           ),
           const SizedBox(height: 12),
 
-          // Channel type filter chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -258,7 +254,6 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
           );
         }
 
-        // Filter by search query if needed
         final query = _searchController.text.toLowerCase();
         final filteredDocs =
             _isSearching
@@ -287,7 +282,6 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
             final doc = filteredDocs[index];
             final channel = GroupChannel.fromFirestore(doc);
 
-            // Use a staggered animation effect
             return AnimatedOpacity(
               duration: Duration(milliseconds: 300 + (index * 50)),
               opacity: 1.0,
@@ -347,7 +341,6 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Channel header
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -392,7 +385,6 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
                     ],
                   ),
                 ),
-                // Channel description and details
                 if (channel.description.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -406,7 +398,6 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                // Channel metadata
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -467,7 +458,6 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
                     ],
                   ),
                 ),
-                // Channel specific indicators
                 if (channel.type == 'assessment')
                   _buildAssessmentChannelIndicator(channel),
                 if (channel.type == 'resource')
@@ -571,7 +561,7 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
       case 'resource':
         return Colors.green;
       case 'all':
-        return const Color(0xFF7289da); // Discord blurple
+        return const Color(0xFF7289da);
       default:
         return Colors.grey;
     }
@@ -640,7 +630,6 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
         return;
     }
 
-    // Navigate with a nice transition
     Navigator.push(
       context,
       PageRouteBuilder(
@@ -679,7 +668,6 @@ class _GroupChannelsPageState extends State<GroupChannelsPage>
   }
 }
 
-// Extension to capitalize first letter
 extension StringExtension on String {
   String capitalize() {
     return "${this[0].toUpperCase()}${substring(1)}";

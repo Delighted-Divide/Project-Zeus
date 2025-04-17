@@ -6,7 +6,6 @@ import '../models/static_data.dart';
 import '../services/batch_manager.dart';
 import '../utils/logging_utils.dart';
 
-/// A class dedicated to generating assessment data
 class AssessmentGenerator {
   final FirebaseFirestore _firestore;
   final LoggingUtils _logger = LoggingUtils();
@@ -14,7 +13,6 @@ class AssessmentGenerator {
 
   AssessmentGenerator(this._firestore);
 
-  /// Generate assessments with efficient batching
   Future<List<String>> generateAssessments(
     List<String> userIds,
     List<String> tagIds,
@@ -27,7 +25,6 @@ class AssessmentGenerator {
     final assessmentData = StaticData.getAssessmentData();
     final questionTypes = StaticData.getQuestionTypes();
 
-    // Create assessments (up to NUM_ASSESSMENTS)
     final int numAssessments = min(
       StaticData.NUM_ASSESSMENTS,
       assessmentData.length,
@@ -56,10 +53,8 @@ class AssessmentGenerator {
         level: LogLevel.DEBUG,
       );
 
-      // Select a random creator
       final String creatorId = userIds[_random.nextInt(userIds.length)];
 
-      // Select random tags (2-4 tags per assessment)
       final List<String> assessmentTags = [];
       final int numTags = _random.nextInt(3) + 2;
 
@@ -67,31 +62,27 @@ class AssessmentGenerator {
       availableTags.shuffle(_random);
       assessmentTags.addAll(availableTags.take(numTags));
 
-      // Create the assessment document
       final assessmentRef = _firestore
           .collection('assessments')
           .doc(assessmentId);
 
-      // Determine total points based on questions that will be created
-      final int numberOfQuestions = _random.nextInt(5) + 3; // 3-7 questions
-      final int totalPoints =
-          numberOfQuestions * 5; // Each question worth up to 5 points
+      final int numberOfQuestions = _random.nextInt(5) + 3;
+      final int totalPoints = numberOfQuestions * 5;
 
       await batchManager.set(assessmentRef, {
         'title': assessmentTitle,
         'creatorId': creatorId,
-        'sourceDocumentId': 'doc_${_random.nextInt(1000)}', // Dummy document ID
+        'sourceDocumentId': 'doc_${_random.nextInt(1000)}',
         'createdAt': FieldValue.serverTimestamp(),
         'description': assessmentData[i]['description'],
         'difficulty': ['easy', 'medium', 'hard'][_random.nextInt(3)],
         'isPublic': _random.nextBool(),
         'totalPoints': totalPoints,
         'tags': assessmentTags,
-        'rating': _random.nextInt(5) + 1, // 1-5 rating
-        'madeByAI': _random.nextBool(), // Add AI-generated flag
+        'rating': _random.nextInt(5) + 1,
+        'madeByAI': _random.nextBool(),
       });
 
-      // Add assessment to creator's assessments subcollection
       final creatorRef = _firestore.collection('users').doc(creatorId);
       final creatorAssessmentRef = creatorRef
           .collection('assessments')
@@ -109,24 +100,21 @@ class AssessmentGenerator {
         'wasSharedInGroup': false,
       });
 
-      // Create questions and answers
       for (int qIdx = 0; qIdx < numberOfQuestions; qIdx++) {
         final String questionId =
             'question_${assessmentId}_${qIdx}_${_random.nextInt(1000)}';
         final String questionType =
             questionTypes[_random.nextInt(questionTypes.length)];
 
-        // Create question document
         final questionRef = assessmentRef
             .collection('questions')
             .doc(questionId);
         final Map<String, dynamic> questionData = {
           'questionType': questionType,
           'questionText': 'Sample question ${qIdx + 1} for ${assessmentTitle}',
-          'points': _random.nextInt(5) + 1, // 1-5 points
+          'points': _random.nextInt(5) + 1,
         };
 
-        // Add options for multiple-choice questions
         if (questionType == 'multiple-choice') {
           questionData['options'] = [
             'Option A',
@@ -138,7 +126,6 @@ class AssessmentGenerator {
 
         await batchManager.set(questionRef, questionData);
 
-        // Create corresponding answer
         final answerRef = assessmentRef
             .collection('answers')
             .doc('answer_for_$questionId');
@@ -149,7 +136,6 @@ class AssessmentGenerator {
               'Explanation for the correct answer to question ${qIdx + 1}',
         };
 
-        // Set answer text based on question type
         if (questionType == 'multiple-choice') {
           answerData['answerText'] =
               ['Option A', 'Option B', 'Option C', 'Option D'][_random.nextInt(
@@ -173,7 +159,6 @@ class AssessmentGenerator {
     return assessmentIds;
   }
 
-  /// Share assessments with users and groups - with proper channel linking and flag preservation
   Future<void> shareAssessments(
     List<String> userIds,
     List<String> groupIds,
@@ -189,7 +174,6 @@ class AssessmentGenerator {
     int assessmentsSharedWithGroups = 0;
     int assessmentChannelsLinked = 0;
 
-    // Cache assessment data to reduce reads
     final Map<String, Map<String, dynamic>> assessmentData = {};
     final List<Future<void>> assessmentDataFutures = [];
 
@@ -211,7 +195,6 @@ class AssessmentGenerator {
       level: LogLevel.INFO,
     );
 
-    // Pre-cache friend relationships
     Map<String, List<String>> userFriends = {};
     final List<Future<void>> friendFutures = [];
 
@@ -234,15 +217,12 @@ class AssessmentGenerator {
       level: LogLevel.INFO,
     );
 
-    // Cache group data, mentors, and channels
     final Map<String, Map<String, dynamic>> groupDataCache = {};
-    final Map<String, String> groupMentors = {}; // groupId -> mentorId
-    final Map<String, String> groupMentorNames = {}; // groupId -> mentorName
-    final Map<String, String> groupChannels =
-        {}; // groupId -> assessmentChannelId
+    final Map<String, String> groupMentors = {};
+    final Map<String, String> groupMentorNames = {};
+    final Map<String, String> groupChannels = {};
     final List<Future<void>> groupDataFutures = [];
 
-    // First load all group data
     for (String groupId in groupIds) {
       groupDataFutures.add(
         _firestore.collection('groups').doc(groupId).get().then((snapshot) {
@@ -258,10 +238,8 @@ class AssessmentGenerator {
       level: LogLevel.INFO,
     );
 
-    // Then find mentors and assessment channels in parallel
     final List<Future<void>> groupDetailsFutures = [];
     for (String groupId in groupDataCache.keys) {
-      // Find mentors
       groupDetailsFutures.add(
         _firestore
             .collection('groups')
@@ -289,7 +267,6 @@ class AssessmentGenerator {
             }),
       );
 
-      // Find assessment channels
       groupDetailsFutures.add(
         _firestore
             .collection('groups')
@@ -321,7 +298,6 @@ class AssessmentGenerator {
       level: LogLevel.INFO,
     );
 
-    // Process each assessment efficiently
     for (String assessmentId in assessmentIds) {
       if (!assessmentData.containsKey(assessmentId)) {
         _logger.log(
@@ -350,11 +326,9 @@ class AssessmentGenerator {
         level: LogLevel.INFO,
       );
 
-      // Get current sharing status to avoid duplications
       final Map<String, Map<String, String>> existingSharedUsers = {};
       final Set<String> existingSharedGroups = {};
 
-      // Load existing sharedWithUsers data
       final sharedUsersSnapshot =
           await _firestore
               .collection('assessments')
@@ -369,7 +343,6 @@ class AssessmentGenerator {
             data['userMap'],
           );
         } else {
-          // Handle case where userMap doesn't exist or isn't a map
           existingSharedUsers[doc.id] = {};
         }
         _logger.log(
@@ -378,7 +351,6 @@ class AssessmentGenerator {
         );
       }
 
-      // Load existing sharedWithGroups data
       final sharedGroupsSnapshot =
           await _firestore
               .collection('assessments')
@@ -394,7 +366,6 @@ class AssessmentGenerator {
         );
       }
 
-      // Share with friends efficiently
       assessmentsSharedWithUsers += await _shareWithFriends(
         assessmentId,
         creatorId,
@@ -407,7 +378,6 @@ class AssessmentGenerator {
         batchManager,
       );
 
-      // Share with groups efficiently
       final results = await _shareWithGroups(
         assessmentId,
         creatorId,
@@ -428,7 +398,6 @@ class AssessmentGenerator {
       assessmentsSharedWithGroups += results['groups'] as int;
       assessmentChannelsLinked += results['channels'] as int;
 
-      // Commit batch periodically to avoid getting too large
       if (batchManager.operationCount > 200) {
         _logger.log(
           "Committing batch during assessment sharing to avoid size limits",
@@ -448,7 +417,6 @@ class AssessmentGenerator {
     );
   }
 
-  /// Share assessment with friends of the creator
   Future<int> _shareWithFriends(
     String assessmentId,
     String creatorId,
@@ -473,7 +441,6 @@ class AssessmentGenerator {
       final List<String> selectedFriends =
           creatorFriends.take(numFriendsToShare).toList();
 
-      // Get creator's name
       final String creatorName =
           userData[creatorId]?['displayName'] ?? 'Assessment Creator';
 
@@ -483,16 +450,13 @@ class AssessmentGenerator {
           level: LogLevel.DEBUG,
         );
 
-        // Create or update entry in sharedWithUsers collection
         final sharedUserRef = _firestore
             .collection('assessments')
             .doc(assessmentId)
             .collection('sharedWithUsers')
             .doc(friendId);
 
-        // Check if this user is already in the shared collection
         if (existingSharedUsers.containsKey(friendId)) {
-          // Update the userMap by adding creator (don't replace existing)
           Map<String, String> updatedUserMap = Map<String, String>.from(
             existingSharedUsers[friendId]!,
           );
@@ -508,7 +472,6 @@ class AssessmentGenerator {
             level: LogLevel.DEBUG,
           );
         } else {
-          // Create new entry
           await batchManager.set(sharedUserRef, {
             'userMap': {creatorId: creatorName},
             'sharedAt': FieldValue.serverTimestamp(),
@@ -520,7 +483,6 @@ class AssessmentGenerator {
           );
         }
 
-        // Get the user's current assessment data (if exists)
         final friendRef = _firestore.collection('users').doc(friendId);
         final friendAssessmentRef = friendRef
             .collection('assessments')
@@ -528,18 +490,15 @@ class AssessmentGenerator {
         final friendAssessmentDoc = await friendAssessmentRef.get();
 
         if (friendAssessmentDoc.exists) {
-          // CRITICAL FIX: Preserve both flag values
           final bool existingWasSharedWithUser =
               friendAssessmentDoc.data()?['wasSharedWithUser'] ?? false;
           final bool existingWasSharedInGroup =
               friendAssessmentDoc.data()?['wasSharedInGroup'] ?? false;
 
-          // Update with wasSharedWithUser=true but preserve wasSharedInGroup
           final Map<String, dynamic> updatedData = Map<String, dynamic>.from(
             friendAssessmentDoc.data() ?? {},
           );
 
-          // Update the basic fields
           updatedData['title'] = assessmentTitle;
           updatedData['createdAt'] = FieldValue.serverTimestamp();
           updatedData['description'] =
@@ -553,11 +512,8 @@ class AssessmentGenerator {
           updatedData['madeByAI'] =
               assessmentData[assessmentId]?['madeByAI'] ?? false;
 
-          // Set both flags - always keep existing true values
-          updatedData['wasSharedWithUser'] =
-              true; // Set to true since we're sharing directly
-          updatedData['wasSharedInGroup'] =
-              existingWasSharedInGroup; // Preserve whatever it was
+          updatedData['wasSharedWithUser'] = true;
+          updatedData['wasSharedInGroup'] = existingWasSharedInGroup;
 
           await batchManager.set(friendAssessmentRef, updatedData);
 
@@ -566,7 +522,6 @@ class AssessmentGenerator {
             level: LogLevel.DEBUG,
           );
         } else {
-          // Create new document
           await batchManager.set(friendAssessmentRef, {
             'title': assessmentTitle,
             'createdAt': FieldValue.serverTimestamp(),
@@ -595,7 +550,6 @@ class AssessmentGenerator {
     return sharedWithUsersCount;
   }
 
-  /// Share assessment with groups
   Future<Map<String, int>> _shareWithGroups(
     String assessmentId,
     String creatorId,
@@ -625,7 +579,6 @@ class AssessmentGenerator {
     );
 
     if (groupIds.isNotEmpty) {
-      // Filter to groups with mentors and assessment channels
       final List<String> eligibleGroups =
           groupIds
               .where(
@@ -659,7 +612,6 @@ class AssessmentGenerator {
         final String groupName =
             groupDataCache[groupId]?['name'] ?? 'Group $groupId';
 
-        // Check if already shared with this group
         if (existingSharedGroups.contains(groupId)) {
           _logger.log(
             "Assessment $assessmentId already shared with group $groupId, skipping",
@@ -668,7 +620,6 @@ class AssessmentGenerator {
           continue;
         }
 
-        // Add to sharedWithGroups collection
         final sharedGroupRef = assessmentRef
             .collection('sharedWithGroups')
             .doc(groupId);
@@ -682,8 +633,8 @@ class AssessmentGenerator {
             DateTime.now().add(const Duration(days: 14)),
           ),
           'hasTimer': _random.nextBool(),
-          'timerDuration': 30, // 30 minutes
-          'attemptsAllowed': _random.nextInt(3) + 1, // 1-3 attempts
+          'timerDuration': 30,
+          'attemptsAllowed': _random.nextInt(3) + 1,
         });
 
         _logger.log(
@@ -691,7 +642,6 @@ class AssessmentGenerator {
           level: LogLevel.DEBUG,
         );
 
-        // CRITICAL FIX: Ensure the assessment is linked to the channel
         final channelRef = _firestore
             .collection('groups')
             .doc(groupId)
@@ -702,7 +652,6 @@ class AssessmentGenerator {
             .collection('assessments')
             .doc(assessmentId);
 
-        // Check if assessment already exists in channel
         final channelAssessmentDoc = await channelAssessmentRef.get();
         if (!channelAssessmentDoc.exists) {
           await batchManager.set(channelAssessmentRef, {
@@ -731,7 +680,6 @@ class AssessmentGenerator {
           );
         }
 
-        // Get all members of this group
         final membersSnapshot =
             await _firestore
                 .collection('groups')
@@ -744,11 +692,9 @@ class AssessmentGenerator {
           level: LogLevel.DEBUG,
         );
 
-        // Process members in batch
         for (final memberDoc in membersSnapshot.docs) {
           final String memberId = memberDoc.id;
 
-          // Skip creator
           if (memberId == creatorId) {
             _logger.log(
               "Skipping creator $creatorId as member",
@@ -757,14 +703,11 @@ class AssessmentGenerator {
             continue;
           }
 
-          // Add/update shared users collection for this member
           final sharedUserRef = assessmentRef
               .collection('sharedWithUsers')
               .doc(memberId);
 
-          // Check if user already has this assessment shared
           if (existingSharedUsers.containsKey(memberId)) {
-            // Add mentor to existing userMap
             Map<String, String> updatedUserMap = Map<String, String>.from(
               existingSharedUsers[memberId]!,
             );
@@ -780,7 +723,6 @@ class AssessmentGenerator {
               level: LogLevel.DEBUG,
             );
           } else {
-            // Create new entry
             await batchManager.set(sharedUserRef, {
               'userMap': {mentorId: mentorName},
               'sharedAt': FieldValue.serverTimestamp(),
@@ -792,7 +734,6 @@ class AssessmentGenerator {
             );
           }
 
-          // CRITICAL FIX: Get member's existing assessment document (if any)
           final memberRef = _firestore.collection('users').doc(memberId);
           final memberAssessmentRef = memberRef
               .collection('assessments')
@@ -800,18 +741,15 @@ class AssessmentGenerator {
           final memberAssessmentDoc = await memberAssessmentRef.get();
 
           if (memberAssessmentDoc.exists) {
-            // CRITICAL FIX: Preserve both flag values properly
             final bool existingWasSharedWithUser =
                 memberAssessmentDoc.data()?['wasSharedWithUser'] ?? false;
             final bool existingWasSharedInGroup =
                 memberAssessmentDoc.data()?['wasSharedInGroup'] ?? false;
 
-            // Create updated document with preserved flags
             final Map<String, dynamic> updatedData = Map<String, dynamic>.from(
               memberAssessmentDoc.data() ?? {},
             );
 
-            // Update basic fields
             updatedData['title'] = assessmentTitle;
             updatedData['description'] =
                 assessmentData[assessmentId]?['description'] ?? '';
@@ -825,11 +763,8 @@ class AssessmentGenerator {
             updatedData['madeByAI'] =
                 assessmentData[assessmentId]?['madeByAI'] ?? false;
 
-            // Set both flags - always preserve existing true values
-            updatedData['wasSharedWithUser'] =
-                existingWasSharedWithUser; // Preserve whatever it was
-            updatedData['wasSharedInGroup'] =
-                true; // Set to true since we're sharing via group
+            updatedData['wasSharedWithUser'] = existingWasSharedWithUser;
+            updatedData['wasSharedInGroup'] = true;
 
             await batchManager.set(memberAssessmentRef, updatedData);
 
@@ -838,7 +773,6 @@ class AssessmentGenerator {
               level: LogLevel.DEBUG,
             );
           } else {
-            // Create new document with wasSharedInGroup=true
             await batchManager.set(memberAssessmentRef, {
               'title': assessmentTitle,
               'createdAt': FieldValue.serverTimestamp(),

@@ -6,7 +6,6 @@ import '../models/static_data.dart';
 import '../services/batch_manager.dart';
 import '../utils/logging_utils.dart';
 
-/// A class dedicated to generating submission data
 class SubmissionGenerator {
   final FirebaseFirestore _firestore;
   final LoggingUtils _logger = LoggingUtils();
@@ -14,7 +13,6 @@ class SubmissionGenerator {
 
   SubmissionGenerator(this._firestore);
 
-  /// Generate submissions for shared assessments efficiently - FIXED MIRRORING
   Future<void> generateSubmissions(
     List<String> userIds,
     List<String> groupIds,
@@ -31,7 +29,6 @@ class SubmissionGenerator {
     int groupSubmissionsMirrored = 0;
     int mirroringErrors = 0;
 
-    // Prefetch all group channels to speed up mirroring
     final Map<String, Map<String, String>> groupChannelsCache = {};
 
     for (String groupId in groupIds) {
@@ -71,14 +68,12 @@ class SubmissionGenerator {
       level: LogLevel.INFO,
     );
 
-    // For each user, generate submissions for their assessments
     for (String userId in userIds) {
       _logger.log(
         "Processing submissions for user $userId",
         level: LogLevel.DEBUG,
       );
 
-      // Get all assessments shared with this user
       final userAssessmentsSnapshot =
           await _firestore
               .collection('users')
@@ -94,7 +89,6 @@ class SubmissionGenerator {
         continue;
       }
 
-      // Process assessments that were shared with this user
       for (final assessmentDoc in userAssessmentsSnapshot.docs) {
         final String assessmentId = assessmentDoc.id;
         final bool wasSharedInGroup =
@@ -102,7 +96,6 @@ class SubmissionGenerator {
         final bool wasSharedWithUser =
             assessmentDoc.data()['wasSharedWithUser'] ?? false;
 
-        // Skip if neither sharing flag is true
         if (!wasSharedWithUser && !wasSharedInGroup) {
           _logger.log(
             "Assessment $assessmentId was not shared (no flags set), skipping submission",
@@ -116,7 +109,6 @@ class SubmissionGenerator {
           level: LogLevel.DEBUG,
         );
 
-        // Get assessment details and questions
         final assessmentRef = _firestore
             .collection('assessments')
             .doc(assessmentId);
@@ -140,7 +132,6 @@ class SubmissionGenerator {
           level: LogLevel.DEBUG,
         );
 
-        // Create 1-3 submissions for this assessment
         final int numberOfSubmissions = _random.nextInt(3) + 1;
         _logger.log(
           "Creating $numberOfSubmissions submissions for user $userId on assessment $assessmentId",
@@ -151,7 +142,6 @@ class SubmissionGenerator {
           final String submissionId =
               'submission_${userId}_${assessmentId}_${i}_${_random.nextInt(10000)}';
 
-          // Create the submission data and get updated stats
           final submissionResult = await _createSubmission(
             userId,
             assessmentId,
@@ -164,7 +154,6 @@ class SubmissionGenerator {
           submissionsCreated++;
           answersCreated += submissionResult['answers'] as int;
 
-          // Mirror to group channels if necessary
           if (wasSharedInGroup) {
             final mirrorResult = await _mirrorSubmissionToGroups(
               assessmentId,
@@ -196,7 +185,6 @@ class SubmissionGenerator {
         }
       }
 
-      // Commit batch periodically to avoid getting too large
       if (batchManager.operationCount > 200) {
         _logger.log(
           "Committing batch during submission generation to avoid size limits",
@@ -223,7 +211,6 @@ class SubmissionGenerator {
     );
   }
 
-  /// Extract question data from snapshot
   List<Map<String, dynamic>> _extractQuestionData(
     QuerySnapshot questionsSnapshot,
   ) {
@@ -243,7 +230,6 @@ class SubmissionGenerator {
     return questions;
   }
 
-  /// Create a submission with its answers
   Future<Map<String, dynamic>> _createSubmission(
     String userId,
     String assessmentId,
@@ -262,7 +248,6 @@ class SubmissionGenerator {
         .collection('submissions')
         .doc(submissionId);
 
-    // Determine submission status
     final String status =
         ['in-progress', 'submitted', 'evaluated'][_random.nextInt(3)];
     int totalScore = 0;
@@ -274,7 +259,7 @@ class SubmissionGenerator {
       'submittedAt':
           status == 'in-progress' ? null : FieldValue.serverTimestamp(),
       'status': status,
-      'totalScore': 0, // Will update for evaluated submissions
+      'totalScore': 0,
       'overallFeedback':
           status == 'evaluated' ? 'Overall feedback for this submission' : null,
     };
@@ -285,19 +270,15 @@ class SubmissionGenerator {
       level: LogLevel.DEBUG,
     );
 
-    // Create answers based on submission status
     int questionsToAnswer = questions.length;
     if (status == 'in-progress') {
-      // For in-progress, only answer some questions
-      questionsToAnswer =
-          _random.nextInt(questions.length) + 1; // At least 1 question
+      questionsToAnswer = _random.nextInt(questions.length) + 1;
       _logger.log(
         "In-progress submission will answer $questionsToAnswer of ${questions.length} questions",
         level: LogLevel.DEBUG,
       );
     }
 
-    // Array to collect all answer data for easier mirroring
     final List<Map<String, dynamic>> answersData = [];
     final int answersCreated = await _createAnswers(
       submissionRef,
@@ -309,10 +290,8 @@ class SubmissionGenerator {
       batchManager,
     );
 
-    // Update total score for evaluated submissions
     if (status == 'evaluated') {
       await batchManager.update(submissionRef, {'totalScore': totalScore});
-      // Also update the submission data for mirroring
       submissionData['totalScore'] = totalScore;
       _logger.log(
         "Updated total score to $totalScore for submission $submissionId",
@@ -320,7 +299,6 @@ class SubmissionGenerator {
       );
     }
 
-    // Get creator ID
     final assessmentDoc =
         await _firestore.collection('assessments').doc(assessmentId).get();
     final String creatorId = assessmentDoc.data()?['creatorId'] ?? '';
@@ -333,7 +311,6 @@ class SubmissionGenerator {
     };
   }
 
-  /// Create answers for a submission
   Future<int> _createAnswers(
     DocumentReference submissionRef,
     String submissionId,
@@ -353,12 +330,10 @@ class SubmissionGenerator {
       final int maxPoints = question['points'];
       final List<dynamic>? options = question['options'];
 
-      // Create answer document with a unique ID
       final String answerId =
           'answer_${submissionId}_${questionId}_${_random.nextInt(10000)}';
       final answerRef = submissionRef.collection('answers').doc(answerId);
 
-      // Generate user answer based on question type
       String userAnswer;
       if (questionType == 'multiple-choice' &&
           options != null &&
@@ -376,7 +351,6 @@ class SubmissionGenerator {
         'answeredAt': FieldValue.serverTimestamp(),
       };
 
-      // Add evaluation data for evaluated submissions
       if (status == 'evaluated') {
         final int score = _random.nextInt(maxPoints + 1);
         totalScore += score;
@@ -390,7 +364,6 @@ class SubmissionGenerator {
         );
       }
 
-      // Store the answer ID for mirroring
       answersData.add({'id': answerId, 'data': answerData});
 
       await batchManager.set(answerRef, answerData);
@@ -400,7 +373,6 @@ class SubmissionGenerator {
     return answersCreated;
   }
 
-  /// Mirror submission to group channels
   Future<int> _mirrorSubmissionToGroups(
     String assessmentId,
     DocumentReference assessmentRef,
@@ -418,7 +390,6 @@ class SubmissionGenerator {
       level: LogLevel.DEBUG,
     );
 
-    // Find which group this assessment was shared in
     final sharedGroupsSnapshot =
         await assessmentRef.collection('sharedWithGroups').get();
 
@@ -439,7 +410,6 @@ class SubmissionGenerator {
         level: LogLevel.DEBUG,
       );
 
-      // Find if user is a member of this group
       final membershipSnapshot =
           await _firestore
               .collection('groups')
@@ -456,18 +426,15 @@ class SubmissionGenerator {
         continue;
       }
 
-      // Use cached channel if available, otherwise query
       String? channelId;
       if (groupChannelsCache.containsKey(groupId) &&
           groupChannelsCache[groupId]!.isNotEmpty) {
-        // Get first cached assessment channel
         channelId = groupChannelsCache[groupId]!.keys.first;
         _logger.log(
           "Using cached assessment channel $channelId for group $groupId",
           level: LogLevel.DEBUG,
         );
       } else {
-        // Try to find channel through query
         final channelsSnapshot =
             await _firestore
                 .collection('groups')
@@ -492,7 +459,6 @@ class SubmissionGenerator {
         );
       }
 
-      // Ensure assessment exists in the channel before mirroring
       final success = await _ensureAssessmentInChannel(
         groupId,
         channelId,
@@ -505,7 +471,6 @@ class SubmissionGenerator {
 
       if (!success) continue;
 
-      // Now create the submission in the group channel
       final channelAssessmentRef = _firestore
           .collection('groups')
           .doc(groupId)
@@ -518,14 +483,12 @@ class SubmissionGenerator {
           .collection('submissions')
           .doc(submissionId);
 
-      // Copy submission data
       await batchManager.set(groupSubmissionRef, submissionData);
       _logger.log(
         "Mirrored submission $submissionId to group $groupId channel $channelId",
         level: LogLevel.DEBUG,
       );
 
-      // Copy all answers to the group submission
       int answersAddedToGroup = 0;
       for (final answerItem in answersData) {
         final groupAnswerRef = groupSubmissionRef
@@ -546,7 +509,6 @@ class SubmissionGenerator {
     return successfulMirrors;
   }
 
-  /// Ensure assessment exists in the channel
   Future<bool> _ensureAssessmentInChannel(
     String groupId,
     String channelId,
@@ -572,7 +534,6 @@ class SubmissionGenerator {
         level: LogLevel.ERROR,
       );
 
-      // Get assessment details to create it
       final assessmentDoc = await assessmentRef.get();
 
       if (!assessmentDoc.exists) {
@@ -583,8 +544,7 @@ class SubmissionGenerator {
         return false;
       }
 
-      // Find a mentor for this group to be the assigner
-      String assignerId = userId; // Default to current user if no mentor found
+      String assignerId = userId;
 
       final mentorsQuery =
           await _firestore
@@ -599,7 +559,6 @@ class SubmissionGenerator {
         assignerId = mentorsQuery.docs.first.id;
       }
 
-      // Create the assessment in the channel
       final assessmentData =
           assessmentDoc.data() as Map<String, dynamic>? ?? {};
       await batchManager.set(channelAssessmentRef, {

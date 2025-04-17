@@ -10,7 +10,7 @@ import 'assessment_conditions_page.dart';
 class QuizPage extends StatefulWidget {
   final String assessmentId;
   final String? groupName;
-  final int? timerDuration; // in minutes
+  final int? timerDuration;
 
   const QuizPage({
     Key? key,
@@ -28,14 +28,12 @@ class _QuizPageState extends State<QuizPage>
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final currentUser = FirebaseAuth.instance.currentUser;
 
-  // Assessment data
   String assessmentTitle = '';
   String assessmentDescription = '';
   int totalPoints = 0;
   List<Map<String, dynamic>> questions = [];
   Map<String, dynamic> userAnswers = {};
 
-  // Submission data
   String submissionId = '';
   bool isLoading = true;
   bool isSubmitting = false;
@@ -43,16 +41,13 @@ class _QuizPageState extends State<QuizPage>
   String assessmentStatus = 'in-progress';
   bool showQuestionListDrawer = false;
 
-  // Animation controller for transitions
   late AnimationController _animationController;
   late Animation<double> _animation;
 
-  // Timer variables
   Timer? _timer;
   int _remainingSeconds = 0;
   DateTime? startTime;
 
-  // Theme colors
   final Color _primaryColor = const Color(0xFF6C63FF);
   final Color _secondaryColor = const Color(0xFFFF5A8E);
   final Color _backgroundColor = const Color(0xFFF8F9FE);
@@ -66,7 +61,6 @@ class _QuizPageState extends State<QuizPage>
   void initState() {
     super.initState();
 
-    // Initialize animation controller
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -87,7 +81,6 @@ class _QuizPageState extends State<QuizPage>
     _animationController.dispose();
     _timer?.cancel();
 
-    // Save remaining time if user exits with timer active
     if (assessmentStatus == 'in-progress' && _remainingSeconds > 0) {
       _saveRemainingTime();
     }
@@ -96,7 +89,6 @@ class _QuizPageState extends State<QuizPage>
 
   Future<void> _initializeAssessment() async {
     try {
-      // Load assessment details
       final assessmentDoc =
           await _firestore
               .collection('assessments')
@@ -108,13 +100,11 @@ class _QuizPageState extends State<QuizPage>
         return;
       }
 
-      // Get assessment data
       final assessmentData = assessmentDoc.data()!;
       assessmentTitle = assessmentData['title'] ?? 'Quiz';
       assessmentDescription = assessmentData['description'] ?? '';
       totalPoints = assessmentData['totalPoints'] ?? 0;
 
-      // Load questions
       final questionsSnapshot =
           await _firestore
               .collection('assessments')
@@ -127,10 +117,8 @@ class _QuizPageState extends State<QuizPage>
               .map((doc) => {...doc.data(), 'id': doc.id})
               .toList();
 
-      // Create or load submission
       await _createOrLoadSubmission();
 
-      // Initialize timer if needed
       if (widget.timerDuration != null) {
         _initializeTimer();
       }
@@ -149,7 +137,6 @@ class _QuizPageState extends State<QuizPage>
       return;
     }
 
-    // Check if a submission already exists
     final existingSubmissions =
         await _firestore
             .collection('users')
@@ -162,11 +149,9 @@ class _QuizPageState extends State<QuizPage>
             .get();
 
     if (existingSubmissions.docs.isNotEmpty) {
-      // Load existing submission
       final existingSubmission = existingSubmissions.docs.first;
       submissionId = existingSubmission.id;
 
-      // Load answers
       final answersSnapshot =
           await existingSubmission.reference.collection('answers').get();
 
@@ -175,7 +160,6 @@ class _QuizPageState extends State<QuizPage>
         userAnswers[answerData['questionId']] = answerData['userAnswer'];
       }
 
-      // Restore timer if applicable
       if (widget.timerDuration != null) {
         final submissionData = existingSubmission.data();
         startTime = (submissionData['startedAt'] as Timestamp).toDate();
@@ -189,7 +173,6 @@ class _QuizPageState extends State<QuizPage>
         }
       }
     } else {
-      // Create new submission
       await _createNewSubmission();
     }
   }
@@ -197,7 +180,6 @@ class _QuizPageState extends State<QuizPage>
   Future<void> _createNewSubmission() async {
     startTime = DateTime.now();
 
-    // Create submission in user's collection
     final userSubmissionRef = await _firestore
         .collection('users')
         .doc(currentUser!.uid)
@@ -214,9 +196,7 @@ class _QuizPageState extends State<QuizPage>
 
     submissionId = userSubmissionRef.id;
 
-    // If for a group, create submission in group's collection as well
     if (widget.groupName != null) {
-      // Find the group by its name
       final groupSnapshot =
           await _firestore
               .collection('groups')
@@ -227,7 +207,6 @@ class _QuizPageState extends State<QuizPage>
       if (groupSnapshot.docs.isNotEmpty) {
         final groupId = groupSnapshot.docs.first.id;
 
-        // Check if assessment is shared with this group
         final sharedWithGroupDoc =
             await _firestore
                 .collection('assessments')
@@ -237,7 +216,6 @@ class _QuizPageState extends State<QuizPage>
                 .get();
 
         if (sharedWithGroupDoc.exists) {
-          // Create submission in group's assessments collection
           await _firestore
               .collection('groups')
               .doc(groupId)
@@ -256,14 +234,12 @@ class _QuizPageState extends State<QuizPage>
       }
     }
 
-    // Initialize timer if needed
     if (widget.timerDuration != null) {
       _remainingSeconds = widget.timerDuration! * 60;
     }
   }
 
   Future<void> _restartQuiz() async {
-    // Show confirmation dialog first
     final shouldRestart =
         await showDialog<bool>(
           context: context,
@@ -301,7 +277,6 @@ class _QuizPageState extends State<QuizPage>
 
     if (!shouldRestart) return;
 
-    // Navigate to assessment conditions page
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder:
@@ -343,7 +318,6 @@ class _QuizPageState extends State<QuizPage>
     if (submissionId.isEmpty) return;
 
     try {
-      // Update submission with remaining time info
       await _firestore
           .collection('users')
           .doc(currentUser!.uid)
@@ -356,7 +330,6 @@ class _QuizPageState extends State<QuizPage>
             'lastUpdatedAt': FieldValue.serverTimestamp(),
           });
 
-      // Update group submission if applicable
       if (widget.groupName != null) {
         final groupSnapshot =
             await _firestore
@@ -368,7 +341,6 @@ class _QuizPageState extends State<QuizPage>
         if (groupSnapshot.docs.isNotEmpty) {
           final groupId = groupSnapshot.docs.first.id;
 
-          // Check if assessment is shared with this group
           final sharedWithGroupDoc =
               await _firestore
                   .collection('assessments')
@@ -400,13 +372,11 @@ class _QuizPageState extends State<QuizPage>
   Future<void> _updateAnswer(String questionId, dynamic answer) async {
     if (submissionId.isEmpty || assessmentStatus != 'in-progress') return;
 
-    // Update local state
     setState(() {
       userAnswers[questionId] = answer;
     });
 
     try {
-      // Get reference to the answers subcollection
       final answersRef = _firestore
           .collection('users')
           .doc(currentUser!.uid)
@@ -416,7 +386,6 @@ class _QuizPageState extends State<QuizPage>
           .doc(submissionId)
           .collection('answers');
 
-      // Check if answer document already exists
       final existingAnswers =
           await answersRef
               .where('questionId', isEqualTo: questionId)
@@ -424,23 +393,20 @@ class _QuizPageState extends State<QuizPage>
               .get();
 
       if (existingAnswers.docs.isNotEmpty) {
-        // Update existing answer
         await answersRef.doc(existingAnswers.docs.first.id).update({
           'userAnswer': answer,
           'updatedAt': FieldValue.serverTimestamp(),
         });
       } else {
-        // Create new answer
         await answersRef.add({
           'questionId': questionId,
           'userAnswer': answer,
           'createdAt': FieldValue.serverTimestamp(),
-          'score': 0, // Will be updated after evaluation
+          'score': 0,
           'feedback': '',
         });
       }
 
-      // Update group submission answers if applicable
       if (widget.groupName != null) {
         final groupSnapshot =
             await _firestore
@@ -452,7 +418,6 @@ class _QuizPageState extends State<QuizPage>
         if (groupSnapshot.docs.isNotEmpty) {
           final groupId = groupSnapshot.docs.first.id;
 
-          // Check if assessment is shared with this group
           final sharedWithGroupDoc =
               await _firestore
                   .collection('assessments')
@@ -510,7 +475,6 @@ class _QuizPageState extends State<QuizPage>
     });
 
     try {
-      // Update submission status in user's collection
       await _firestore
           .collection('users')
           .doc(currentUser!.uid)
@@ -523,7 +487,6 @@ class _QuizPageState extends State<QuizPage>
             'submittedAt': FieldValue.serverTimestamp(),
           });
 
-      // Update group submission if applicable
       if (widget.groupName != null) {
         final groupSnapshot =
             await _firestore
@@ -535,7 +498,6 @@ class _QuizPageState extends State<QuizPage>
         if (groupSnapshot.docs.isNotEmpty) {
           final groupId = groupSnapshot.docs.first.id;
 
-          // Check if assessment is shared with this group
           final sharedWithGroupDoc =
               await _firestore
                   .collection('assessments')
@@ -560,10 +522,6 @@ class _QuizPageState extends State<QuizPage>
         }
       }
 
-      // TODO: Call evaluation function here
-      // await _evaluateSubmission();
-
-      // Show completion dialog
       if (mounted) {
         if (isTimerExpired) {
           _showTimerExpiredDialog();
@@ -628,7 +586,7 @@ class _QuizPageState extends State<QuizPage>
               ElevatedButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  Navigator.of(context).pop(); // Return to previous screen
+                  Navigator.of(context).pop();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryColor,
@@ -695,7 +653,7 @@ class _QuizPageState extends State<QuizPage>
               ElevatedButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  Navigator.of(context).pop(); // Return to previous screen
+                  Navigator.of(context).pop();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryColor,
@@ -734,7 +692,6 @@ class _QuizPageState extends State<QuizPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Question header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -787,8 +744,6 @@ class _QuizPageState extends State<QuizPage>
                 ],
               ),
             ),
-
-            // Question content
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -808,8 +763,6 @@ class _QuizPageState extends State<QuizPage>
                 ],
               ),
             ),
-
-            // Answer status indicator
             if (isAnswered)
               Container(
                 width: double.infinity,
@@ -1413,7 +1366,6 @@ class _QuizPageState extends State<QuizPage>
         centerTitle: true,
         iconTheme: IconThemeData(color: _textPrimary),
         actions: [
-          // Timer display
           if (widget.timerDuration != null)
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1467,7 +1419,6 @@ class _QuizPageState extends State<QuizPage>
                 ],
               ),
             ),
-          // Question list toggle
           IconButton(
             icon: Container(
               padding: const EdgeInsets.all(8),
@@ -1515,7 +1466,6 @@ class _QuizPageState extends State<QuizPage>
               )
               : Column(
                 children: [
-                  // Progress indicator
                   Container(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                     color: _cardColor,
@@ -1524,7 +1474,6 @@ class _QuizPageState extends State<QuizPage>
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            // Progress info
                             Row(
                               children: [
                                 Container(
@@ -1575,8 +1524,6 @@ class _QuizPageState extends State<QuizPage>
                                 ),
                               ],
                             ),
-
-                            // Answered count
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
@@ -1608,8 +1555,6 @@ class _QuizPageState extends State<QuizPage>
                           ],
                         ),
                         const SizedBox(height: 12),
-
-                        // Progress bar
                         Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(6),
@@ -1636,12 +1581,9 @@ class _QuizPageState extends State<QuizPage>
                       ],
                     ),
                   ),
-
-                  // Main content
                   Expanded(
                     child: Stack(
                       children: [
-                        // Question content
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 300),
                           child:
@@ -1695,8 +1637,6 @@ class _QuizPageState extends State<QuizPage>
                                     },
                                   ),
                         ),
-
-                        // Navigation
                         if (!showQuestionListDrawer &&
                             !isLoading &&
                             questions.isNotEmpty)
@@ -1766,10 +1706,7 @@ class _QuizPageState extends State<QuizPage>
                                       ),
                                     ),
                                   ),
-
                                   const SizedBox(height: 16),
-
-                                  // Question navigation
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
@@ -1782,12 +1719,10 @@ class _QuizPageState extends State<QuizPage>
                                           ),
                                           isLeft: true,
                                         ),
-
                                       if (currentQuestionIndex > 0 &&
                                           currentQuestionIndex <
                                               questions.length - 1)
                                         const SizedBox(width: 16),
-
                                       if (currentQuestionIndex <
                                           questions.length - 1)
                                         _buildNavButton(

@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:logger/logger.dart';
 import 'firebase_options.dart';
 import 'screens/auth_wrapper.dart';
 import 'screens/startup_page.dart';
 import 'package:firebase_database/firebase_database.dart';
 
+final logger = Logger();
+
 void main() async {
-  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // Initialize Firebase
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
@@ -23,15 +24,14 @@ void main() async {
       );
       final ref = db.ref("test");
       await ref.set({"test": true, "timestamp": DateTime.now().toString()});
-      print("Firebase database test write successful");
+      logger.i("Firebase database test write successful");
     } catch (e) {
-      print("Firebase database test failed: $e");
+      logger.e("Firebase database test failed", error: e);
     }
 
-    // Run the app
     runApp(const MyApp());
   } catch (e) {
-    // Run app without Firebase (will show startup page)
+    logger.e("Firebase initialization failed", error: e);
     runApp(const MyApp(firebaseInitialized: false));
   }
 }
@@ -40,7 +40,6 @@ class MyApp extends StatelessWidget {
   final bool firebaseInitialized;
   final bool directToDashboard;
 
-  // Constructor with optional parameters
   const MyApp({
     super.key,
     this.firebaseInitialized = true,
@@ -57,7 +56,6 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Poppins',
         useMaterial3: true,
       ),
-      // Use the appropriate home widget based on Firebase initialization status
       home:
           firebaseInitialized
               ? AuthWrapper(directToDashboard: directToDashboard)
@@ -65,6 +63,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-// You can enable direct-to-dashboard mode by running:
-// runApp(const MyApp(directToDashboard: true));

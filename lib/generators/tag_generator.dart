@@ -5,31 +5,26 @@ import '../services/batch_manager.dart';
 import '../utils/logging_utils.dart';
 import 'dart:math';
 
-/// A class that generates tag data for the education app
 class TagGenerator {
   final FirebaseFirestore _firestore;
   final LoggingUtils _logger = LoggingUtils();
 
   TagGenerator(this._firestore);
 
-  /// Generate tags with proper data structure
   Future<List<String>> generateTags(BatchManager batchManager) async {
     final List<String> tagIds = [];
     _logger.log("Starting tag generation", level: LogLevel.INFO);
 
-    // Get all tag data
     final List<Map<String, String>> subjectTags = StaticData.getSubjectTags();
     final List<Map<String, String>> topicTags = StaticData.getTopicTags();
     final List<Map<String, String>> skillTags = StaticData.getSkillTags();
 
-    // Combine all tags
     final List<Map<String, String>> allTags = [
       ...subjectTags,
       ...topicTags,
       ...skillTags,
     ];
 
-    // Create tag documents in bulk
     for (var tag in allTags) {
       final String tagName = tag['name'] ?? '';
       if (tagName.isEmpty) {
@@ -48,7 +43,6 @@ class TagGenerator {
         level: LogLevel.DEBUG,
       );
 
-      // Create tag document
       final tagRef = _firestore.collection('tags').doc(tagId);
       await batchManager.set(tagRef, {
         'name': tag['name'],
@@ -62,7 +56,6 @@ class TagGenerator {
     return tagIds;
   }
 
-  /// Assign favorite tags to users
   Future<void> assignFavoriteTags(
     List<String> userIds,
     List<String> tagIds,
@@ -75,7 +68,6 @@ class TagGenerator {
     final Random _random = Random();
 
     for (String userId in userIds) {
-      // Decide how many favorite tags this user will have (2-6)
       final int numFavTags = _random.nextInt(5) + 2;
       _logger.log(
         "Assigning $numFavTags favorite tags to user $userId",
@@ -84,14 +76,11 @@ class TagGenerator {
 
       final List<String> userFavTags = [];
 
-      // Select random tags
       final List<String> availableTags = List.from(tagIds);
       availableTags.shuffle(_random);
 
-      // Take the first numFavTags
       userFavTags.addAll(availableTags.take(numFavTags));
 
-      // Update user document with favorite tags
       final userRef = _firestore.collection('users').doc(userId);
       await batchManager.update(userRef, {'favTags': userFavTags});
 

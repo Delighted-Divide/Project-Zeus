@@ -9,28 +9,22 @@ import 'package:intl/intl.dart';
 import '../utils/constants.dart';
 import '../utils/text_formatter.dart';
 
-/// Service for interacting with the Gemini AI API
 class ApiService {
   final Logger _logger = Logger();
   final String _apiKey;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // For tracking API calls
   int _requestCounter = 0;
 
-  /// Constructor
   ApiService(this._apiKey);
 
-  /// Send a prompt to the Gemini API and get a response
   Future<String> sendPrompt(String prompt, String modelName) async {
     _logger.i('Sending prompt to Gemini API using model: $modelName');
 
     try {
-      // Build the API URL
       final url =
           '${AppConstants.geminiApiBaseUrl}$modelName:generateContent?key=$_apiKey';
 
-      // Prepare the request payload
       final payload = {
         'contents': [
           {
@@ -47,10 +41,8 @@ class ApiService {
         },
       };
 
-      // Log the request
       await _logToCloud('request_${++_requestCounter}.txt', prompt);
 
-      // Make the HTTP request
       final response = await http.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
@@ -65,7 +57,6 @@ class ApiService {
               data['candidates'][0]['content']['parts'][0]['text'] ??
               'No response received';
 
-          // Log the response
           await _logToCloud('response_${_requestCounter}.txt', responseText);
 
           return responseText;
@@ -85,7 +76,6 @@ class ApiService {
     }
   }
 
-  /// Generate assessment questions from PDF text
   Future<Map<String, dynamic>> generateAssessmentQuestions({
     required String extractedText,
     required String difficulty,
@@ -97,41 +87,32 @@ class ApiService {
   }) async {
     _logger.i('Generating assessment questions using model: $modelName');
 
-    // Determine the language of the text
     final language = await _detectLanguage(extractedText);
     _logger.i('Detected language: $language');
 
-    // Save the extracted text for debugging
     await _logToCloud('extracted_text.txt', extractedText);
 
-    // Track required questions and generated questions
     final Map<String, int> requiredQuestions = Map.from(questionDistribution);
     final Map<String, int> generatedQuestions = {};
     questionDistribution.keys.forEach((key) => generatedQuestions[key] = 0);
 
-    // Calculate total questions
     int totalQuestionCount = 0;
     requiredQuestions.forEach((_, count) => totalQuestionCount += count);
 
-    // Initialize result maps for all questions, answers, and tags
     List<dynamic> allQuestions = [];
     List<dynamic> allAnswers = [];
     List<dynamic> allTags = [];
 
-    // Set to track unique question IDs
     Set<String> usedQuestionIds = {};
 
-    // Tracking attempt count to prevent infinite loops
     int attemptCount = 0;
-    final int maxAttempts = 10; // Reasonable maximum number of attempts
+    final int maxAttempts = 10;
 
-    // Continue generating until we have all required questions or reach max attempts
     while (!_haveAllRequiredQuestions(requiredQuestions, generatedQuestions) &&
         attemptCount < maxAttempts) {
       attemptCount++;
       _logger.i('Generation attempt #$attemptCount');
 
-      // Create a distribution for this attempt, focusing on missing questions
       final Map<String, int> currentDistribution =
           _getMissingQuestionDistribution(
             requiredQuestions,
@@ -147,7 +128,6 @@ class ApiService {
       _logger.i('Generating questions for distribution: $currentDistribution');
 
       try {
-        // Generate questions for the current distribution
         final result = await _generateQuestionsChunk(
           extractedText: extractedText,
           difficulty: difficulty,
@@ -160,16 +140,13 @@ class ApiService {
           usedIds: usedQuestionIds,
         );
 
-        // Process the results
         if (result != null) {
-          // Extract questions and update tracking
           final questions = result['questions'] as List;
           final answers = result['answers'] as List;
           final tags = result['tags'] as List? ?? [];
 
           _logger.i('Generated ${questions.length} questions in this chunk');
 
-          // Add questions to our collection, ensuring unique IDs
           for (final question in questions) {
             if (question is Map &&
                 question.containsKey('questionId') &&
@@ -177,16 +154,13 @@ class ApiService {
               final String questionId = question['questionId'];
               final String questionType = question['questionType'];
 
-              // If this is a new question ID
               if (!usedQuestionIds.contains(questionId)) {
                 usedQuestionIds.add(questionId);
                 allQuestions.add(question);
 
-                // Update our tracking counts
                 generatedQuestions[questionType] =
                     (generatedQuestions[questionType] ?? 0) + 1;
 
-                // Find and add the corresponding answer
                 final answer = answers.firstWhere(
                   (a) =>
                       a is Map &&
@@ -196,11 +170,9 @@ class ApiService {
                 );
 
                 if (answer != null) {
-                  // Ensure answer type matches question type
                   answer['answerType'] = questionType;
                   allAnswers.add(answer);
                 } else {
-                  // Create a placeholder answer if none exists
                   allAnswers.add(
                     _createPlaceholderAnswer(question as Map<String, dynamic>),
                   );
@@ -209,12 +181,10 @@ class ApiService {
             }
           }
 
-          // Add new tags
           for (final tag in tags) {
             if (tag is Map && tag.containsKey('name')) {
               final String tagName = tag['name'].toLowerCase();
 
-              // Check if this tag is already in our collection
               bool isDuplicate = allTags.any(
                 (t) =>
                     t is Map &&
@@ -228,7 +198,6 @@ class ApiService {
             }
           }
 
-          // Log progress
           _logger.i(
             'Progress: ${_progressSummary(requiredQuestions, generatedQuestions)}',
           );
@@ -236,21 +205,17 @@ class ApiService {
       } catch (e) {
         _logger.e('Error in generation attempt #$attemptCount', error: e);
         await _logToCloud('error_attempt_$attemptCount.txt', e.toString());
-        // Continue to next attempt despite errors
       }
 
-      // Small delay between attempts
       await Future.delayed(Duration(milliseconds: 500));
     }
 
-    // Final result
     final resultMap = {
       'questions': allQuestions,
       'answers': allAnswers,
       'tags': allTags,
     };
 
-    // Log final stats
     final stats = '''
 Final Generation Statistics:
 - Total questions requested: $totalQuestionCount
@@ -270,7 +235,6 @@ ${generatedQuestions.entries.map((e) => '  - ${e.key}: ${e.value}/${requiredQues
     return resultMap;
   }
 
-  /// Create a progress summary string
   String _progressSummary(
     Map<String, int> required,
     Map<String, int> generated,
@@ -285,7 +249,6 @@ ${generatedQuestions.entries.map((e) => '  - ${e.key}: ${e.value}/${requiredQues
         .join(', ');
   }
 
-  /// Check if we have all required questions
   bool _haveAllRequiredQuestions(
     Map<String, int> required,
     Map<String, int> generated,
@@ -302,7 +265,6 @@ ${generatedQuestions.entries.map((e) => '  - ${e.key}: ${e.value}/${requiredQues
     return true;
   }
 
-  /// Get distribution of missing questions for next generation attempt
   Map<String, int> _getMissingQuestionDistribution(
     Map<String, int> required,
     Map<String, int> generated, {
@@ -311,7 +273,6 @@ ${generatedQuestions.entries.map((e) => '  - ${e.key}: ${e.value}/${requiredQues
     final Map<String, int> missing = {};
     int totalMissing = 0;
 
-    // First pass: determine how many of each type are missing
     for (final entry in required.entries) {
       final type = entry.key;
       final target = entry.value;
@@ -323,37 +284,30 @@ ${generatedQuestions.entries.map((e) => '  - ${e.key}: ${e.value}/${requiredQues
       }
     }
 
-    // If nothing is missing, return empty map
     if (totalMissing == 0) {
       return {};
     }
 
-    // If total missing is less than or equal to our chunk size, return as is
     if (totalMissing <= maxQuestionsPerChunk) {
       return missing;
     }
 
-    // Otherwise, proportionally limit each type to fit in one chunk
     final Map<String, int> limitedDistribution = {};
     double scale = maxQuestionsPerChunk / totalMissing;
 
     int allocatedTotal = 0;
 
-    // First pass - allocate based on proportion with floor
     for (final entry in missing.entries) {
       final type = entry.key;
       final count = entry.value;
 
-      // Allocate at least 1, up to scaled amount (floored)
       final allocation = max(1, (count * scale).floor());
 
-      // Don't exceed what's actually missing
       final finalAllocation = min(allocation, count);
 
       limitedDistribution[type] = finalAllocation;
       allocatedTotal += finalAllocation;
 
-      // Don't exceed our maximum
       if (allocatedTotal >= maxQuestionsPerChunk) {
         break;
       }
@@ -362,7 +316,6 @@ ${generatedQuestions.entries.map((e) => '  - ${e.key}: ${e.value}/${requiredQues
     return limitedDistribution;
   }
 
-  /// Create a placeholder answer for a question
   Map<String, dynamic> _createPlaceholderAnswer(Map<String, dynamic> question) {
     final String questionId = question['questionId'];
     final String questionType = question['questionType'];
@@ -374,7 +327,6 @@ ${generatedQuestions.entries.map((e) => '  - ${e.key}: ${e.value}/${requiredQues
       'reasoning': 'Auto-generated placeholder answer',
     };
 
-    // Set appropriate answer text based on question type
     if (questionType == 'true-false') {
       answer['answerText'] = 'False';
     } else if (questionType == 'multiple-choice' &&
@@ -396,7 +348,6 @@ ${generatedQuestions.entries.map((e) => '  - ${e.key}: ${e.value}/${requiredQues
     return answer;
   }
 
-  /// Generate a single chunk of questions with a particular distribution
   Future<Map<String, dynamic>?> _generateQuestionsChunk({
     required String extractedText,
     required String difficulty,
@@ -412,7 +363,6 @@ ${generatedQuestions.entries.map((e) => '  - ${e.key}: ${e.value}/${requiredQues
       'Generating chunk #$chunkIndex with distribution: $questionDistribution',
     );
 
-    // Create the distribution description
     final distributionInfo = questionDistribution.entries
         .map(
           (entry) =>
@@ -420,10 +370,8 @@ ${generatedQuestions.entries.map((e) => '  - ${e.key}: ${e.value}/${requiredQues
         )
         .join(', ');
 
-    // Create a unique prefix for this chunk's question IDs
     final idPrefix = 'c${chunkIndex}_';
 
-    // Create prompt with enhanced instructions
     final prompt = '''
 You are an expert education assessment creator. Create assessment questions based on the following text.
 
@@ -472,37 +420,29 @@ You MUST generate EXACTLY the number of questions specified in the distribution.
 Only respond with valid JSON. Do not include markdown code blocks or any other text.
 ''';
 
-    // Log the prompt
     await _logToCloud('chunk_${chunkIndex}_prompt.txt', prompt);
 
     try {
-      // Call the Gemini API
       final result = await _callGeminiApi(prompt, modelName, chunkIndex);
 
-      // Validate and fix the results
       if (result != null) {
-        // Ensure all question IDs are unique and use the correct prefix
         final List<dynamic> questions = result['questions'] as List;
         final List<dynamic> answers = result['answers'] as List;
 
-        // Check each question for ID uniqueness and prefix
         for (int i = 0; i < questions.length; i++) {
           if (questions[i] is Map && questions[i].containsKey('questionId')) {
             String questionId = questions[i]['questionId'];
 
-            // If ID doesn't have the correct prefix, add it
             if (!questionId.startsWith(idPrefix)) {
               final newId = '$idPrefix$questionId';
               questions[i]['questionId'] = newId;
 
-              // Find and update corresponding answer
               for (int j = 0; j < answers.length; j++) {
                 if (answers[j] is Map &&
                     answers[j].containsKey('questionId') &&
                     answers[j]['questionId'] == questionId) {
                   answers[j]['questionId'] = newId;
 
-                  // Update answer ID too if needed
                   if (answers[j].containsKey('answerId')) {
                     answers[j]['answerId'] = '${idPrefix}a${i + 1}';
                   }
@@ -510,19 +450,16 @@ Only respond with valid JSON. Do not include markdown code blocks or any other t
               }
             }
 
-            // If ID is already used, generate a new one
             if (usedIds.contains(questions[i]['questionId'])) {
               final newId =
                   '${idPrefix}q${i + 1}_${DateTime.now().microsecondsSinceEpoch}';
 
-              // Find and update corresponding answer
               for (int j = 0; j < answers.length; j++) {
                 if (answers[j] is Map &&
                     answers[j].containsKey('questionId') &&
                     answers[j]['questionId'] == questions[i]['questionId']) {
                   answers[j]['questionId'] = newId;
 
-                  // Update answer ID too
                   if (answers[j].containsKey('answerId')) {
                     answers[j]['answerId'] =
                         '${idPrefix}a${i + 1}_${DateTime.now().microsecondsSinceEpoch}';
@@ -530,7 +467,6 @@ Only respond with valid JSON. Do not include markdown code blocks or any other t
                 }
               }
 
-              // Update question ID
               questions[i]['questionId'] = newId;
             }
           }
@@ -551,16 +487,12 @@ Only respond with valid JSON. Do not include markdown code blocks or any other t
     }
   }
 
-  /// Detect the language of the text
   Future<String> _detectLanguage(String text) async {
-    // Default to English
     String language = 'English';
 
     try {
-      // Sample the text
       final sample = text.length > 500 ? text.substring(0, 500) : text;
 
-      // Prepare a language detection prompt
       final prompt = '''
 Analyze the following text and determine what language it is written in.
 Only respond with the language name (e.g., "English", "Hindi", "Spanish", etc.).
@@ -569,7 +501,6 @@ Text sample:
 $sample
 ''';
 
-      // Call the API with minimal tokens
       final url =
           '${AppConstants.geminiApiBaseUrl}gemini-2.0-flash:generateContent?key=$_apiKey';
       final payload = {
@@ -599,13 +530,11 @@ $sample
       }
     } catch (e) {
       _logger.e('Error detecting language: $e');
-      // Fall back to English
     }
 
     return language;
   }
 
-  /// Call the Gemini API with detailed logging
   Future<Map<String, dynamic>?> _callGeminiApi(
     String prompt,
     String modelName,
@@ -635,15 +564,12 @@ $sample
       },
     };
 
-    // Create timestamp for this request
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
     final logPrefix = 'api_${timestamp}_req${requestId}_chunk${chunkIndex}';
 
     try {
-      // Log the request
       await _logToCloud('${logPrefix}_request.txt', prompt);
 
-      // Make the API call
       final response = await http.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
@@ -661,13 +587,10 @@ $sample
           final responseText =
               data['candidates'][0]['content']['parts'][0]['text'] ?? '';
 
-          // Log the response
           await _logToCloud('${logPrefix}_response.txt', responseText);
 
-          // Extract JSON from response
           String jsonStr = responseText.trim();
 
-          // Remove code block markers
           if (jsonStr.startsWith('```json')) {
             jsonStr = jsonStr.substring(7);
           } else if (jsonStr.startsWith('```')) {
@@ -677,7 +600,6 @@ $sample
             jsonStr = jsonStr.substring(0, jsonStr.length - 3);
           }
 
-          // Sanitize and parse JSON
           await _logToCloud('${logPrefix}_presanitized.json', jsonStr);
 
           jsonStr = TextFormatter.sanitizeJsonString(jsonStr);
@@ -688,7 +610,6 @@ $sample
             final generatedQuestions =
                 jsonDecode(jsonStr) as Map<String, dynamic>;
 
-            // Validate structure
             if (!generatedQuestions.containsKey('questions') ||
                 !generatedQuestions.containsKey('answers')) {
               throw Exception(
@@ -696,7 +617,6 @@ $sample
               );
             }
 
-            // Ensure questions and answers are lists
             if (!(generatedQuestions['questions'] is List) ||
                 !(generatedQuestions['answers'] is List)) {
               throw Exception(
@@ -741,20 +661,16 @@ $sample
     }
   }
 
-  /// Log content to Firebase Cloud Storage
   Future<void> _logToCloud(String filename, String content) async {
     try {
-      // Create folder structure based on date
       final date = DateFormat('yyyyMMdd').format(DateTime.now());
       final ref = _storage.ref().child('gemini_logs/$date/$filename');
 
-      // Upload content as a text file
       await ref.putString(content, format: PutStringFormat.raw);
 
       _logger.i('Logged to cloud storage: gemini_logs/$date/$filename');
     } catch (e) {
       _logger.e('Error logging to cloud storage: $e');
-      // Fall back to console logging if cloud storage fails
       _logger.i(
         'Content preview: ${content.substring(0, min(100, content.length))}...',
       );

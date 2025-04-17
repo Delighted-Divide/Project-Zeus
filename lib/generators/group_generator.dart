@@ -7,7 +7,6 @@ import '../services/batch_manager.dart';
 import '../utils/file_utils.dart';
 import '../utils/logging_utils.dart';
 
-/// A class dedicated to generating group data and group memberships
 class GroupGenerator {
   final FirebaseFirestore _firestore;
   final LoggingUtils _logger = LoggingUtils();
@@ -16,7 +15,6 @@ class GroupGenerator {
 
   GroupGenerator(this._firestore);
 
-  /// Generate groups with proper structure
   Future<List<String>> generateGroups(
     List<String> userIds,
     List<String> tagIds,
@@ -28,7 +26,6 @@ class GroupGenerator {
     final List<String> groupIds = [];
     final groupData = StaticData.getGroupData();
 
-    // Pre-generate profile images in parallel
     final Map<String, Future<String?>> groupImageFutures = {};
 
     for (int i = 0; i < min(StaticData.NUM_GROUPS, groupData.length); i++) {
@@ -47,7 +44,6 @@ class GroupGenerator {
       level: LogLevel.INFO,
     );
 
-    // Wait for all profile images to be generated
     final Map<String, String?> groupImages = {};
     await Future.wait(
       groupImageFutures.entries.map((entry) async {
@@ -55,7 +51,6 @@ class GroupGenerator {
       }),
     );
 
-    // Create group documents
     for (int i = 0; i < min(StaticData.NUM_GROUPS, groupData.length); i++) {
       final String groupName = groupData[i]['name'] ?? '';
       if (groupName.isEmpty) {
@@ -74,18 +69,15 @@ class GroupGenerator {
         level: LogLevel.DEBUG,
       );
 
-      // Select a random creator (mentor)
       final String creatorId = userIds[_random.nextInt(userIds.length)];
       _logger.log("Selected creator: $creatorId", level: LogLevel.DEBUG);
 
-      // Get pre-generated group profile image
       final String? photoURL = groupImages[groupId];
       _logger.log(
         "Group profile image: ${photoURL != null ? 'Available' : 'Failed'}",
         level: LogLevel.DEBUG,
       );
 
-      // Select random tags for this group (2-5 tags)
       final List<String> groupTags = [];
       final int numTags = _random.nextInt(4) + 2;
 
@@ -93,10 +85,8 @@ class GroupGenerator {
       availableTags.shuffle(_random);
       groupTags.addAll(availableTags.take(numTags));
 
-      // Create the group document
       final groupRef = _firestore.collection('groups').doc(groupId);
 
-      // Determine if this group requires approval to join
       final bool requiresApproval = _random.nextBool();
 
       await batchManager.set(groupRef, {
@@ -112,7 +102,6 @@ class GroupGenerator {
         },
       });
 
-      // Add creator as mentor member
       final creatorMemberRef = groupRef.collection('members').doc(creatorId);
       await batchManager.set(creatorMemberRef, {
         'displayName': userData[creatorId]?['displayName'] ?? 'Unknown User',
@@ -121,7 +110,6 @@ class GroupGenerator {
         'joinedAt': FieldValue.serverTimestamp(),
       });
 
-      // Add group to creator's groups collection
       final creatorRef = _firestore.collection('users').doc(creatorId);
       final creatorGroupRef = creatorRef.collection('groups').doc(groupId);
       await batchManager.set(creatorGroupRef, {
@@ -131,10 +119,8 @@ class GroupGenerator {
         'joinedAt': FieldValue.serverTimestamp(),
       });
 
-      // Create standard channels for this group (in batch)
       await _createGroupChannels(groupId, creatorId, batchManager);
 
-      // Add this group to each of its tags' groups subcollection
       for (String tagId in groupTags) {
         final tagGroupRef = _firestore
             .collection('tags')
@@ -157,7 +143,6 @@ class GroupGenerator {
     return groupIds;
   }
 
-  /// Create standard channels for a group
   Future<void> _createGroupChannels(
     String groupId,
     String creatorId,
@@ -165,7 +150,6 @@ class GroupGenerator {
   ) async {
     final groupRef = _firestore.collection('groups').doc(groupId);
 
-    // Discussion channel
     final discussionChannelId =
         'channel_discussion_${groupId}_${_random.nextInt(1000)}';
     final discussionChannelRef = groupRef
@@ -181,7 +165,6 @@ class GroupGenerator {
           'Use this channel for general communication and announcements.',
     });
 
-    // Assessment channel
     final assessmentChannelId =
         'channel_assessment_${groupId}_${_random.nextInt(1000)}';
     final assessmentChannelRef = groupRef
@@ -197,7 +180,6 @@ class GroupGenerator {
           'Use this channel to access and complete shared assessments.',
     });
 
-    // Resource channel
     final resourceChannelId =
         'channel_resource_${groupId}_${_random.nextInt(1000)}';
     final resourceChannelRef = groupRef
@@ -214,7 +196,6 @@ class GroupGenerator {
     });
   }
 
-  /// Create group memberships and invitations
   Future<void> createGroupMemberships(
     List<String> userIds,
     List<String> groupIds,
@@ -226,7 +207,6 @@ class GroupGenerator {
     int invitesCreated = 0;
     int requestsCreated = 0;
 
-    // Get all group data in one batch to avoid repeated reads
     final Map<String, Map<String, dynamic>> groupData = {};
     final List<Future<void>> groupDataFutures = [];
 
@@ -246,7 +226,6 @@ class GroupGenerator {
       level: LogLevel.INFO,
     );
 
-    // For each group, add members and invitations
     for (String groupId in groupIds) {
       if (!groupData.containsKey(groupId)) {
         _logger.log(
@@ -270,11 +249,9 @@ class GroupGenerator {
       final String groupName = groupData[groupId]?['name'] ?? 'Group $groupId';
       final String? groupPhotoURL = groupData[groupId]?['photoURL'];
 
-      // Get potential members (all users except creator)
       final List<String> potentialMemberIds =
           userIds.where((id) => id != creatorId).toList();
 
-      // Decide how many members this group will have
       final int numberOfMembers = min(
         _random.nextInt(
               StaticData.MAX_GROUP_MEMBERS - StaticData.MIN_GROUP_MEMBERS + 1,
@@ -287,10 +264,8 @@ class GroupGenerator {
         level: LogLevel.DEBUG,
       );
 
-      // Shuffle user list for random selection
       potentialMemberIds.shuffle(_random);
 
-      // Add members to the group
       final List<String> memberIds =
           potentialMemberIds.take(numberOfMembers).toList();
       final List<String> remainingUsers =
@@ -306,7 +281,6 @@ class GroupGenerator {
       );
       membershipsCreated += memberIds.length;
 
-      // Create pending invites for this group (3-6 invites)
       if (remainingUsers.isNotEmpty) {
         invitesCreated += await _createGroupInvites(
           groupId,
@@ -318,7 +292,6 @@ class GroupGenerator {
         );
       }
 
-      // Create join requests if group requires approval
       if (requiresApproval && remainingUsers.isNotEmpty) {
         requestsCreated += await _createJoinRequests(
           groupId,
@@ -335,7 +308,6 @@ class GroupGenerator {
     );
   }
 
-  /// Add members to a group
   Future<void> _addMembersToGroup(
     String groupId,
     List<String> memberIds,
@@ -346,9 +318,7 @@ class GroupGenerator {
   ) async {
     final groupRef = _firestore.collection('groups').doc(groupId);
 
-    // Add all members in batch
     for (String memberId in memberIds) {
-      // Add user as student member to group
       final memberRef = groupRef.collection('members').doc(memberId);
       await batchManager.set(memberRef, {
         'displayName': userData[memberId]?['displayName'] ?? 'Unknown User',
@@ -357,7 +327,6 @@ class GroupGenerator {
         'joinedAt': FieldValue.serverTimestamp(),
       });
 
-      // Add group to user's groups subcollection
       final userRef = _firestore.collection('users').doc(memberId);
       final userGroupRef = userRef.collection('groups').doc(groupId);
       await batchManager.set(userGroupRef, {
@@ -369,7 +338,6 @@ class GroupGenerator {
     }
   }
 
-  /// Create group invites
   Future<int> _createGroupInvites(
     String groupId,
     String creatorId,
@@ -384,7 +352,6 @@ class GroupGenerator {
       remainingUsers.length,
     );
 
-    // Use shuffle and take for randomness
     final List<String> usersToInvite = List.from(remainingUsers);
     usersToInvite.shuffle(_random);
     final invitedUsers = usersToInvite.take(numberOfInvites).toList();
@@ -392,7 +359,6 @@ class GroupGenerator {
     final groupRef = _firestore.collection('groups').doc(groupId);
 
     for (String invitedUserId in invitedUsers) {
-      // Add to group's pendingInvites subcollection
       final pendingInviteRef = groupRef
           .collection('pendingInvites')
           .doc(invitedUserId);
@@ -404,7 +370,6 @@ class GroupGenerator {
         'status': 'pending',
       });
 
-      // Add to user's groupInvites subcollection with a unique ID
       final userRef = _firestore.collection('users').doc(invitedUserId);
       final userInviteRef = userRef
           .collection('groupInvites')
@@ -424,7 +389,6 @@ class GroupGenerator {
     return invitesCreated;
   }
 
-  /// Create join requests for a group
   Future<int> _createJoinRequests(
     String groupId,
     List<String> remainingUsers,
@@ -437,7 +401,6 @@ class GroupGenerator {
       remainingUsers.length,
     );
 
-    // Use shuffle and take for randomness
     final List<String> usersToRequest = List.from(remainingUsers);
     usersToRequest.shuffle(_random);
     final requestUsers = usersToRequest.take(numberOfRequests).toList();
@@ -445,7 +408,6 @@ class GroupGenerator {
     final groupRef = _firestore.collection('groups').doc(groupId);
 
     for (String requestUserId in requestUsers) {
-      // Add to group's joinRequests subcollection
       final joinRequestRef = groupRef
           .collection('joinRequests')
           .doc(requestUserId);

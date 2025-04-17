@@ -13,54 +13,45 @@ import 'package:path/path.dart' as path;
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
 
-/// Logger class to manage log output and storage
 class Logger {
   final bool _verbose;
   final StringBuffer _logBuffer = StringBuffer();
   int _logLines = 0;
   final DateFormat _dateFormatter = DateFormat('yyyy-MM-dd HH:mm:ss.SSS');
 
-  static const int LOG_BUFFER_FLUSH_THRESHOLD = 50; // Flush log every 50 lines
+  static const int LOG_BUFFER_FLUSH_THRESHOLD = 50;
 
-  // Color mapping for log levels
   final Map<String, String> _logLevelColors = {
-    'DEBUG': '\x1B[37m', // White
-    'INFO': '\x1B[34m', // Blue
-    'WARNING': '\x1B[33m', // Yellow
-    'ERROR': '\x1B[31m', // Red
-    'SUCCESS': '\x1B[32m', // Green
+    'DEBUG': '\x1B[37m',
+    'INFO': '\x1B[34m',
+    'WARNING': '\x1B[33m',
+    'ERROR': '\x1B[31m',
+    'SUCCESS': '\x1B[32m',
   };
 
-  // Reset color code
   static const String _resetColor = '\x1B[0m';
 
   Logger({bool verbose = true}) : _verbose = verbose;
 
   void log(String message, {String level = 'DEBUG'}) {
-    // Skip debug logs if not verbose
     if (level == 'DEBUG' && !_verbose) return;
 
     final timestamp = _dateFormatter.format(DateTime.now());
 
-    // Format the log message with timestamp and level
     final String formattedMessage = '$timestamp [$level] $message';
 
-    // Print to console with color if supported
     final String colorCode = _logLevelColors[level] ?? '';
     print('$colorCode$formattedMessage$_resetColor');
 
-    // Add to log buffer
     _logBuffer.writeln(formattedMessage);
     _logLines++;
 
-    // Flush buffer to file periodically to avoid memory growth
     if (_verbose && _logLines >= LOG_BUFFER_FLUSH_THRESHOLD) {
       saveLogsToFile();
       _logLines = 0;
     }
   }
 
-  /// Save logs to file for later analysis
   Future<void> saveLogsToFile() async {
     try {
       if (_logBuffer.isEmpty) return;
@@ -86,7 +77,6 @@ class Logger {
   }
 }
 
-/// A class to manage Firestore batch operations safely with automatic commits when approaching limits
 class BatchManager {
   final FirebaseFirestore _firestore;
   WriteBatch _currentBatch;
@@ -95,12 +85,10 @@ class BatchManager {
   final bool _verbose;
   final Logger _logger;
 
-  // Performance metrics
   int _totalOperations = 0;
   int _totalCommits = 0;
   Stopwatch _batchStopwatch = Stopwatch()..start();
 
-  // Constructor initializes a new batch
   BatchManager(
     this._firestore,
     this._logger, {
@@ -110,12 +98,10 @@ class BatchManager {
        _verbose = verbose,
        _currentBatch = _firestore.batch();
 
-  // Get the current operation count
   int get operationCount => _operationCount;
   int get totalOperations => _totalOperations;
   int get totalCommits => _totalCommits;
 
-  // Set document data
   Future<void> set(DocumentReference docRef, Map<String, dynamic> data) async {
     await _checkBatchSize();
     _currentBatch.set(docRef, data);
@@ -123,7 +109,6 @@ class BatchManager {
     _totalOperations++;
   }
 
-  // Set document data with options
   Future<void> setWithOptions(
     DocumentReference docRef,
     Map<String, dynamic> data,
@@ -135,7 +120,6 @@ class BatchManager {
     _totalOperations++;
   }
 
-  // Update document data
   Future<void> update(
     DocumentReference docRef,
     Map<String, dynamic> data,
@@ -146,7 +130,6 @@ class BatchManager {
     _totalOperations++;
   }
 
-  // Delete document
   Future<void> delete(DocumentReference docRef) async {
     await _checkBatchSize();
     _currentBatch.delete(docRef);
@@ -154,14 +137,12 @@ class BatchManager {
     _totalOperations++;
   }
 
-  // Check if batch needs to be committed and create a new one if needed
   Future<void> _checkBatchSize() async {
     if (_operationCount >= _maxBatchSize) {
       await commitBatch();
     }
   }
 
-  // Commit the current batch and create a new one
   Future<void> commitBatch() async {
     if (_operationCount > 0) {
       if (_verbose) {
@@ -185,7 +166,6 @@ class BatchManager {
     }
   }
 
-  // Final commit at the end of operations
   Future<void> commit() async {
     await commitBatch();
     final totalTime = _batchStopwatch.elapsedMilliseconds;
@@ -203,22 +183,13 @@ class BatchManager {
   }
 }
 
-/// A comprehensive utility class to generate test data for educational application
-/// Optimized for performance and reliability
-
 class DummyDataGenerator {
-  // Core Firebase services
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
-
-  // Build context for UI feedback
   final BuildContext context;
-
-  // Random number generator
   final Random _random = Random();
 
-  // Constants for generation
   static const int NUM_USERS = 30;
   static const int MIN_FRIENDS = 3;
   static const int MAX_FRIENDS = 10;
@@ -231,32 +202,26 @@ class DummyDataGenerator {
   static const int MIN_SHARED_USERS = 4;
   static const int MIN_SHARED_GROUPS = 3;
 
-  // Test user email domain - helps with filtering during cleanup
   static const String TEST_EMAIL_DOMAIN = "example.com";
 
-  // Logging
   final bool _verbose;
   final Logger _logger;
   Stopwatch _totalStopwatch = Stopwatch();
   final Map<String, Stopwatch> _stepTimers = {};
 
-  // Constructor
   DummyDataGenerator(this.context, {bool verbose = true})
     : _verbose = verbose,
       _logger = Logger(verbose: verbose);
 
-  /// Main function to orchestrate the generation of all dummy data
   Future<void> generateAllDummyData() async {
     _totalStopwatch.start();
     _startStepTimer('total');
     try {
-      // Log start of process
       _logger.log(
         "====== STARTING DUMMY DATA GENERATION PROCESS ======",
         level: "INFO",
       );
 
-      // Verify a user is signed in
       final User? currentUser = _auth.currentUser;
       if (currentUser == null) {
         _showSnackBar('No user signed in. Please sign in first.', Colors.red);
@@ -269,22 +234,17 @@ class DummyDataGenerator {
         level: "INFO",
       );
 
-      // Store original user info for reference
       final String originalUid = currentUser.uid;
 
       _showSnackBar('Starting to generate dummy data...', Colors.blue);
 
-      // Create a batch manager for Firestore operations
       final batchManager = BatchManager(_firestore, _logger, verbose: _verbose);
 
-      // Pre-generate static data for reuse
       _logger.log("Pre-generating static reference data", level: "INFO");
       final Map<String, List<String>> staticData = _preGenerateStaticData();
 
-      // Generate data in sequence, with proper timing and logging
       await _executeDataGenerationSteps(currentUser, batchManager, staticData);
 
-      // Log final stats
       _logGenerationSummary();
 
       _showSnackBar(
@@ -302,18 +262,15 @@ class DummyDataGenerator {
     } finally {
       _stopStepTimer('total');
       _totalStopwatch.stop();
-      // Save logs to file if verbose
       if (_verbose) {
         await _logger.saveLogsToFile();
       }
     }
   }
 
-  /// Pre-generate static data to avoid recreating it repeatedly
   Map<String, List<String>> _preGenerateStaticData() {
     final Map<String, List<String>> data = {};
 
-    // First names for generating test users
     data['firstNames'] = [
       'Alex',
       'Jamie',
@@ -347,7 +304,6 @@ class DummyDataGenerator {
       'Robin',
     ];
 
-    // Last names for generating test users
     data['lastNames'] = [
       'Smith',
       'Johnson',
@@ -376,7 +332,6 @@ class DummyDataGenerator {
       'Sanchez',
     ];
 
-    // Status options
     data['statusOptions'] = [
       'Learning new concepts',
       'Preparing for exam',
@@ -390,7 +345,6 @@ class DummyDataGenerator {
       'Focusing on studies',
     ];
 
-    // Bio templates
     data['bioTemplates'] = [
       'Student interested in %s and %s.',
       'Passionate about learning %s. Also enjoys %s in free time.',
@@ -404,7 +358,6 @@ class DummyDataGenerator {
       'Lifelong learner with special interest in %s and %s.',
     ];
 
-    // Interest areas for bios
     data['interests'] = [
       'mathematics',
       'physics',
@@ -430,13 +383,11 @@ class DummyDataGenerator {
     return data;
   }
 
-  /// Execute all data generation steps with proper timing and metrics
   Future<void> _executeDataGenerationSteps(
     User currentUser,
     BatchManager batchManager,
     Map<String, List<String>> staticData,
   ) async {
-    // Step 1: Generate tags
     _startStepTimer('generateTags');
     _logger.log("STEP 1: Generating tags", level: "INFO");
     final tagIds = await _generateTags(batchManager);
@@ -447,7 +398,6 @@ class DummyDataGenerator {
       level: "SUCCESS",
     );
 
-    // Step 2: Generate users
     _startStepTimer('generateUsers');
     _logger.log("STEP 2: Generating users", level: "INFO");
     final userData = await _generateUsers(currentUser, staticData);
@@ -455,7 +405,6 @@ class DummyDataGenerator {
     _stopStepTimer('generateUsers');
     _logger.log("Users generated: ${userIds.length} users", level: "SUCCESS");
 
-    // Step 3: Assign favorite tags
     _startStepTimer('assignTags');
     _logger.log("STEP 3: Assigning favorite tags", level: "INFO");
     await _assignFavoriteTags(userIds, tagIds, batchManager);
@@ -463,7 +412,6 @@ class DummyDataGenerator {
     _stopStepTimer('assignTags');
     _logger.log("Favorite tags assigned and committed", level: "SUCCESS");
 
-    // Step 4: Create user goals
     _startStepTimer('createGoals');
     _logger.log("STEP 4: Creating user goals", level: "INFO");
     await _createUserGoals(userIds, batchManager);
@@ -471,7 +419,6 @@ class DummyDataGenerator {
     _stopStepTimer('createGoals');
     _logger.log("User goals created and committed", level: "SUCCESS");
 
-    // Step 5: Create friendships
     _startStepTimer('createFriendships');
     _logger.log("STEP 5: Creating friendships", level: "INFO");
     await _createFriendships(userIds, userData, batchManager);
@@ -479,7 +426,6 @@ class DummyDataGenerator {
     _stopStepTimer('createFriendships');
     _logger.log("Friendships created and committed", level: "SUCCESS");
 
-    // Step 6: Generate groups
     _startStepTimer('generateGroups');
     _logger.log("STEP 6: Generating groups", level: "INFO");
     final groupIds = await _generateGroups(
@@ -495,7 +441,6 @@ class DummyDataGenerator {
       level: "SUCCESS",
     );
 
-    // Step 7: Create group memberships
     _startStepTimer('createMemberships');
     _logger.log("STEP 7: Creating group memberships", level: "INFO");
     await _createGroupMemberships(userIds, groupIds, userData, batchManager);
@@ -503,7 +448,6 @@ class DummyDataGenerator {
     _stopStepTimer('createMemberships');
     _logger.log("Group memberships created and committed", level: "SUCCESS");
 
-    // Step 8: Generate assessments
     _startStepTimer('generateAssessments');
     _logger.log("STEP 8: Generating assessments", level: "INFO");
     final assessmentIds = await _generateAssessments(
@@ -519,7 +463,6 @@ class DummyDataGenerator {
       level: "SUCCESS",
     );
 
-    // Step 9: Share assessments
     _startStepTimer('shareAssessments');
     _logger.log("STEP 9: Sharing assessments", level: "INFO");
     await _shareAssessments(
@@ -533,7 +476,6 @@ class DummyDataGenerator {
     _stopStepTimer('shareAssessments');
     _logger.log("Assessment sharing completed and committed", level: "SUCCESS");
 
-    // Step 10: Generate submissions
     _startStepTimer('generateSubmissions');
     _logger.log("STEP 10: Generating submissions", level: "INFO");
     await _generateSubmissions(
@@ -548,12 +490,10 @@ class DummyDataGenerator {
     _logger.log("Submissions generated and committed", level: "SUCCESS");
   }
 
-  /// STEP 1: Generate tags with proper data structure
   Future<List<String>> _generateTags(BatchManager batchManager) async {
     final List<String> tagIds = [];
     _logger.log("Starting tag generation", level: "INFO");
 
-    // Subject tags
     final List<Map<String, String>> subjectTags = [
       {
         'name': 'Mathematics',
@@ -609,7 +549,6 @@ class DummyDataGenerator {
       },
     ];
 
-    // Topic tags
     final List<Map<String, String>> topicTags = [
       {
         'name': 'Algebra',
@@ -664,7 +603,6 @@ class DummyDataGenerator {
       },
     ];
 
-    // Skill tags
     final List<Map<String, String>> skillTags = [
       {
         'name': 'Problem Solving',
@@ -719,14 +657,12 @@ class DummyDataGenerator {
       },
     ];
 
-    // Combine all tags
     final List<Map<String, String>> allTags = [
       ...subjectTags,
       ...topicTags,
       ...skillTags,
     ];
 
-    // Create tag documents in bulk
     for (var tag in allTags) {
       final String tagName = tag['name'] ?? '';
       if (tagName.isEmpty) {
@@ -742,7 +678,6 @@ class DummyDataGenerator {
         level: "DEBUG",
       );
 
-      // Create tag document
       final tagRef = _firestore.collection('tags').doc(tagId);
       await batchManager.set(tagRef, {
         'name': tag['name'],
@@ -756,15 +691,12 @@ class DummyDataGenerator {
     return tagIds;
   }
 
-  /// STEP 2: Generate authenticated users with proper profiles
-  /// Returns a map of userId to user data (displayName, email, photoURL)
   Future<Map<String, Map<String, dynamic>>> _generateUsers(
     User currentUser,
     Map<String, List<String>> staticData,
   ) async {
     final Map<String, Map<String, dynamic>> userData = {};
 
-    // Add current user to our userMap first
     _logger.log(
       "Getting data for current user: ${currentUser.uid}",
       level: "INFO",
@@ -775,7 +707,6 @@ class DummyDataGenerator {
 
     if (!currentUserDoc.exists) {
       _logger.log("Creating document for current user", level: "INFO");
-      // Create user document for current user
       await _createUserDocument(currentUser.uid, {
         'displayName': currentUserDisplayName,
         'email': currentUser.email,
@@ -785,7 +716,6 @@ class DummyDataGenerator {
         'privacyLevel': 'public',
       });
     } else {
-      // Get existing display name
       currentUserDisplayName =
           currentUserDoc.data()?['displayName'] ?? currentUserDisplayName;
       _logger.log(
@@ -794,7 +724,6 @@ class DummyDataGenerator {
       );
     }
 
-    // Store current user data
     userData[currentUser.uid] = {
       'displayName': currentUserDisplayName,
       'email': currentUser.email,
@@ -803,32 +732,26 @@ class DummyDataGenerator {
 
     _logger.log("Current user added to userData map", level: "DEBUG");
 
-    // Get static data
     final List<String> firstNames = staticData['firstNames']!;
     final List<String> lastNames = staticData['lastNames']!;
     final List<String> statusOptions = staticData['statusOptions']!;
     final List<String> bioTemplates = staticData['bioTemplates']!;
 
-    // Password for test users
     const String testPassword = 'Test123!';
 
-    // Create NUM_USERS authenticated users
     _logger.log("Creating $NUM_USERS authenticated users", level: "INFO");
 
     int createdUsers = 0;
     int failedAttempts = 0;
     final int maxFailedAttempts = NUM_USERS * 2;
 
-    // Batch for user documents
     final BatchManager batchManager = BatchManager(
       _firestore,
       _logger,
       verbose: _verbose,
     );
 
-    // Check if profile images folder exists
     try {
-      // List available profile images from assets
       final List<String> availableProfilePics = await _listAssetProfilePics();
       _logger.log(
         "Found ${availableProfilePics.length} profile images in assets folder",
@@ -842,25 +765,21 @@ class DummyDataGenerator {
         );
       }
 
-      // Create all users with parallel generation of profile images
       final List<Future<void>> userCreationTasks = [];
 
       while (createdUsers < NUM_USERS && failedAttempts < maxFailedAttempts) {
         try {
-          // Generate user info
           final String firstName =
               firstNames[_random.nextInt(firstNames.length)];
           final String lastName = lastNames[_random.nextInt(lastNames.length)];
           final String displayName = '$firstName $lastName';
 
-          // Add unique timestamp identifier to email to ensure uniqueness
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           final String email =
               '${firstName.toLowerCase()}.${lastName.toLowerCase()}.$timestamp@${TEST_EMAIL_DOMAIN}';
 
           _logger.log("Attempting to create user: $email", level: "DEBUG");
 
-          // Create Firebase Auth user - this must be done sequentially
           final UserCredential userCredential = await _auth
               .createUserWithEmailAndPassword(
                 email: email,
@@ -871,13 +790,10 @@ class DummyDataGenerator {
           final String userId = user.uid;
           _logger.log("Created auth user with ID: $userId", level: "DEBUG");
 
-          // Update profile in parallel
           userCreationTasks.add(user.updateProfile(displayName: displayName));
 
-          // Upload profile image to Firebase Storage and get URL
           String? photoURL;
           if (availableProfilePics.isNotEmpty) {
-            // Select a random profile image
             final String profileImage =
                 availableProfilePics[_random.nextInt(
                   availableProfilePics.length,
@@ -885,13 +801,11 @@ class DummyDataGenerator {
             photoURL = await _uploadProfileImageToStorage(userId, profileImage);
           }
 
-          // Generate bio
           final String bio = _generateBio(
             bioTemplates,
             staticData['interests']!,
           );
 
-          // Add task to create Firestore document
           userCreationTasks.add(() async {
             final userRef = _firestore.collection('users').doc(userId);
             await batchManager.set(userRef, {
@@ -911,7 +825,6 @@ class DummyDataGenerator {
               },
             });
 
-            // Add to userData map
             userData[userId] = {
               'displayName': displayName,
               'email': email,
@@ -936,7 +849,6 @@ class DummyDataGenerator {
             level: "ERROR",
           );
 
-          // If we hit a rate limit, wait a bit
           if (e.toString().contains('too-many-requests')) {
             _logger.log(
               "Rate limit detected, waiting 30 seconds before retrying",
@@ -947,14 +859,12 @@ class DummyDataGenerator {
         }
       }
 
-      // Wait for all user creation tasks to complete
       _logger.log(
         "Waiting for ${userCreationTasks.length} user tasks to complete",
         level: "INFO",
       );
       await Future.wait(userCreationTasks);
 
-      // Commit the batch for user documents
       await batchManager.commit();
 
       _logger.log(
@@ -974,12 +884,9 @@ class DummyDataGenerator {
     return userData;
   }
 
-  /// List profile pics in assets folder
   Future<List<String>> _listAssetProfilePics() async {
     try {
-      // Complete list of image files from the assets directory
       return [
-        // Hash-named JPG files
         'assets/profile_pics/703ac7d86b7096a375f0fbae22924ead.jpg',
         'assets/profile_pics/820df70027be9050db115184161218f4.jpg',
         'assets/profile_pics/673e03c23d70d17d58fc69dd6fa64b69.jpg',
@@ -988,8 +895,6 @@ class DummyDataGenerator {
         'assets/profile_pics/803df0f77df7bd2f1f39a6492cda12ab.jpg',
         'assets/profile_pics/827a99adc547ba0a7ab372c544bc2aae.jpg',
         'assets/profile_pics/781da40a3c392c9ff036325756e78fd.jpg',
-
-        // Numbered files with dimensions
         'assets/profile_pics/00716 (736x736).png',
         'assets/profile_pics/00722 (1129x1132).png',
         'assets/profile_pics/00757 (920x1624).jpg',
@@ -1025,12 +930,10 @@ class DummyDataGenerator {
     } catch (e) {
       _logger.log("Error listing asset profile pics: $e", level: "ERROR");
 
-      // Return empty list if there's an error
       return [];
     }
   }
 
-  /// Upload profile image to Firebase Storage and return URL
   Future<String?> _uploadProfileImageToStorage(
     String userId,
     String assetPath,
@@ -1040,17 +943,14 @@ class DummyDataGenerator {
         'profile_images/$userId.png',
       );
 
-      // Load asset bytes
       ByteData data = await rootBundle.load(assetPath);
       List<int> bytes = data.buffer.asUint8List();
 
-      // Upload to Firebase Storage
       final UploadTask uploadTask = storageRef.putData(
         Uint8List.fromList(bytes),
         SettableMetadata(contentType: 'image/png'),
       );
 
-      // Get the download URL
       final TaskSnapshot taskSnapshot = await uploadTask;
       final String downloadUrl = await taskSnapshot.ref.getDownloadURL();
 
@@ -1069,14 +969,12 @@ class DummyDataGenerator {
     }
   }
 
-  /// Helper to create a user document in Firestore
   Future<void> _createUserDocument(
     String userId,
     Map<String, dynamic> userData,
   ) async {
     final userRef = _firestore.collection('users').doc(userId);
 
-    // Add default fields
     final Map<String, dynamic> userDoc = {
       ...userData,
       'createdAt': FieldValue.serverTimestamp(),
@@ -1091,7 +989,6 @@ class DummyDataGenerator {
     _logger.log("Created Firestore document for user $userId", level: "DEBUG");
   }
 
-  /// Helper to generate a random bio
   String _generateBio(List<String> bioTemplates, List<String> interests) {
     final bioTemplate = bioTemplates[_random.nextInt(bioTemplates.length)];
 
@@ -1106,7 +1003,6 @@ class DummyDataGenerator {
         .replaceFirst('%s', interest2);
   }
 
-  /// STEP 3: Assign favorite tags to users
   Future<void> _assignFavoriteTags(
     List<String> userIds,
     List<String> tagIds,
@@ -1115,7 +1011,6 @@ class DummyDataGenerator {
     _logger.log("Starting assigning favorite tags to users", level: "INFO");
 
     for (String userId in userIds) {
-      // Decide how many favorite tags this user will have (2-6)
       final int numFavTags = _random.nextInt(5) + 2;
       _logger.log(
         "Assigning $numFavTags favorite tags to user $userId",
@@ -1124,14 +1019,11 @@ class DummyDataGenerator {
 
       final List<String> userFavTags = [];
 
-      // Select random tags
       final List<String> availableTags = List.from(tagIds);
       availableTags.shuffle(_random);
 
-      // Take the first numFavTags
       userFavTags.addAll(availableTags.take(numFavTags));
 
-      // Update user document with favorite tags
       final userRef = _firestore.collection('users').doc(userId);
       await batchManager.update(userRef, {'favTags': userFavTags});
 
@@ -1144,14 +1036,12 @@ class DummyDataGenerator {
     _logger.log("Completed assigning favorite tags", level: "INFO");
   }
 
-  /// STEP 4: Create user goals
   Future<void> _createUserGoals(
     List<String> userIds,
     BatchManager batchManager,
   ) async {
     _logger.log("Starting creating user goals", level: "INFO");
 
-    // Goal description templates
     final List<String> goalDescriptions = [
       'Complete 10 assessments in mathematics',
       'Master the fundamentals of organic chemistry',
@@ -1173,7 +1063,6 @@ class DummyDataGenerator {
     int totalGoalsCreated = 0;
 
     for (String userId in userIds) {
-      // Every user gets at least 1 goal, up to 3 goals (1-3)
       final int numGoals = _random.nextInt(3) + 1;
       _logger.log("Creating $numGoals goals for user $userId", level: "DEBUG");
 
@@ -1186,12 +1075,10 @@ class DummyDataGenerator {
             .collection('goals')
             .doc(goalId);
 
-        // Generate random progress values
         final int lessonsLearnt = _random.nextInt(20);
         final int assessmentsCompleted = _random.nextInt(10);
         final int assessmentsCreated = _random.nextInt(5);
 
-        // Set target date between 1-6 months from now
         final targetDate = DateTime.now().add(
           Duration(days: _random.nextInt(180) + 30),
         );
@@ -1203,8 +1090,7 @@ class DummyDataGenerator {
           'targetDate': Timestamp.fromDate(targetDate),
           'description':
               goalDescriptions[_random.nextInt(goalDescriptions.length)],
-          'isCompleted':
-              _random.nextDouble() < 0.3, // 30% chance of being completed
+          'isCompleted': _random.nextDouble() < 0.3,
           'createdAt': FieldValue.serverTimestamp(),
         });
 
@@ -1218,7 +1104,6 @@ class DummyDataGenerator {
     );
   }
 
-  /// STEP 5: Create friend relationships between users
   Future<void> _createFriendships(
     List<String> userIds,
     Map<String, Map<String, dynamic>> userData,
@@ -1228,9 +1113,7 @@ class DummyDataGenerator {
     int friendshipsCreated = 0;
     int requestsCreated = 0;
 
-    // For each user, establish friend relationships with some other users
     for (String userId in userIds) {
-      // Decide how many friends this user will have (MIN_FRIENDS to MAX_FRIENDS)
       final int numberOfFriends =
           _random.nextInt(MAX_FRIENDS - MIN_FRIENDS + 1) + MIN_FRIENDS;
       _logger.log(
@@ -1238,12 +1121,10 @@ class DummyDataGenerator {
         level: "DEBUG",
       );
 
-      // Create friends for this user
       final List<String> friendIds = [];
       final List<String> potentialFriends = List.from(userIds)..remove(userId);
-      potentialFriends.shuffle(_random); // Shuffle for randomness
+      potentialFriends.shuffle(_random);
 
-      // Take the first numberOfFriends from the shuffled list
       final selectedFriends = potentialFriends.take(numberOfFriends).toList();
 
       for (final String friendId in selectedFriends) {
@@ -1253,13 +1134,11 @@ class DummyDataGenerator {
           level: "DEBUG",
         );
 
-        // Use the display names from userData map
         String userDisplayName =
             userData[userId]?['displayName'] ?? 'Unknown User';
         String friendDisplayName =
             userData[friendId]?['displayName'] ?? 'Unknown User';
 
-        // First user's friends collection
         final userFriendDoc = _firestore
             .collection('users')
             .doc(userId)
@@ -1272,7 +1151,6 @@ class DummyDataGenerator {
           'becameFriendsAt': FieldValue.serverTimestamp(),
         });
 
-        // Friend's friends collection
         final friendUserDoc = _firestore
             .collection('users')
             .doc(friendId)
@@ -1288,7 +1166,6 @@ class DummyDataGenerator {
         friendshipsCreated++;
       }
 
-      // Create friend requests (MIN_FRIEND_REQUESTS to MAX_FRIEND_REQUESTS)
       final int numberOfRequests =
           _random.nextInt(MAX_FRIEND_REQUESTS - MIN_FRIEND_REQUESTS + 1) +
           MIN_FRIEND_REQUESTS;
@@ -1297,12 +1174,10 @@ class DummyDataGenerator {
         level: "DEBUG",
       );
 
-      // Get remaining users not already friends
       final List<String> remainingUsers =
           potentialFriends.where((id) => !friendIds.contains(id)).toList();
       remainingUsers.shuffle(_random);
 
-      // Take the first numberOfRequests users
       final requestUsers = remainingUsers.take(numberOfRequests).toList();
 
       for (final String requestUserId in requestUsers) {
@@ -1311,11 +1186,9 @@ class DummyDataGenerator {
           level: "DEBUG",
         );
 
-        // Determine direction of request (sent or received)
         final bool isSent = _random.nextBool();
 
         if (isSent) {
-          // User sent request to another user
           final userRef = _firestore.collection('users').doc(userId);
           final String sentRequestId =
               'sent_${userId}_${requestUserId}_${_random.nextInt(10000)}';
@@ -1333,7 +1206,6 @@ class DummyDataGenerator {
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-          // Create corresponding received request for the other user
           final otherUserRef = _firestore
               .collection('users')
               .doc(requestUserId);
@@ -1352,7 +1224,6 @@ class DummyDataGenerator {
             'createdAt': FieldValue.serverTimestamp(),
           });
         } else {
-          // User received request from another user
           final userRef = _firestore.collection('users').doc(userId);
           final String receivedRequestId =
               'received_${userId}_${requestUserId}_${_random.nextInt(10000)}';
@@ -1370,7 +1241,6 @@ class DummyDataGenerator {
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-          // Create corresponding sent request for the other user
           final otherUserRef = _firestore
               .collection('users')
               .doc(requestUserId);
@@ -1390,7 +1260,7 @@ class DummyDataGenerator {
           });
         }
 
-        requestsCreated += 2; // Counting both sides of the request
+        requestsCreated += 2;
       }
     }
 
@@ -1400,7 +1270,6 @@ class DummyDataGenerator {
     );
   }
 
-  /// STEP 6: Generate groups with proper structure
   Future<List<String>> _generateGroups(
     List<String> userIds,
     List<String> tagIds,
@@ -1411,7 +1280,6 @@ class DummyDataGenerator {
 
     final List<String> groupIds = [];
 
-    // Group names and descriptions
     final List<Map<String, String>> groupData = [
       {
         'name': 'Math Study Group',
@@ -1480,7 +1348,6 @@ class DummyDataGenerator {
       },
     ];
 
-    // Pre-generate group images in parallel
     final Map<String, Future<String?>> groupImageFutures = {};
 
     for (int i = 0; i < min(NUM_GROUPS, groupData.length); i++) {
@@ -1489,7 +1356,6 @@ class DummyDataGenerator {
 
       final String groupId =
           'group_${groupName.toLowerCase().replaceAll(' ', '_')}_${_random.nextInt(1000)}';
-      // Upload a group image to Firebase Storage
       groupImageFutures[groupId] = _uploadGroupImageToStorage(groupId);
     }
 
@@ -1498,7 +1364,6 @@ class DummyDataGenerator {
       level: "INFO",
     );
 
-    // Wait for all group images to be uploaded
     final Map<String, String?> groupImages = {};
     await Future.wait(
       groupImageFutures.entries.map((entry) async {
@@ -1506,7 +1371,6 @@ class DummyDataGenerator {
       }),
     );
 
-    // Create group documents
     for (int i = 0; i < min(NUM_GROUPS, groupData.length); i++) {
       final String groupName = groupData[i]['name'] ?? '';
       if (groupName.isEmpty) {
@@ -1525,18 +1389,15 @@ class DummyDataGenerator {
         level: "DEBUG",
       );
 
-      // Select a random creator (mentor)
       final String creatorId = userIds[_random.nextInt(userIds.length)];
       _logger.log("Selected creator: $creatorId", level: "DEBUG");
 
-      // Get pre-generated group profile image
       final String? photoURL = groupImages[groupId];
       _logger.log(
         "Group profile image: ${photoURL != null ? 'Available' : 'Failed'}",
         level: "DEBUG",
       );
 
-      // Select random tags for this group (2-5 tags)
       final List<String> groupTags = [];
       final int numTags = _random.nextInt(4) + 2;
 
@@ -1544,10 +1405,8 @@ class DummyDataGenerator {
       availableTags.shuffle(_random);
       groupTags.addAll(availableTags.take(numTags));
 
-      // Create the group document
       final groupRef = _firestore.collection('groups').doc(groupId);
 
-      // Determine if this group requires approval to join
       final bool requiresApproval = _random.nextBool();
 
       await batchManager.set(groupRef, {
@@ -1563,7 +1422,6 @@ class DummyDataGenerator {
         },
       });
 
-      // Add creator as mentor member
       final creatorMemberRef = groupRef.collection('members').doc(creatorId);
       await batchManager.set(creatorMemberRef, {
         'displayName': userData[creatorId]?['displayName'] ?? 'Unknown User',
@@ -1572,7 +1430,6 @@ class DummyDataGenerator {
         'joinedAt': FieldValue.serverTimestamp(),
       });
 
-      // Add group to creator's groups collection
       final creatorRef = _firestore.collection('users').doc(creatorId);
       final creatorGroupRef = creatorRef.collection('groups').doc(groupId);
       await batchManager.set(creatorGroupRef, {
@@ -1582,8 +1439,6 @@ class DummyDataGenerator {
         'joinedAt': FieldValue.serverTimestamp(),
       });
 
-      // Create standard channels for this group (in batch)
-      // Discussion channel
       final discussionChannelId =
           'channel_discussion_${groupId}_${_random.nextInt(1000)}';
       final discussionChannelRef = groupRef
@@ -1599,7 +1454,6 @@ class DummyDataGenerator {
             'Use this channel for general communication and announcements.',
       });
 
-      // Assessment channel
       final assessmentChannelId =
           'channel_assessment_${groupId}_${_random.nextInt(1000)}';
       final assessmentChannelRef = groupRef
@@ -1615,7 +1469,6 @@ class DummyDataGenerator {
             'Use this channel to access and complete shared assessments.',
       });
 
-      // Resource channel
       final resourceChannelId =
           'channel_resource_${groupId}_${_random.nextInt(1000)}';
       final resourceChannelRef = groupRef
@@ -1631,7 +1484,6 @@ class DummyDataGenerator {
             'Share and access helpful learning resources in this channel.',
       });
 
-      // Add this group to each of its tags' groups subcollection
       for (String tagId in groupTags) {
         final tagGroupRef = _firestore
             .collection('tags')
@@ -1654,35 +1506,26 @@ class DummyDataGenerator {
     return groupIds;
   }
 
-  /// Upload a group image to Firebase Storage
   Future<String?> _uploadGroupImageToStorage(String groupId) async {
     try {
-      // Generate a placeholder image for the group
-      // In a real app, you'd pick from a predefined set of group images
       final Reference storageRef = _storage.ref().child(
         'group_images/$groupId.png',
       );
 
-      // Create a simple placeholder via an asset (in real app, use group icons)
-      // For this example, we'll reuse profile pics for groups
       final List<String> availableProfilePics = await _listAssetProfilePics();
 
       if (availableProfilePics.isNotEmpty) {
-        // Pick a random profile pic to use for the group
         final String groupImage =
             availableProfilePics[_random.nextInt(availableProfilePics.length)];
 
-        // Load asset bytes
         ByteData data = await rootBundle.load(groupImage);
         List<int> bytes = data.buffer.asUint8List();
 
-        // Upload to Firebase Storage
         final UploadTask uploadTask = storageRef.putData(
           Uint8List.fromList(bytes),
           SettableMetadata(contentType: 'image/png'),
         );
 
-        // Get the download URL
         final TaskSnapshot taskSnapshot = await uploadTask;
         final String downloadUrl = await taskSnapshot.ref.getDownloadURL();
 
@@ -1702,7 +1545,6 @@ class DummyDataGenerator {
     }
   }
 
-  /// STEP 7: Create group memberships and invitations
   Future<void> _createGroupMemberships(
     List<String> userIds,
     List<String> groupIds,
@@ -1714,7 +1556,6 @@ class DummyDataGenerator {
     int invitesCreated = 0;
     int requestsCreated = 0;
 
-    // Get all group data in one batch to avoid repeated reads
     final Map<String, Map<String, dynamic>> groupData = {};
     final List<Future<void>> groupDataFutures = [];
 
@@ -1731,7 +1572,6 @@ class DummyDataGenerator {
     await Future.wait(groupDataFutures);
     _logger.log("Retrieved data for ${groupData.length} groups", level: "INFO");
 
-    // For each group, add members and invitations
     for (String groupId in groupIds) {
       if (!groupData.containsKey(groupId)) {
         _logger.log(
@@ -1755,11 +1595,9 @@ class DummyDataGenerator {
       final String groupName = groupData[groupId]?['name'] ?? 'Group $groupId';
       final String? groupPhotoURL = groupData[groupId]?['photoURL'];
 
-      // Get potential members (all users except creator)
       final List<String> potentialMemberIds =
           userIds.where((id) => id != creatorId).toList();
 
-      // Decide how many members this group will have
       final int numberOfMembers = min(
         _random.nextInt(MAX_GROUP_MEMBERS - MIN_GROUP_MEMBERS + 1) +
             MIN_GROUP_MEMBERS,
@@ -1770,10 +1608,8 @@ class DummyDataGenerator {
         level: "DEBUG",
       );
 
-      // Shuffle user list for random selection
       potentialMemberIds.shuffle(_random);
 
-      // Add members to the group
       final List<String> memberIds =
           potentialMemberIds.take(numberOfMembers).toList();
       final List<String> remainingUsers =
@@ -1781,9 +1617,7 @@ class DummyDataGenerator {
 
       final groupRef = _firestore.collection('groups').doc(groupId);
 
-      // Add all members in batch
       for (String memberId in memberIds) {
-        // Add user as student member to group
         final memberRef = groupRef.collection('members').doc(memberId);
         await batchManager.set(memberRef, {
           'displayName': userData[memberId]?['displayName'] ?? 'Unknown User',
@@ -1792,7 +1626,6 @@ class DummyDataGenerator {
           'joinedAt': FieldValue.serverTimestamp(),
         });
 
-        // Add group to user's groups subcollection
         final userRef = _firestore.collection('users').doc(memberId);
         final userGroupRef = userRef.collection('groups').doc(groupId);
         await batchManager.set(userGroupRef, {
@@ -1805,20 +1638,17 @@ class DummyDataGenerator {
         membershipsCreated++;
       }
 
-      // Create pending invites for this group (3-6 invites)
       if (remainingUsers.isNotEmpty) {
         final int numberOfInvites = min(
           _random.nextInt(4) + 3,
           remainingUsers.length,
         );
 
-        // Use shuffle and take for randomness
         remainingUsers.shuffle(_random);
         final invitedUsers = remainingUsers.take(numberOfInvites).toList();
         remainingUsers.removeWhere((id) => invitedUsers.contains(id));
 
         for (String invitedUserId in invitedUsers) {
-          // Add to group's pendingInvites subcollection
           final pendingInviteRef = groupRef
               .collection('pendingInvites')
               .doc(invitedUserId);
@@ -1830,7 +1660,6 @@ class DummyDataGenerator {
             'status': 'pending',
           });
 
-          // Add to user's groupInvites subcollection with a unique ID
           final userRef = _firestore.collection('users').doc(invitedUserId);
           final userInviteRef = userRef
               .collection('groupInvites')
@@ -1851,19 +1680,16 @@ class DummyDataGenerator {
         }
       }
 
-      // Create join requests if group requires approval
       if (requiresApproval && remainingUsers.isNotEmpty) {
         final int numberOfRequests = min(
           _random.nextInt(3) + 2,
           remainingUsers.length,
         );
 
-        // Use shuffle and take for randomness
         remainingUsers.shuffle(_random);
         final requestUsers = remainingUsers.take(numberOfRequests).toList();
 
         for (String requestUserId in requestUsers) {
-          // Add to group's joinRequests subcollection
           final joinRequestRef = groupRef
               .collection('joinRequests')
               .doc(requestUserId);
@@ -1887,7 +1713,6 @@ class DummyDataGenerator {
     );
   }
 
-  /// STEP 8: Generate assessments with efficient batching
   Future<List<String>> _generateAssessments(
     List<String> userIds,
     List<String> tagIds,
@@ -1898,7 +1723,6 @@ class DummyDataGenerator {
 
     final List<String> assessmentIds = [];
 
-    // Assessment titles and descriptions - taking first 30
     final List<Map<String, String>> assessmentData = [
       {
         'title': 'Algebra Basics Quiz',
@@ -1983,7 +1807,6 @@ class DummyDataGenerator {
       },
     ];
 
-    // Question types
     final List<String> questionTypes = [
       'multiple-choice',
       'short-answer',
@@ -1992,7 +1815,6 @@ class DummyDataGenerator {
       'fill-in-blank',
     ];
 
-    // Create assessments (up to NUM_ASSESSMENTS)
     final int numAssessments = min(NUM_ASSESSMENTS, assessmentData.length);
     _logger.log("Will create $numAssessments assessments", level: "INFO");
     int totalQuestions = 0;
@@ -2015,10 +1837,8 @@ class DummyDataGenerator {
         level: "DEBUG",
       );
 
-      // Select a random creator
       final String creatorId = userIds[_random.nextInt(userIds.length)];
 
-      // Select random tags (2-4 tags per assessment)
       final List<String> assessmentTags = [];
       final int numTags = _random.nextInt(3) + 2;
 
@@ -2026,31 +1846,27 @@ class DummyDataGenerator {
       availableTags.shuffle(_random);
       assessmentTags.addAll(availableTags.take(numTags));
 
-      // Create the assessment document
       final assessmentRef = _firestore
           .collection('assessments')
           .doc(assessmentId);
 
-      // Determine total points based on questions that will be created
-      final int numberOfQuestions = _random.nextInt(5) + 3; // 3-7 questions
-      final int totalPoints =
-          numberOfQuestions * 5; // Each question worth up to 5 points
+      final int numberOfQuestions = _random.nextInt(5) + 3;
+      final int totalPoints = numberOfQuestions * 5;
 
       await batchManager.set(assessmentRef, {
         'title': assessmentTitle,
         'creatorId': creatorId,
-        'sourceDocumentId': 'doc_${_random.nextInt(1000)}', // Dummy document ID
+        'sourceDocumentId': 'doc_${_random.nextInt(1000)}',
         'createdAt': FieldValue.serverTimestamp(),
         'description': assessmentData[i]['description'],
         'difficulty': ['easy', 'medium', 'hard'][_random.nextInt(3)],
         'isPublic': _random.nextBool(),
         'totalPoints': totalPoints,
         'tags': assessmentTags,
-        'rating': _random.nextInt(5) + 1, // 1-5 rating
-        'madeByAI': _random.nextBool(), // Add AI-generated flag
+        'rating': _random.nextInt(5) + 1,
+        'madeByAI': _random.nextBool(),
       });
 
-      // Add assessment to creator's assessments subcollection
       final creatorRef = _firestore.collection('users').doc(creatorId);
       final creatorAssessmentRef = creatorRef
           .collection('assessments')
@@ -2068,24 +1884,21 @@ class DummyDataGenerator {
         'wasSharedInGroup': false,
       });
 
-      // Create questions and answers
       for (int qIdx = 0; qIdx < numberOfQuestions; qIdx++) {
         final String questionId =
             'question_${assessmentId}_${qIdx}_${_random.nextInt(1000)}';
         final String questionType =
             questionTypes[_random.nextInt(questionTypes.length)];
 
-        // Create question document
         final questionRef = assessmentRef
             .collection('questions')
             .doc(questionId);
         final Map<String, dynamic> questionData = {
           'questionType': questionType,
           'questionText': 'Sample question ${qIdx + 1} for ${assessmentTitle}',
-          'points': _random.nextInt(5) + 1, // 1-5 points
+          'points': _random.nextInt(5) + 1,
         };
 
-        // Add options for multiple-choice questions
         if (questionType == 'multiple-choice') {
           questionData['options'] = [
             'Option A',
@@ -2097,7 +1910,6 @@ class DummyDataGenerator {
 
         await batchManager.set(questionRef, questionData);
 
-        // Create corresponding answer
         final answerRef = assessmentRef
             .collection('answers')
             .doc('answer_for_$questionId');
@@ -2108,7 +1920,6 @@ class DummyDataGenerator {
               'Explanation for the correct answer to question ${qIdx + 1}',
         };
 
-        // Set answer text based on question type
         if (questionType == 'multiple-choice') {
           answerData['answerText'] =
               ['Option A', 'Option B', 'Option C', 'Option D'][_random.nextInt(
@@ -2132,8 +1943,6 @@ class DummyDataGenerator {
     return assessmentIds;
   }
 
-  /// STEP 9: Share assessments with users and groups - with proper channel linking and flag preservation
-  /// STEP 9: FIXED Share assessments method that properly preserves both flags
   Future<void> _shareAssessments(
     List<String> userIds,
     List<String> groupIds,
@@ -2146,27 +1955,21 @@ class DummyDataGenerator {
       level: "INFO",
     );
 
-    // Track statistics
     int assessmentsSharedWithUsers = 0;
     int assessmentsSharedWithGroups = 0;
     int usersBothFlagsSet = 0;
 
-    // First, let's cache all the necessary data
     final assessmentData = await _preloadAssessmentData(assessmentIds);
     final userFriends = await _preloadUserFriends(userIds);
     final groupInfo = await _preloadGroupData(groupIds);
 
-    // Instead of processing all assessments and then all sharing, let's track which users
-    // receive assessments through which methods to ensure flag preservation
     Map<String, Map<String, Set<String>>> sharingTracker = {};
-    // Structure: {assessmentId: {userId: {'direct', 'group'}}}
 
     _logger.log(
       "👉 PHASE 1: Pre-marking all sharing relationships",
       level: "INFO",
     );
 
-    // For each assessment, mark who will receive it and how
     for (String assessmentId in assessmentIds) {
       if (!assessmentData.containsKey(assessmentId)) {
         _logger.log(
@@ -2187,10 +1990,8 @@ class DummyDataGenerator {
         continue;
       }
 
-      // Initialize tracking for this assessment
       sharingTracker[assessmentId] = {};
 
-      // 1. Mark users who will receive it directly (friends)
       final List<String> creatorFriends = userFriends[creatorId] ?? [];
       int numFriendsToShare = min(
         StaticData.MIN_SHARED_USERS,
@@ -2214,11 +2015,9 @@ class DummyDataGenerator {
         }
       }
 
-      // 2. Mark users who will receive it via groups
       int numGroupsToShare = min(StaticData.MIN_SHARED_GROUPS, groupIds.length);
 
       if (groupIds.isNotEmpty) {
-        // Filter to eligible groups
         final eligibleGroups =
             groupIds
                 .where(
@@ -2234,12 +2033,10 @@ class DummyDataGenerator {
           final selectedGroups = shuffledGroups.take(numGroupsToShare).toList();
 
           for (String groupId in selectedGroups) {
-            // Get all members of this group
             final members =
                 groupInfo[groupId]!['members'] as List<String>? ?? [];
 
             for (String memberId in members) {
-              // Skip creator (they already have the assessment)
               if (memberId == creatorId) continue;
 
               if (!sharingTracker[assessmentId]!.containsKey(memberId)) {
@@ -2256,19 +2053,16 @@ class DummyDataGenerator {
       }
     }
 
-    // Now we have a complete map of who should receive what and how
     _logger.log(
       "👉 PHASE 2: Executing actual sharing operations with proper flags",
       level: "INFO",
     );
 
-    // Process each assessment
     for (String assessmentId in sharingTracker.keys) {
       final assessmentInfo = assessmentData[assessmentId]!;
       final String creatorId = assessmentInfo['creatorId'] ?? '';
       final String assessmentTitle = assessmentInfo['title'] ?? 'Assessment';
 
-      // Process direct sharing (sharedWithUsers collection)
       Map<String, Map<String, String>> directShareUsers = {};
       for (String userId in sharingTracker[assessmentId]!.keys) {
         if (sharingTracker[assessmentId]![userId]!.contains('direct')) {
@@ -2279,7 +2073,6 @@ class DummyDataGenerator {
         }
       }
 
-      // Add to sharedWithUsers collection
       for (String userId in directShareUsers.keys) {
         final sharedUserRef = _firestore
             .collection('assessments')
@@ -2293,14 +2086,11 @@ class DummyDataGenerator {
         });
       }
 
-      // Process group sharing (sharedWithGroups collection)
       Set<String> groupShareGroups = {};
-      Map<String, String> groupMembers = {}; // userId -> mentorId mapping
+      Map<String, String> groupMembers = {};
 
-      // Identify groups to share with
       for (String userId in sharingTracker[assessmentId]!.keys) {
         if (sharingTracker[assessmentId]![userId]!.contains('group')) {
-          // Find which group(s) this user belongs to
           for (String groupId in groupInfo.keys) {
             final members =
                 groupInfo[groupId]!['members'] as List<String>? ?? [];
@@ -2314,7 +2104,6 @@ class DummyDataGenerator {
         }
       }
 
-      // Add to sharedWithGroups collection and create channel links
       for (String groupId in groupShareGroups) {
         final groupName = groupInfo[groupId]?['name'] as String? ?? 'Group';
         final mentorId =
@@ -2330,7 +2119,6 @@ class DummyDataGenerator {
           continue;
         }
 
-        // Add to sharedWithGroups
         final sharedGroupRef = _firestore
             .collection('assessments')
             .doc(assessmentId)
@@ -2348,7 +2136,6 @@ class DummyDataGenerator {
           'attemptsAllowed': _random.nextInt(3) + 1,
         });
 
-        // Link to channel
         final channelRef = _firestore
             .collection('groups')
             .doc(groupId)
@@ -2372,7 +2159,6 @@ class DummyDataGenerator {
         assessmentsSharedWithGroups++;
       }
 
-      // CRITICAL PHASE: Create/update user assessment documents WITH BOTH FLAGS PRESERVED
       _logger.log(
         "👉 PHASE 3: Setting assessment flags in user documents",
         level: "INFO",
@@ -2389,7 +2175,6 @@ class DummyDataGenerator {
           level: "DEBUG",
         );
 
-        // First check if document exists
         final userRef = _firestore.collection('users').doc(userId);
         final userAssessmentRef = userRef
             .collection('assessments')
@@ -2397,12 +2182,10 @@ class DummyDataGenerator {
         final doc = await userAssessmentRef.get();
 
         if (doc.exists) {
-          // Update existing document, preserving any existing TRUE flags
           final data = doc.data() ?? {};
           final bool existingDirectFlag = data['wasSharedWithUser'] ?? false;
           final bool existingGroupFlag = data['wasSharedInGroup'] ?? false;
 
-          // Calculate final flag values - if it was ever true, keep it true
           final bool finalDirectFlag = existingDirectFlag || shareDirectly;
           final bool finalGroupFlag = existingGroupFlag || shareViaGroup;
 
@@ -2427,7 +2210,6 @@ class DummyDataGenerator {
             level: "DEBUG",
           );
         } else {
-          // Create new document with both flags set appropriately
           await batchManager.set(userAssessmentRef, {
             'title': assessmentTitle,
             'createdAt': FieldValue.serverTimestamp(),
@@ -2451,7 +2233,6 @@ class DummyDataGenerator {
           );
         }
 
-        // Commit periodically to avoid batch size limits
         if (batchManager.operationCount > 400) {
           _logger.log(
             "Committing batch during sharing operation",
@@ -2468,11 +2249,9 @@ class DummyDataGenerator {
       level: "SUCCESS",
     );
 
-    // Add verification step to double-check our work
     await _verifyAssessmentSharing();
   }
 
-  // Helper to preload assessment data
   Future<Map<String, Map<String, dynamic>>> _preloadAssessmentData(
     List<String> assessmentIds,
   ) async {
@@ -2499,7 +2278,6 @@ class DummyDataGenerator {
     return result;
   }
 
-  // Helper to preload user friends
   Future<Map<String, List<String>>> _preloadUserFriends(
     List<String> userIds,
   ) async {
@@ -2527,21 +2305,18 @@ class DummyDataGenerator {
     return result;
   }
 
-  // Helper to preload group data
   Future<Map<String, Map<String, dynamic>>> _preloadGroupData(
     List<String> groupIds,
   ) async {
     final Map<String, Map<String, dynamic>> result = {};
     final List<Future<void>> futures = [];
 
-    // First load basic group info
     for (String groupId in groupIds) {
       futures.add(
         _firestore.collection('groups').doc(groupId).get().then((snapshot) {
           if (snapshot.exists) {
             result[groupId] = snapshot.data() ?? {};
             result[groupId]!['members'] = <String>[];
-            // Add placeholder for member list that we'll populate later
           }
         }),
       );
@@ -2550,9 +2325,7 @@ class DummyDataGenerator {
     await Future.wait(futures);
     futures.clear();
 
-    // Then load members, mentors and channels
     for (String groupId in result.keys) {
-      // Load members
       futures.add(
         _firestore
             .collection('groups')
@@ -2565,7 +2338,6 @@ class DummyDataGenerator {
             }),
       );
 
-      // Find mentor
       futures.add(
         _firestore
             .collection('groups')
@@ -2583,7 +2355,6 @@ class DummyDataGenerator {
             }),
       );
 
-      // Find assessment channel
       futures.add(
         _firestore
             .collection('groups')
@@ -2608,7 +2379,6 @@ class DummyDataGenerator {
     return result;
   }
 
-  // Verification method to double-check sharing worked correctly
   Future<void> _verifyAssessmentSharing() async {
     _logger.log(
       "VERIFICATION: Checking assessment sharing flags...",
@@ -2621,7 +2391,6 @@ class DummyDataGenerator {
       int groupShared = 0;
       int bothFlags = 0;
 
-      // Sample a few users
       final userSnapshot = await _firestore.collection('users').limit(5).get();
 
       for (final userDoc in userSnapshot.docs) {
@@ -2673,7 +2442,6 @@ class DummyDataGenerator {
     }
   }
 
-  /// STEP 10: Generate submissions for shared assessments efficiently - FIXED MIRRORING
   Future<void> _generateSubmissions(
     List<String> userIds,
     List<String> groupIds,
@@ -2690,7 +2458,6 @@ class DummyDataGenerator {
     int groupSubmissionsMirrored = 0;
     int mirroringErrors = 0;
 
-    // Prefetch all group channels to speed up mirroring
     final Map<String, Map<String, String>> groupChannelsCache = {};
 
     for (String groupId in groupIds) {
@@ -2730,11 +2497,9 @@ class DummyDataGenerator {
       level: "INFO",
     );
 
-    // For each user, generate submissions for their assessments
     for (String userId in userIds) {
       _logger.log("Processing submissions for user $userId", level: "DEBUG");
 
-      // Get all assessments shared with this user
       final userAssessmentsSnapshot =
           await _firestore
               .collection('users')
@@ -2750,7 +2515,6 @@ class DummyDataGenerator {
         continue;
       }
 
-      // Process assessments that were shared with this user
       for (final assessmentDoc in userAssessmentsSnapshot.docs) {
         final String assessmentId = assessmentDoc.id;
         final bool wasSharedInGroup =
@@ -2758,7 +2522,6 @@ class DummyDataGenerator {
         final bool wasSharedWithUser =
             assessmentDoc.data()['wasSharedWithUser'] ?? false;
 
-        // Skip if neither sharing flag is true
         if (!wasSharedWithUser && !wasSharedInGroup) {
           _logger.log(
             "Assessment $assessmentId was not shared (no flags set), skipping submission",
@@ -2772,12 +2535,10 @@ class DummyDataGenerator {
           level: "DEBUG",
         );
 
-        // Get assessment details from main collection
         final assessmentRef = _firestore
             .collection('assessments')
             .doc(assessmentId);
 
-        // Get questions for this assessment
         final questionsSnapshot =
             await assessmentRef.collection('questions').get();
         if (questionsSnapshot.docs.isEmpty) {
@@ -2803,7 +2564,6 @@ class DummyDataGenerator {
           level: "DEBUG",
         );
 
-        // Create 1-3 submissions for this assessment
         final int numberOfSubmissions = _random.nextInt(3) + 1;
         _logger.log(
           "Creating $numberOfSubmissions submissions for user $userId on assessment $assessmentId",
@@ -2824,7 +2584,6 @@ class DummyDataGenerator {
               .collection('submissions')
               .doc(submissionId);
 
-          // Determine submission status
           final String status =
               ['in-progress', 'submitted', 'evaluated'][_random.nextInt(3)];
           int totalScore = 0;
@@ -2836,7 +2595,7 @@ class DummyDataGenerator {
             'submittedAt':
                 status == 'in-progress' ? null : FieldValue.serverTimestamp(),
             'status': status,
-            'totalScore': 0, // Will update for evaluated submissions
+            'totalScore': 0,
             'overallFeedback':
                 status == 'evaluated'
                     ? 'Overall feedback for this submission'
@@ -2850,19 +2609,15 @@ class DummyDataGenerator {
             level: "DEBUG",
           );
 
-          // Create answers based on submission status
           int questionsToAnswer = questions.length;
           if (status == 'in-progress') {
-            // For in-progress, only answer some questions
-            questionsToAnswer =
-                _random.nextInt(questions.length) + 1; // At least 1 question
+            questionsToAnswer = _random.nextInt(questions.length) + 1;
             _logger.log(
               "In-progress submission will answer $questionsToAnswer of ${questions.length} questions",
               level: "DEBUG",
             );
           }
 
-          // Array to collect all answer data for easier mirroring
           final List<Map<String, dynamic>> answersData = [];
 
           for (int q = 0; q < questionsToAnswer; q++) {
@@ -2872,12 +2627,10 @@ class DummyDataGenerator {
             final int maxPoints = question['points'];
             final List<dynamic>? options = question['options'];
 
-            // Create answer document with a unique ID
             final String answerId =
                 'answer_${submissionId}_${questionId}_${_random.nextInt(10000)}';
             final answerRef = submissionRef.collection('answers').doc(answerId);
 
-            // Generate user answer based on question type
             String userAnswer;
             if (questionType == 'multiple-choice' &&
                 options != null &&
@@ -2895,7 +2648,6 @@ class DummyDataGenerator {
               'answeredAt': FieldValue.serverTimestamp(),
             };
 
-            // Add evaluation data for evaluated submissions
             if (status == 'evaluated') {
               final int score = _random.nextInt(maxPoints + 1);
               totalScore += score;
@@ -2909,19 +2661,16 @@ class DummyDataGenerator {
               );
             }
 
-            // Store the answer ID for mirroring
             answersData.add({'id': answerId, 'data': answerData});
 
             await batchManager.set(answerRef, answerData);
             answersCreated++;
           }
 
-          // Update total score for evaluated submissions
           if (status == 'evaluated') {
             await batchManager.update(submissionRef, {
               'totalScore': totalScore,
             });
-            // Also update the submission data for mirroring
             submissionData['totalScore'] = totalScore;
             _logger.log(
               "Updated total score to $totalScore for submission $submissionId",
@@ -2929,14 +2678,12 @@ class DummyDataGenerator {
             );
           }
 
-          // If this was shared in a group, mirror submission in the group channel
           if (wasSharedInGroup) {
             _logger.log(
               "Assessment was shared in a group, mirroring submission to group channels",
               level: "DEBUG",
             );
 
-            // Find which group this assessment was shared in
             final sharedGroupsSnapshot =
                 await assessmentRef.collection('sharedWithGroups').get();
 
@@ -2956,7 +2703,6 @@ class DummyDataGenerator {
                 level: "DEBUG",
               );
 
-              // Find if user is a member of this group
               final membershipSnapshot =
                   await _firestore
                       .collection('groups')
@@ -2973,18 +2719,15 @@ class DummyDataGenerator {
                 continue;
               }
 
-              // Use cached channel if available, otherwise query
               String? channelId;
               if (groupChannelsCache.containsKey(groupId) &&
                   groupChannelsCache[groupId]!.isNotEmpty) {
-                // Get first cached assessment channel
                 channelId = groupChannelsCache[groupId]!.keys.first;
                 _logger.log(
                   "Using cached assessment channel $channelId for group $groupId",
                   level: "DEBUG",
                 );
               } else {
-                // Try to find channel through query
                 final channelsSnapshot =
                     await _firestore
                         .collection('groups')
@@ -3009,7 +2752,6 @@ class DummyDataGenerator {
                 );
               }
 
-              // CRITICAL FIX: Explicitly verify assessment exists in the channel before mirroring
               final channelAssessmentRef = _firestore
                   .collection('groups')
                   .doc(groupId)
@@ -3026,7 +2768,6 @@ class DummyDataGenerator {
                   level: "ERROR",
                 );
 
-                // Get assessment details to create it
                 final assessmentDoc = await assessmentRef.get();
 
                 if (!assessmentDoc.exists) {
@@ -3038,9 +2779,7 @@ class DummyDataGenerator {
                   continue;
                 }
 
-                // Find a mentor for this group to be the assigner
-                String assignerId =
-                    userId; // Default to current user if no mentor found
+                String assignerId = userId;
 
                 final mentorsQuery =
                     await _firestore
@@ -3055,7 +2794,6 @@ class DummyDataGenerator {
                   assignerId = mentorsQuery.docs.first.id;
                 }
 
-                // Create the assessment in the channel
                 await batchManager.set(channelAssessmentRef, {
                   'title': assessmentDoc.data()?['title'] ?? 'Assessment',
                   'description': assessmentDoc.data()?['description'] ?? '',
@@ -3076,19 +2814,16 @@ class DummyDataGenerator {
                 );
               }
 
-              // Now create the submission in the group channel
               final groupSubmissionRef = channelAssessmentRef
                   .collection('submissions')
                   .doc(submissionId);
 
-              // Copy submission data
               await batchManager.set(groupSubmissionRef, submissionData);
               _logger.log(
                 "Mirrored submission $submissionId to group $groupId channel $channelId",
                 level: "DEBUG",
               );
 
-              // Copy all answers to the group submission
               int answersAddedToGroup = 0;
               for (final answerItem in answersData) {
                 final groupAnswerRef = groupSubmissionRef
@@ -3120,7 +2855,6 @@ class DummyDataGenerator {
             }
           }
 
-          // Commit batch periodically to avoid getting too large
           if (batchManager.operationCount > 200) {
             _logger.log(
               "Committing batch during submission generation to avoid size limits",
@@ -3149,19 +2883,16 @@ class DummyDataGenerator {
     );
   }
 
-  /// Show snackbar with message
   void _showSnackBar(String message, Color backgroundColor) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: backgroundColor),
     );
   }
 
-  /// Start a step timer
   void _startStepTimer(String step) {
     _stepTimers[step] = Stopwatch()..start();
   }
 
-  /// Stop a step timer and log the elapsed time
   void _stopStepTimer(String step) {
     if (_stepTimers.containsKey(step)) {
       final elapsed = _stepTimers[step]!.elapsedMilliseconds;
@@ -3173,7 +2904,6 @@ class DummyDataGenerator {
     }
   }
 
-  /// Log a summary of the generation process
   void _logGenerationSummary() {
     final totalElapsed = _totalStopwatch.elapsedMilliseconds;
 
@@ -3183,19 +2913,15 @@ class DummyDataGenerator {
       level: "INFO",
     );
 
-    // List step times in order
     List<MapEntry<String, int>> stepTimes = [];
     for (final entry in _stepTimers.entries) {
       if (entry.key != 'total') {
-        // Skip total time
         stepTimes.add(MapEntry(entry.key, entry.value.elapsedMilliseconds));
       }
     }
 
-    // Sort by elapsed time (descending)
     stepTimes.sort((a, b) => b.value.compareTo(a.value));
 
-    // Log each step time
     for (final entry in stepTimes) {
       final percentage = (entry.value / totalElapsed * 100).toStringAsFixed(1);
       _logger.log(

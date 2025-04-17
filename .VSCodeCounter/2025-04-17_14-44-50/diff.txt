@@ -1,0 +1,37 @@
+Date : 2025-04-17 14:44:50
+Directory : c:\Users\Ivy\Downloads\Fultter\attempt1
+Total : 11 files,  -23 codes, -624 comments, -105 blanks, all -752 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| Dart     |         11 |        -23 |       -624 |       -105 |       -752 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++--------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                           | files      | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                              |         11 |        -23 |       -624 |       -105 |       -752 |
+| lib                                                                            |         11 |        -23 |       -624 |       -105 |       -752 |
+| lib\screens                                                                    |         11 |        -23 |       -624 |       -105 |       -752 |
++--------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++--------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                                       | language | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\dummy_data_generator.dart  | Dart     |         -4 |       -266 |         -4 |       -274 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\find_friends_page.dart     | Dart     |         -2 |       -111 |        -17 |       -130 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\group_channels.dart        | Dart     |          0 |        -12 |          0 |        -12 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\group_members.dart         | Dart     |          0 |        -26 |          0 |        -26 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\group_page.dart            | Dart     |          0 |        -26 |          0 |        -26 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\pdf_viewer_screen.dart     | Dart     |         -1 |         -7 |          0 |         -8 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\profile_setup_page.dart    | Dart     |         -1 |        -67 |        -43 |       -111 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\realtime_chat_message.dart | Dart     |          0 |         -7 |          0 |         -7 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\realtime_chat_service.dart | Dart     |          0 |        -40 |          0 |        -40 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\signup_page.dart           | Dart     |        -11 |        -46 |        -30 |        -87 |
+| c:\Users\Ivy\Downloads\Fultter\attempt1\lib\screens\startup_page.dart          | Dart     |         -4 |        -16 |        -11 |        -31 |
+| Total                                                                          |          |        -23 |       -624 |       -105 |       -752 |
++--------------------------------------------------------------------------------+----------+------------+------------+------------+------------+

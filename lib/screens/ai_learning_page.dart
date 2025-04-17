@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:math' as math;
 import 'dart:async';
 
 import 'assessment_page.dart';
@@ -19,31 +18,25 @@ class _AILearningPageState extends State<AILearningPage>
     with TickerProviderStateMixin {
   int _selectedPathIndex = 0;
   bool _isPathDetailView = false;
-  int _currentCarouselIndex = 0; // For the auto-switching carousel
-  Timer? _carouselTimer; // Timer for auto-switching
+  int _currentCarouselIndex = 0;
+  Timer? _carouselTimer;
 
-  // Animation controllers
   late AnimationController _fadeAnimationController;
   late AnimationController _slideAnimationController;
   late AnimationController _pulseAnimationController;
   late AnimationController _pathAnimationController;
-  late PageController _carouselController; // For carousel
-  // Scroll controllers
+  late PageController _carouselController;
   final ScrollController _mainScrollController = ScrollController();
 
-  void _onScroll() {
-    // Performance optimization: Track scroll position
-    // for potential lazy loading or animation triggers
-  }
+  void _onScroll() {}
 
-  // Featured learning paths (now including non-AI subjects)
   final List<Map<String, dynamic>> _featuredPaths = [
     {
       'title': 'AI Fundamentals',
       'subtitle': 'Learn core AI concepts',
       'description':
           'A comprehensive introduction to artificial intelligence concepts, principles, and applications.',
-      'color': const Color(0xFF5D5FEF), // More vibrant blue-purple
+      'color': const Color(0xFF5D5FEF),
       'icon': Icons.auto_awesome,
       'progress': 0.35,
       'totalModules': 8,
@@ -107,7 +100,7 @@ class _AILearningPageState extends State<AILearningPage>
       'subtitle': 'Civilization & development',
       'description':
           'Explore the key events, periods, and figures that shaped human history across different civilizations.',
-      'color': const Color(0xFF67B26F), // Vibrant green
+      'color': const Color(0xFF67B26F),
       'icon': Icons.public,
       'progress': 0.15,
       'totalModules': 10,
@@ -171,7 +164,7 @@ class _AILearningPageState extends State<AILearningPage>
       'subtitle': 'Calculus & beyond',
       'description':
           'Develop your mathematical skills with calculus, linear algebra, and other advanced mathematical concepts.',
-      'color': const Color(0xFFE94057), // Vibrant red
+      'color': const Color(0xFFE94057),
       'icon': Icons.calculate,
       'progress': 0.60,
       'totalModules': 8,
@@ -235,7 +228,7 @@ class _AILearningPageState extends State<AILearningPage>
       'subtitle': 'Storytelling & expression',
       'description':
           'Learn the craft of creative writing, from developing characters to structuring compelling narratives.',
-      'color': const Color(0xFF8A2387), // Vibrant purple
+      'color': const Color(0xFF8A2387),
       'icon': Icons.create,
       'progress': 0.25,
       'totalModules': 6,
@@ -296,14 +289,13 @@ class _AILearningPageState extends State<AILearningPage>
     },
   ];
 
-  // Additional learning paths (recommended section)
   final List<Map<String, dynamic>> _additionalPaths = [
     {
       'title': 'Data Science',
       'subtitle': 'Analytics & interpretation',
       'description':
           'Master data visualization, statistical analysis, and predictive modeling techniques.',
-      'color': const Color(0xFF00BCD4), // Cyan
+      'color': const Color(0xFF00BCD4),
       'icon': Icons.insert_chart,
       'level': 'Intermediate',
       'category': 'Technology',
@@ -315,7 +307,7 @@ class _AILearningPageState extends State<AILearningPage>
       'subtitle': 'Mind & behavior',
       'description':
           'Understand how we perceive, think, remember, and make decisions.',
-      'color': const Color(0xFFFF9800), // Orange
+      'color': const Color(0xFFFF9800),
       'icon': Icons.psychology,
       'level': 'Beginner',
       'category': 'Psychology',
@@ -327,7 +319,7 @@ class _AILearningPageState extends State<AILearningPage>
       'subtitle': 'Eco-friendly approaches',
       'description':
           'Learn principles and practices for environmentally conscious design solutions.',
-      'color': const Color(0xFF4CAF50), // Green
+      'color': const Color(0xFF4CAF50),
       'icon': Icons.eco,
       'level': 'All Levels',
       'category': 'Design',
@@ -339,7 +331,7 @@ class _AILearningPageState extends State<AILearningPage>
       'subtitle': 'Decentralized systems',
       'description':
           'Explore the fundamentals of blockchain, smart contracts, and decentralized applications.',
-      'color': const Color(0xFF673AB7), // Deep Purple
+      'color': const Color(0xFF673AB7),
       'icon': Icons.link,
       'level': 'Intermediate',
       'category': 'Technology',
@@ -348,34 +340,33 @@ class _AILearningPageState extends State<AILearningPage>
     },
   ];
 
-  // Learning ecosystems with updated titles and reorganization
   final List<Map<String, dynamic>> _learningEcosystems = [
     {
       'title': 'Interactive Labs',
       'description': 'Coming soon: Hands-on practice environments',
       'icon': Icons.science,
-      'color': const Color(0xFF5D5FEF), // Vibrant blue-purple
+      'color': const Color(0xFF5D5FEF),
       'isEnabled': false,
     },
     {
       'title': 'Live Classes',
       'description': 'Real-time learning with expert instructors',
       'icon': Icons.live_tv,
-      'color': const Color(0xFF67B26F), // Vibrant green
+      'color': const Color(0xFF67B26F),
       'isEnabled': true,
     },
     {
       'title': 'Learning Circles',
       'description': 'Peer-to-peer collaborative study groups',
       'icon': Icons.people,
-      'color': const Color(0xFFE94057), // Vibrant red
+      'color': const Color(0xFFE94057),
       'isEnabled': true,
     },
     {
       'title': 'Content Library',
       'description': 'Coming soon: Comprehensive resource collection',
       'icon': Icons.menu_book,
-      'color': const Color(0xFF8A2387), // Vibrant purple
+      'color': const Color(0xFF8A2387),
       'isEnabled': false,
     },
   ];
@@ -384,7 +375,6 @@ class _AILearningPageState extends State<AILearningPage>
   void initState() {
     super.initState();
 
-    // Initialize animation controllers
     _fadeAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -405,23 +395,17 @@ class _AILearningPageState extends State<AILearningPage>
       duration: const Duration(milliseconds: 400),
     );
 
-    // Initialize carousel controller
     _carouselController = PageController(initialPage: 0);
 
-    // Start with fade animation
     _fadeAnimationController.forward();
 
-    // Start with slide animation for staggered elements
     _slideAnimationController.forward();
 
-    // Add scroll listener for optimized rendering
     _mainScrollController.addListener(_onScroll);
 
-    // Start auto-switching for the carousel
     _startAutoSwitchTimer();
   }
 
-  // Simple timer for auto-switching
   void _startAutoSwitchTimer() {
     _carouselTimer?.cancel();
     _carouselTimer = Timer.periodic(const Duration(seconds: 5), (_) {
@@ -433,10 +417,8 @@ class _AILearningPageState extends State<AILearningPage>
   }
 
   void _startCarouselTimer() {
-    // Cancel any existing timer
     _carouselTimer?.cancel();
 
-    // Create a new timer that switches every 5 seconds
     _carouselTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (_currentCarouselIndex < _additionalPaths.length - 1) {
         _currentCarouselIndex++;
@@ -454,7 +436,6 @@ class _AILearningPageState extends State<AILearningPage>
     });
   }
 
-  // Toggle between main view and path detail view
   void _togglePathDetailView({int? pathIndex}) {
     setState(() {
       if (pathIndex != null) {
@@ -463,7 +444,6 @@ class _AILearningPageState extends State<AILearningPage>
       _isPathDetailView = !_isPathDetailView;
     });
 
-    // Reset scroll position when toggling views
     _mainScrollController.jumpTo(0);
   }
 
@@ -485,7 +465,6 @@ class _AILearningPageState extends State<AILearningPage>
     final Size size = MediaQuery.of(context).size;
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    // Extra padding to ensure content doesn't get hidden by navbar
     const double navbarSpacing = 100.0;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -498,16 +477,13 @@ class _AILearningPageState extends State<AILearningPage>
       child: Scaffold(
         backgroundColor: Colors.white,
         body: SafeArea(
-          bottom: false, // We'll handle bottom padding ourselves
+          bottom: false,
           child: Stack(
             children: [
-              // Main content
               Column(
                 children: [
-                  // App bar (simplified without search and profile icons)
                   _buildAppBar(),
 
-                  // Main scrollable content area
                   Expanded(
                     child:
                         _isPathDetailView
@@ -523,13 +499,11 @@ class _AILearningPageState extends State<AILearningPage>
             ],
           ),
         ),
-        // Bottom navigation bar (restored to original style)
         bottomNavigationBar: _buildBottomNavBar(),
       ),
     );
   }
 
-  // App bar with title only (search and profile icons removed)
   Widget _buildAppBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -546,7 +520,6 @@ class _AILearningPageState extends State<AILearningPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Title with back button when in detail view
           _isPathDetailView
               ? GestureDetector(
                 onTap: _togglePathDetailView,
@@ -576,14 +549,12 @@ class _AILearningPageState extends State<AILearningPage>
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
 
-          // Right side spacer (icons removed)
           const SizedBox(width: 40),
         ],
       ),
     );
   }
 
-  // Main content view with featured paths and ecosystems
   Widget _buildMainContentView(
     Size size,
     double navbarSpacing,
@@ -592,28 +563,22 @@ class _AILearningPageState extends State<AILearningPage>
     return SingleChildScrollView(
       controller: _mainScrollController,
       physics: const BouncingScrollPhysics(),
-      // Increased bottom padding to ensure no content is hidden behind the navbar
       padding: EdgeInsets.only(bottom: navbarSpacing + bottomPadding + 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Learning progress summary (without percentage increase)
           _buildLearningProgressSummary(),
 
-          // Featured paths section
           _buildFeaturedPathsSection(),
 
-          // Additional learning paths (recommended section with carousel)
           _buildAdditionalPathsSection(),
 
-          // Learning ecosystems (updated)
           _buildLearningEcosystemsSection(),
         ],
       ),
     );
   }
 
-  // Learning progress summary card (removed percentage increase)
   Widget _buildLearningProgressSummary() {
     return FadeTransition(
       opacity: _fadeAnimationController,
@@ -633,10 +598,8 @@ class _AILearningPageState extends State<AILearningPage>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF5D5FEF), // More vibrant blue-purple
-                const Color(
-                  0xFF98DBDF,
-                ).withOpacity(0.9), // Slightly more vibrant blue-teal
+                const Color(0xFF5D5FEF),
+                const Color(0xFF98DBDF).withOpacity(0.9),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -649,7 +612,6 @@ class _AILearningPageState extends State<AILearningPage>
                 offset: const Offset(0, 6),
               ),
             ],
-            // Added blue border for consistency
             border: Border.all(
               color: const Color(0xFF5D5FEF).withOpacity(0.5),
               width: 1.5,
@@ -660,7 +622,6 @@ class _AILearningPageState extends State<AILearningPage>
             children: [
               Row(
                 children: [
-                  // User progress info
                   const Expanded(
                     child: Text(
                       'Your Learning Journey',
@@ -672,7 +633,6 @@ class _AILearningPageState extends State<AILearningPage>
                     ),
                   ),
 
-                  // Animated badge
                   TweenAnimationBuilder<double>(
                     tween: Tween<double>(begin: 0.8, end: 1.0),
                     duration: const Duration(seconds: 2),
@@ -707,10 +667,8 @@ class _AILearningPageState extends State<AILearningPage>
 
               const SizedBox(height: 20),
 
-              // Progress info
               Row(
                 children: [
-                  // Circular progress indicator
                   SizedBox(
                     width: 60,
                     height: 60,
@@ -744,7 +702,6 @@ class _AILearningPageState extends State<AILearningPage>
 
                   const SizedBox(width: 20),
 
-                  // Stats
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -760,12 +717,10 @@ class _AILearningPageState extends State<AILearningPage>
 
               const SizedBox(height: 20),
 
-              // Action button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    // Continue learning - select first incomplete path
                     for (int i = 0; i < _featuredPaths.length; i++) {
                       if (_featuredPaths[i]['progress'] < 1.0) {
                         _togglePathDetailView(pathIndex: i);
@@ -795,7 +750,6 @@ class _AILearningPageState extends State<AILearningPage>
     );
   }
 
-  // Helper for progress stats
   Widget _buildProgressStat(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -816,12 +770,10 @@ class _AILearningPageState extends State<AILearningPage>
     );
   }
 
-  // Featured paths section
   Widget _buildFeaturedPathsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section title
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: Row(
@@ -836,7 +788,6 @@ class _AILearningPageState extends State<AILearningPage>
                 ),
               ),
 
-              // Filter button
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -869,7 +820,6 @@ class _AILearningPageState extends State<AILearningPage>
           ),
         ),
 
-        // Featured paths list
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -884,7 +834,6 @@ class _AILearningPageState extends State<AILearningPage>
                 final start = delay;
                 final end = delay + 0.4;
 
-                // Calculate current animation value
                 final double t = _slideAnimationController.value;
                 double opacity = 0.0;
                 double yOffset = 20.0;
@@ -930,7 +879,6 @@ class _AILearningPageState extends State<AILearningPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header section
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -942,7 +890,6 @@ class _AILearningPageState extends State<AILearningPage>
                         ),
                         child: Row(
                           children: [
-                            // Icon
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -958,7 +905,6 @@ class _AILearningPageState extends State<AILearningPage>
 
                             const SizedBox(width: 16),
 
-                            // Title & subtitle
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -982,7 +928,6 @@ class _AILearningPageState extends State<AILearningPage>
                               ),
                             ),
 
-                            // Category badge
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
@@ -1009,13 +954,11 @@ class _AILearningPageState extends State<AILearningPage>
                         ),
                       ),
 
-                      // Content section
                       Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Description
                             Text(
                               path['description'],
                               style: TextStyle(
@@ -1029,10 +972,8 @@ class _AILearningPageState extends State<AILearningPage>
 
                             const SizedBox(height: 16),
 
-                            // Progress bar
                             Row(
                               children: [
-                                // Progress percentage
                                 SizedBox(
                                   width: 40,
                                   child: Text(
@@ -1045,11 +986,9 @@ class _AILearningPageState extends State<AILearningPage>
                                   ),
                                 ),
 
-                                // Progress bar
                                 Expanded(
                                   child: Stack(
                                     children: [
-                                      // Background
                                       Container(
                                         height: 8,
                                         decoration: BoxDecoration(
@@ -1060,7 +999,6 @@ class _AILearningPageState extends State<AILearningPage>
                                         ),
                                       ),
 
-                                      // Progress
                                       FractionallySizedBox(
                                         widthFactor: path['progress'],
                                         child: Container(
@@ -1077,7 +1015,6 @@ class _AILearningPageState extends State<AILearningPage>
                                   ),
                                 ),
 
-                                // Module count
                                 SizedBox(
                                   width: 70,
                                   child: Text(
@@ -1094,11 +1031,9 @@ class _AILearningPageState extends State<AILearningPage>
 
                             const SizedBox(height: 16),
 
-                            // Action buttons
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // Info chips
                                 Row(
                                   children: [
                                     _buildInfoChip(
@@ -1115,7 +1050,6 @@ class _AILearningPageState extends State<AILearningPage>
                                   ],
                                 ),
 
-                                // Continue/Start button
                                 Container(
                                   decoration: BoxDecoration(
                                     color: path['color'],
@@ -1155,12 +1089,10 @@ class _AILearningPageState extends State<AILearningPage>
     );
   }
 
-  // Additional learning paths section with auto-switching carousel
   Widget _buildAdditionalPathsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section title
         const Padding(
           padding: EdgeInsets.fromLTRB(20, 8, 20, 12),
           child: Text(
@@ -1173,12 +1105,10 @@ class _AILearningPageState extends State<AILearningPage>
           ),
         ),
 
-        // Carousel with indicators - using more reliable layout constraints
         SizedBox(
           height: 261,
           child: Column(
             children: [
-              // Carousel in Expanded to take available space
               Expanded(
                 child: PageView.builder(
                   controller: _carouselController,
@@ -1187,9 +1117,7 @@ class _AILearningPageState extends State<AILearningPage>
                     setState(() {
                       _currentCarouselIndex = index;
                     });
-                    // Reset the timer when manually swiped
                     _startCarouselTimer();
-                    // Provide haptic feedback for better UX
                     HapticFeedback.selectionClick();
                   },
                   itemBuilder: (context, index) {
@@ -1219,11 +1147,9 @@ class _AILearningPageState extends State<AILearningPage>
                         ),
                         child: Stack(
                           children: [
-                            // Main content
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Path header with improved design
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
@@ -1235,7 +1161,6 @@ class _AILearningPageState extends State<AILearningPage>
                                   ),
                                   child: Row(
                                     children: [
-                                      // Icon with animation
                                       Container(
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
@@ -1262,7 +1187,6 @@ class _AILearningPageState extends State<AILearningPage>
 
                                       const SizedBox(width: 16),
 
-                                      // Title & subtitle
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment:
@@ -1291,7 +1215,6 @@ class _AILearningPageState extends State<AILearningPage>
                                         ),
                                       ),
 
-                                      // Category badge with polish
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 8,
@@ -1322,7 +1245,6 @@ class _AILearningPageState extends State<AILearningPage>
                                   ),
                                 ),
 
-                                // Path content
                                 Expanded(
                                   child: Padding(
                                     padding: const EdgeInsets.all(16),
@@ -1332,7 +1254,6 @@ class _AILearningPageState extends State<AILearningPage>
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
                                       children: [
-                                        // Description - reduced to single line for space efficiency
                                         Text(
                                           path['description'],
                                           style: TextStyle(
@@ -1344,17 +1265,14 @@ class _AILearningPageState extends State<AILearningPage>
                                           overflow: TextOverflow.ellipsis,
                                         ),
 
-                                        // Stats and action row
                                         Column(
                                           children: [
-                                            // Stats row
                                             Padding(
                                               padding: const EdgeInsets.only(
                                                 bottom: 12,
                                               ),
                                               child: Row(
                                                 children: [
-                                                  // Modules info
                                                   Expanded(
                                                     child: Row(
                                                       children: [
@@ -1384,7 +1302,6 @@ class _AILearningPageState extends State<AILearningPage>
                                                     ),
                                                   ),
 
-                                                  // Hours info
                                                   Row(
                                                     children: [
                                                       Icon(
@@ -1411,7 +1328,6 @@ class _AILearningPageState extends State<AILearningPage>
 
                                                   const SizedBox(width: 12),
 
-                                                  // Level badge
                                                   Container(
                                                     padding:
                                                         const EdgeInsets.symmetric(
@@ -1440,12 +1356,10 @@ class _AILearningPageState extends State<AILearningPage>
                                               ),
                                             ),
 
-                                            // Explore button - more compact for space efficiency
                                             SizedBox(
                                               width: double.infinity,
                                               child: ElevatedButton(
                                                 onPressed: () {
-                                                  // Handle path start action
                                                   HapticFeedback.mediumImpact();
                                                   ScaffoldMessenger.of(
                                                     context,
@@ -1494,7 +1408,6 @@ class _AILearningPageState extends State<AILearningPage>
                               ],
                             ),
 
-                            // Subtle swipe indicators for better UX
                             Positioned(
                               top: 0,
                               bottom: 0,
@@ -1502,8 +1415,7 @@ class _AILearningPageState extends State<AILearningPage>
                               child: Center(
                                 child: AnimatedOpacity(
                                   duration: const Duration(milliseconds: 200),
-                                  opacity:
-                                      0.0, // Hidden by default, could be shown on touch
+                                  opacity: 0.0,
                                   child: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
@@ -1527,8 +1439,7 @@ class _AILearningPageState extends State<AILearningPage>
                               child: Center(
                                 child: AnimatedOpacity(
                                   duration: const Duration(milliseconds: 200),
-                                  opacity:
-                                      0.0, // Hidden by default, could be shown on touch
+                                  opacity: 0.0,
                                   child: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
@@ -1552,7 +1463,6 @@ class _AILearningPageState extends State<AILearningPage>
                 ),
               ),
 
-              // Page indicators - simplified approach based on best practices
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: SizedBox(
@@ -1565,7 +1475,6 @@ class _AILearningPageState extends State<AILearningPage>
                       itemBuilder: (context, index) {
                         return GestureDetector(
                           onTap: () {
-                            // Allow tapping on indicators to switch pages
                             _carouselController.animateToPage(
                               index,
                               duration: const Duration(milliseconds: 300),
@@ -1594,13 +1503,11 @@ class _AILearningPageState extends State<AILearningPage>
           ),
         ),
 
-        // Add Learning Path button with reduced margins
         Container(
           margin: const EdgeInsets.fromLTRB(20, 2, 20, 12),
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: () {
-              // Handle add learning path action
               HapticFeedback.lightImpact();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -1625,7 +1532,6 @@ class _AILearningPageState extends State<AILearningPage>
     );
   }
 
-  // Learning ecosystems section (updated)
   Widget _buildLearningEcosystemsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1642,7 +1548,6 @@ class _AILearningPageState extends State<AILearningPage>
           ),
         ),
 
-        // Grid of ecosystems
         GridView.builder(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           shrinkWrap: true,
@@ -1661,7 +1566,6 @@ class _AILearningPageState extends State<AILearningPage>
             return GestureDetector(
               onTap: () {
                 if (isEnabled) {
-                  // Handle ecosystem tap
                   HapticFeedback.lightImpact();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -1670,7 +1574,6 @@ class _AILearningPageState extends State<AILearningPage>
                     ),
                   );
                 } else {
-                  // Handle disabled ecosystem tap
                   HapticFeedback.lightImpact();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -1736,11 +1639,9 @@ class _AILearningPageState extends State<AILearningPage>
                         ),
                       ),
 
-                    // Content
                     Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Icon with improved visual design
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -1802,7 +1703,6 @@ class _AILearningPageState extends State<AILearningPage>
                       ],
                     ),
 
-                    // Coming soon badge with improved design
                     if (!isEnabled)
                       Positioned(
                         top: 8,
@@ -1840,7 +1740,6 @@ class _AILearningPageState extends State<AILearningPage>
     );
   }
 
-  // Path detail view
   Widget _buildPathDetailView(Size size) {
     final path = _featuredPaths[_selectedPathIndex];
     final modules = path['modules'] as List<Map<String, dynamic>>;
@@ -1848,18 +1747,15 @@ class _AILearningPageState extends State<AILearningPage>
     return SingleChildScrollView(
       controller: _mainScrollController,
       physics: const BouncingScrollPhysics(),
-      // Add padding at bottom to prevent content from being hidden behind the navbar
       padding: const EdgeInsets.only(bottom: 100),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Path header
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(color: path['color'].withOpacity(0.05)),
             child: Row(
               children: [
-                // Path icon
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -1871,7 +1767,6 @@ class _AILearningPageState extends State<AILearningPage>
 
                 const SizedBox(width: 16),
 
-                // Path title and info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1895,7 +1790,6 @@ class _AILearningPageState extends State<AILearningPage>
                   ),
                 ),
 
-                // Category badge
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -1922,7 +1816,6 @@ class _AILearningPageState extends State<AILearningPage>
             ),
           ),
 
-          // Path description
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             child: Column(
@@ -1949,7 +1842,6 @@ class _AILearningPageState extends State<AILearningPage>
             ),
           ),
 
-          // Path stats
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
             child: Row(
@@ -1982,7 +1874,6 @@ class _AILearningPageState extends State<AILearningPage>
             ),
           ),
 
-          // Modules section
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
             child: Column(
@@ -1998,7 +1889,6 @@ class _AILearningPageState extends State<AILearningPage>
                 ),
                 const SizedBox(height: 16),
 
-                // Module list
                 ...List.generate(
                   modules.length,
                   (index) => _buildModuleItem(
@@ -2011,18 +1901,15 @@ class _AILearningPageState extends State<AILearningPage>
             ),
           ),
 
-          // Action button
           Container(
             width: double.infinity,
             margin: const EdgeInsets.fromLTRB(20, 24, 20, 0),
             child: ElevatedButton(
               onPressed: () {
-                // Find first incomplete module
                 int moduleIndex = modules.indexWhere(
                   (module) => !module['isCompleted'],
                 );
-                if (moduleIndex == -1)
-                  moduleIndex = 0; // If all complete, start with first
+                if (moduleIndex == -1) moduleIndex = 0;
 
                 _showModuleStartDialog(path, modules[moduleIndex]);
               },
@@ -2049,7 +1936,6 @@ class _AILearningPageState extends State<AILearningPage>
     );
   }
 
-  // Module item in path detail
   Widget _buildModuleItem(
     Map<String, dynamic> module,
     int number,
@@ -2059,7 +1945,6 @@ class _AILearningPageState extends State<AILearningPage>
 
     return GestureDetector(
       onTap: () {
-        // Show module start dialog on tap anywhere on the item
         _showModuleStartDialog(_featuredPaths[_selectedPathIndex], module);
         HapticFeedback.selectionClick();
       },
@@ -2087,14 +1972,13 @@ class _AILearningPageState extends State<AILearningPage>
         ),
         child: Row(
           children: [
-            // Module number or completion indicator with subtle animation
             TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0.95, end: 1.0),
               duration: const Duration(milliseconds: 1500),
               curve: Curves.easeInOutSine,
               builder: (context, value, child) {
                 return Transform.scale(
-                  scale: isCompleted ? value : 1.0, // Only animate if completed
+                  scale: isCompleted ? value : 1.0,
                   child: Container(
                     width: 40,
                     height: 40,
@@ -2139,7 +2023,6 @@ class _AILearningPageState extends State<AILearningPage>
 
             const SizedBox(width: 16),
 
-            // Module info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2174,7 +2057,6 @@ class _AILearningPageState extends State<AILearningPage>
               ),
             ),
 
-            // Action button with enhanced visual design
             Container(
               width: 36,
               height: 36,
@@ -2207,7 +2089,6 @@ class _AILearningPageState extends State<AILearningPage>
     );
   }
 
-  // Dialog for module details and starting
   void _showModuleStartDialog(
     Map<String, dynamic> path,
     Map<String, dynamic> module,
@@ -2231,7 +2112,6 @@ class _AILearningPageState extends State<AILearningPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Handle
               Center(
                 child: Container(
                   margin: const EdgeInsets.only(top: 12),
@@ -2244,7 +2124,6 @@ class _AILearningPageState extends State<AILearningPage>
                 ),
               ),
 
-              // Module header
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -2290,14 +2169,12 @@ class _AILearningPageState extends State<AILearningPage>
                 ),
               ),
 
-              // Module info
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Duration and level
                       Row(
                         children: [
                           _buildInfoChip(
@@ -2325,7 +2202,6 @@ class _AILearningPageState extends State<AILearningPage>
 
                       const SizedBox(height: 20),
 
-                      // Module description
                       const Text(
                         'About this module',
                         style: TextStyle(
@@ -2345,7 +2221,6 @@ class _AILearningPageState extends State<AILearningPage>
 
                       const SizedBox(height: 20),
 
-                      // What you'll learn
                       const Text(
                         'What you\'ll learn',
                         style: TextStyle(
@@ -2355,7 +2230,6 @@ class _AILearningPageState extends State<AILearningPage>
                       ),
                       const SizedBox(height: 8),
 
-                      // Learning outcomes
                       if (module['outcomes'] != null) ...[
                         ...List.generate(
                           (module['outcomes'] as List).length,
@@ -2401,7 +2275,6 @@ class _AILearningPageState extends State<AILearningPage>
 
                       const SizedBox(height: 20),
 
-                      // Module structure
                       const Text(
                         'Module structure',
                         style: TextStyle(
@@ -2411,7 +2284,6 @@ class _AILearningPageState extends State<AILearningPage>
                       ),
                       const SizedBox(height: 8),
 
-                      // Module sections
                       ...List.generate(
                         4,
                         (index) => Container(
@@ -2470,7 +2342,6 @@ class _AILearningPageState extends State<AILearningPage>
                 ),
               ),
 
-              // Action buttons
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -2485,7 +2356,6 @@ class _AILearningPageState extends State<AILearningPage>
                 ),
                 child: Row(
                   children: [
-                    // Save button
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
@@ -2493,10 +2363,8 @@ class _AILearningPageState extends State<AILearningPage>
                       ),
                       child: IconButton(
                         onPressed: () {
-                          // Save module
                           Navigator.pop(context);
 
-                          // Show confirmation message
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -2516,13 +2384,11 @@ class _AILearningPageState extends State<AILearningPage>
 
                     const SizedBox(width: 16),
 
-                    // Start button
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
                           Navigator.pop(context);
 
-                          // Show success message with different text based on completion
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -2533,8 +2399,6 @@ class _AILearningPageState extends State<AILearningPage>
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
-
-                          // In a real app, we would start the actual module content here
                         },
                         style: ElevatedButton.styleFrom(
                           foregroundColor: Colors.white,
@@ -2564,7 +2428,6 @@ class _AILearningPageState extends State<AILearningPage>
     );
   }
 
-  // Path detail item
   Widget _buildPathDetailItem(
     String label,
     String value,
@@ -2594,7 +2457,6 @@ class _AILearningPageState extends State<AILearningPage>
     );
   }
 
-  // Info chip for path cards
   Widget _buildInfoChip(IconData icon, String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -2620,14 +2482,13 @@ class _AILearningPageState extends State<AILearningPage>
     );
   }
 
-  // Bottom navigation bar (original style)
   Widget _buildBottomNavBar() {
     return Container(
       height: 55,
       margin: const EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 25.0),
       decoration: BoxDecoration(
-        color: const Color(0xFF98DBDF), // Light blue-teal for AI Learning page
-        border: Border.all(color: Colors.black, width: 1.5), // Black border
+        color: const Color(0xFF98DBDF),
+        border: Border.all(color: Colors.black, width: 1.5),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -2640,7 +2501,6 @@ class _AILearningPageState extends State<AILearningPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Chart icon - Navigate to AssessmentPage
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -2649,9 +2509,7 @@ class _AILearningPageState extends State<AILearningPage>
             },
             child: _buildNavItem(Icons.bar_chart, false),
           ),
-          // Clock icon (AI Learning) - Currently selected
           _buildNavItem(Icons.access_time, true),
-          // Home icon - Navigate to Dashboard
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -2660,7 +2518,6 @@ class _AILearningPageState extends State<AILearningPage>
             },
             child: _buildNavItem(Icons.home, false),
           ),
-          // Journal icon - Navigate to JournalPage
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -2669,7 +2526,6 @@ class _AILearningPageState extends State<AILearningPage>
             },
             child: _buildNavItem(Icons.assessment, false),
           ),
-          // Person icon - Navigate to FriendsGroupsPage
           GestureDetector(
             onTap: () {
               Navigator.of(context).pushReplacement(
@@ -2685,7 +2541,6 @@ class _AILearningPageState extends State<AILearningPage>
     );
   }
 
-  // Individual navigation item
   Widget _buildNavItem(IconData icon, bool isSelected) {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -2701,9 +2556,7 @@ class _AILearningPageState extends State<AILearningPage>
     );
   }
 
-  // Helper functions for dynamic content generation
   String _getModuleSection(String moduleTitle, int index) {
-    // Generate appropriate sections based on module title
     if (moduleTitle.contains('Neural Networks')) {
       final sections = [
         'Neural Network Architecture',
@@ -2732,7 +2585,6 @@ class _AILearningPageState extends State<AILearningPage>
   }
 
   String _getSectionDuration(int index) {
-    // Realistic section durations
     final durations = ['5 min', '10 min', '12 min', '8 min'];
     return durations[index % durations.length];
   }
